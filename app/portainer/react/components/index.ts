@@ -35,6 +35,7 @@ import { TeamsSelector } from '@@/TeamsSelector';
 import { PortainerSelect } from '@@/form-components/PortainerSelect';
 import { Slider } from '@@/form-components/Slider';
 import { TagButton } from '@@/TagButton';
+import { BETeaserButton } from '@@/BETeaserButton';
 
 import { fileUploadField } from './file-upload-field';
 import { switchField } from './switch-field';
@@ -45,6 +46,17 @@ export const componentsModule = angular
   .component(
     'tagSelector',
     r2a(withReactQuery(TagSelector), ['allowCreate', 'onChange', 'value'])
+  )
+  .component(
+    'beTeaserButton',
+    r2a(BETeaserButton, [
+      'featureId',
+      'heading',
+      'message',
+      'buttonText',
+      'className',
+      'icon',
+    ])
   )
   .component(
     'tagButton',
@@ -98,7 +110,14 @@ export const componentsModule = angular
   )
   .component(
     'datatableSearchbar',
-    r2a(SearchBar, ['data-cy', 'onChange', 'value', 'placeholder'])
+    r2a(SearchBar, [
+      'data-cy',
+      'onChange',
+      'value',
+      'placeholder',
+      'children',
+      'className',
+    ])
   )
   .component('badgeIcon', r2a(BadgeIcon, ['icon', 'size']))
   .component(
