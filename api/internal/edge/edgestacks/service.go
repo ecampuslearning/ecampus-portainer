@@ -11,7 +11,6 @@ import (
 	httperrors "github.com/portainer/portainer/api/http/errors"
 	"github.com/portainer/portainer/api/internal/edge"
 	edgetypes "github.com/portainer/portainer/api/internal/edge/types"
-	"github.com/rs/zerolog/log"
 
 	"github.com/pkg/errors"
 )
@@ -100,10 +99,13 @@ func (service *Service) PersistEdgeStack(
 	stack.ManifestPath = manifestPath
 	stack.ProjectPath = projectPath
 	stack.EntryPoint = composePath
-	stack.NumDeployments = len(relatedEndpointIds)
 
 	if err := tx.EdgeStack().Create(stack.ID, stack); err != nil {
 		return nil, err
+	}
+
+	if err := tx.EndpointRelation().AddEndpointRelationsForEdgeStack(relatedEndpointIds, stack.ID); err != nil {
+		return nil, fmt.Errorf("unable to add endpoint relations: %w", err)
 	}
 
 	if err := service.updateEndpointRelations(tx, stack.ID, relatedEndpointIds); err != nil {
@@ -148,25 +150,8 @@ func (service *Service) DeleteEdgeStack(tx dataservices.DataStoreTx, edgeStackID
 		return errors.WithMessage(err, "Unable to retrieve edge stack related environments from database")
 	}
 
-	for _, endpointID := range relatedEndpointIds {
-		relation, err := tx.EndpointRelation().EndpointRelation(endpointID)
-		if err != nil {
-			if tx.IsErrObjectNotFound(err) {
-				log.Warn().
-					Int("endpoint_id", int(endpointID)).
-					Msg("Unable to find endpoint relation in database, skipping")
-
-				continue
-			}
-
-			return errors.WithMessage(err, "Unable to find environment relation in database")
-		}
-
-		delete(relation.EdgeStacks, edgeStackID)
-
-		if err := tx.EndpointRelation().UpdateEndpointRelation(endpointID, relation); err != nil {
-			return errors.WithMessage(err, "Unable to persist environment relation in database")
-		}
+	if err := tx.EndpointRelation().RemoveEndpointRelationsForEdgeStack(relatedEndpointIds, edgeStackID); err != nil {
+		return errors.WithMessage(err, "unable to remove environment relation in database")
 	}
 
 	if err := tx.EdgeStack().DeleteEdgeStack(edgeStackID); err != nil {
