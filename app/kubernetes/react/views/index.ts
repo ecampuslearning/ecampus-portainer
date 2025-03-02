@@ -23,6 +23,7 @@ import { NamespaceView } from '@/react/kubernetes/namespaces/ItemView/NamespaceV
 import { AccessView } from '@/react/kubernetes/namespaces/AccessView/AccessView';
 import { JobsView } from '@/react/kubernetes/more-resources/JobsView/JobsView';
 import { ClusterView } from '@/react/kubernetes/cluster/ClusterView';
+import { HelmApplicationView } from '@/react/kubernetes/helm/HelmApplicationView';
 
 export const viewsModule = angular
   .module('portainer.kubernetes.react.views', [])
@@ -78,6 +79,10 @@ export const viewsModule = angular
       withUIRouter(withReactQuery(withCurrentUser(ApplicationDetailsView))),
       []
     )
+  )
+  .component(
+    'kubernetesHelmApplicationView',
+    r2a(withUIRouter(withReactQuery(withCurrentUser(HelmApplicationView))), [])
   )
   .component(
     'kubernetesClusterView',
