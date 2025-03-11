@@ -3,7 +3,8 @@ import { ColumnDef, Row, Table } from '@tanstack/react-table';
 import { Checkbox } from '@@/form-components/Checkbox';
 
 function allRowsSelected<T>(table: Table<T>) {
-  return table.getCoreRowModel().rows.every((row) => row.getIsSelected());
+  const { rows } = table.getCoreRowModel();
+  return rows.length > 0 && rows.every((row) => row.getIsSelected());
 }
 
 function someRowsSelected<T>(table: Table<T>) {

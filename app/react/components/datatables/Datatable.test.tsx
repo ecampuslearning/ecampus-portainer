@@ -155,6 +155,9 @@ describe('Datatable', () => {
     );
 
     expect(screen.getByText('No data available')).toBeInTheDocument();
+    const selectAllCheckbox: HTMLInputElement =
+      screen.getByLabelText('Select all rows');
+    expect(selectAllCheckbox.checked).toBe(false);
   });
 
   it('selects/deselects only page rows when select all is clicked', () => {
