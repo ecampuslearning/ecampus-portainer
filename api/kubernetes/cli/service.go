@@ -81,8 +81,8 @@ func parseService(service corev1.Service) models.K8sServiceInfo {
 	ingressStatus := make([]models.K8sServiceIngress, 0)
 	for _, status := range service.Status.LoadBalancer.Ingress {
 		ingressStatus = append(ingressStatus, models.K8sServiceIngress{
-			IP:   status.IP,
-			Host: status.Hostname,
+			IP:       status.IP,
+			Hostname: status.Hostname,
 		})
 	}
 
@@ -130,7 +130,7 @@ func (kcl *KubeClient) convertToK8sService(info models.K8sServiceInfo) corev1.Se
 	for _, i := range info.IngressStatus {
 		service.Status.LoadBalancer.Ingress = append(
 			service.Status.LoadBalancer.Ingress,
-			corev1.LoadBalancerIngress{IP: i.IP, Hostname: i.Host},
+			corev1.LoadBalancerIngress{IP: i.IP, Hostname: i.Hostname},
 		)
 	}
 
