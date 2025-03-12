@@ -4,6 +4,7 @@ import { FormikErrors } from 'formik';
 import { GitForm } from '@/react/portainer/gitops/GitForm';
 import { GitFormModel } from '@/react/portainer/gitops/types';
 import { baseEdgeStackWebhookUrl } from '@/portainer/helpers/webhookHelper';
+import { isBE } from '@/react/portainer/feature-flags/feature-flags.service';
 
 import { BoxSelector } from '@@/BoxSelector';
 import { WebEditorForm } from '@@/WebEditorForm';
@@ -109,6 +110,7 @@ export function KubeManifestForm({
           }
           baseWebhookUrl={baseEdgeStackWebhookUrl()}
           webhookId={webhookId}
+          isAutoUpdateVisible={isBE}
         />
       )}
     </>

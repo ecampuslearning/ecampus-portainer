@@ -7,7 +7,6 @@ import { RefField } from '@/react/portainer/gitops/RefField';
 import { GitFormUrlField } from '@/react/portainer/gitops/GitFormUrlField';
 import { DeployMethod, GitFormModel } from '@/react/portainer/gitops/types';
 import { TimeWindowDisplay } from '@/react/portainer/gitops/TimeWindowDisplay';
-import { isBE } from '@/react/portainer/feature-flags/feature-flags.service';
 
 import { FormSection } from '@@/form-components/FormSection';
 import { validateForm } from '@@/form-components/validate-form';
@@ -35,6 +34,7 @@ interface Props {
   webhookId?: string;
   webhooksDocs?: string;
   createdFromCustomTemplateId?: number;
+  isAutoUpdateVisible?: boolean;
 }
 
 export function GitForm({
@@ -51,6 +51,7 @@ export function GitForm({
   webhookId,
   webhooksDocs,
   createdFromCustomTemplateId,
+  isAutoUpdateVisible = true,
 }: Props) {
   const [value, setValue] = useState(initialValue); // TODO: remove this state when form is not inside angularjs
 
@@ -117,7 +118,7 @@ export function GitForm({
         />
       )}
 
-      {isBE && value.AutoUpdate && (
+      {isAutoUpdateVisible && value.AutoUpdate && (
         <AutoUpdateFieldset
           environmentType={environmentType}
           webhookId={webhookId || ''}
