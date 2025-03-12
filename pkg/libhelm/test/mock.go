@@ -3,9 +3,9 @@ package test
 import (
 	"strings"
 
-	"github.com/portainer/portainer/pkg/libhelm"
 	"github.com/portainer/portainer/pkg/libhelm/options"
 	"github.com/portainer/portainer/pkg/libhelm/release"
+	"github.com/portainer/portainer/pkg/libhelm/types"
 
 	"github.com/pkg/errors"
 	"github.com/segmentio/encoding/json"
@@ -31,8 +31,8 @@ const (
 // Do not use this package for concurrent tests.
 type helmMockPackageManager struct{}
 
-// NewMockHelmBinaryPackageManager initializes a new HelmPackageManager service (a mock instance)
-func NewMockHelmBinaryPackageManager(binaryPath string) libhelm.HelmPackageManager {
+// NewMockHelmPackageManager initializes a new HelmPackageManager service (a mock instance)
+func NewMockHelmPackageManager() types.HelmPackageManager {
 	return &helmMockPackageManager{}
 }
 

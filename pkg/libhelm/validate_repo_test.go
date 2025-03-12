@@ -3,12 +3,12 @@ package libhelm
 import (
 	"testing"
 
-	"github.com/portainer/portainer/pkg/libhelm/libhelmtest"
+	"github.com/portainer/portainer/pkg/libhelm/test"
 	"github.com/stretchr/testify/assert"
 )
 
 func Test_ValidateHelmRepositoryURL(t *testing.T) {
-	libhelmtest.EnsureIntegrationTest(t)
+	test.EnsureIntegrationTest(t)
 	is := assert.New(t)
 
 	type testCase struct {
@@ -26,7 +26,7 @@ func Test_ValidateHelmRepositoryURL(t *testing.T) {
 		{"not helm repo", "http://google.com", true},
 		{"not valid repo with trailing slash", "http://google.com/", true},
 		{"not valid repo with trailing slashes", "http://google.com////", true},
-		{"ingress helm repo", "https://kubernetes.github.io/ingress-nginx/", false},
+		{"bitnami helm repo", "https://charts.bitnami.com/bitnami/", false},
 		{"gitlap helm repo", "https://charts.gitlab.io/", false},
 		{"portainer helm repo", "https://portainer.github.io/k8s/", false},
 		{"elastic helm repo", "https://helm.elastic.co/", false},

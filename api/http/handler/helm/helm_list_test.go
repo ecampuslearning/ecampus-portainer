@@ -14,9 +14,9 @@ import (
 	helper "github.com/portainer/portainer/api/internal/testhelpers"
 	"github.com/portainer/portainer/api/jwt"
 	"github.com/portainer/portainer/api/kubernetes"
-	"github.com/portainer/portainer/pkg/libhelm/binary/test"
 	"github.com/portainer/portainer/pkg/libhelm/options"
 	"github.com/portainer/portainer/pkg/libhelm/release"
+	"github.com/portainer/portainer/pkg/libhelm/test"
 
 	"github.com/segmentio/encoding/json"
 	"github.com/stretchr/testify/assert"
@@ -37,7 +37,7 @@ func Test_helmList(t *testing.T) {
 	is.NoError(err, "Error initialising jwt service")
 
 	kubernetesDeployer := exectest.NewKubernetesDeployer()
-	helmPackageManager := test.NewMockHelmBinaryPackageManager("")
+	helmPackageManager := test.NewMockHelmPackageManager()
 	kubeClusterAccessService := kubernetes.NewKubeClusterAccessService("", "", "")
 	h := NewHandler(helper.NewTestRequestBouncer(), store, jwtService, kubernetesDeployer, helmPackageManager, kubeClusterAccessService)
 

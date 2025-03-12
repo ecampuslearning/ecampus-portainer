@@ -1,4 +1,4 @@
-package libhelmtest
+package test
 
 import (
 	"os"

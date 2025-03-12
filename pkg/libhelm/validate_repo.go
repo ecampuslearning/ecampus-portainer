@@ -15,6 +15,10 @@ func ValidateHelmRepositoryURL(repoUrl string, client *http.Client) error {
 		return errors.New("URL is required")
 	}
 
+	if strings.HasPrefix(repoUrl, "oci://") {
+		return errors.New("OCI repositories are not supported yet")
+	}
+
 	url, err := url.ParseRequestURI(repoUrl)
 	if err != nil {
 		return fmt.Errorf("invalid helm repository URL '%s': %w", repoUrl, err)

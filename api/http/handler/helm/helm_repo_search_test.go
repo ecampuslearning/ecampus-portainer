@@ -8,19 +8,19 @@ import (
 	"testing"
 
 	helper "github.com/portainer/portainer/api/internal/testhelpers"
-	"github.com/portainer/portainer/pkg/libhelm/binary/test"
+	"github.com/portainer/portainer/pkg/libhelm/test"
 	"github.com/stretchr/testify/assert"
 )
 
 func Test_helmRepoSearch(t *testing.T) {
 	is := assert.New(t)
 
-	helmPackageManager := test.NewMockHelmBinaryPackageManager("")
+	helmPackageManager := test.NewMockHelmPackageManager()
 	h := NewTemplateHandler(helper.NewTestRequestBouncer(), helmPackageManager)
 
 	assert.NotNil(t, h, "Handler should not fail")
 
-	repos := []string{"https://kubernetes.github.io/ingress-nginx", "https://portainer.github.io/k8s"}
+	repos := []string{"https://charts.bitnami.com/bitnami", "https://portainer.github.io/k8s"}
 
 	for _, repo := range repos {
 		t.Run(repo, func(t *testing.T) {

@@ -42,9 +42,6 @@ var (
 	// DepDockerVersion is the version of the Docker binary shipped with the application.
 	DepDockerVersion string
 
-	// DepHelmVersion is the version of the Helm binary shipped with the application.
-	DepHelmVersion string
-
 	// DepKubectlVersion is the version of the Kubectl binary shipped with the application.
 	DepKubectlVersion string
 )
@@ -92,7 +89,6 @@ func GetBuildInfo() BuildInfo {
 func GetDependenciesInfo() DependenciesInfo {
 	return DependenciesInfo{
 		DockerVersion:  DepDockerVersion,
-		HelmVersion:    DepHelmVersion,
 		KubectlVersion: DepKubectlVersion,
 		ComposeVersion: DepComposeVersion,
 	}

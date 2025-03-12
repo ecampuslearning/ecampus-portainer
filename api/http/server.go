@@ -67,7 +67,7 @@ import (
 	"github.com/portainer/portainer/api/platform"
 	"github.com/portainer/portainer/api/scheduler"
 	"github.com/portainer/portainer/api/stacks/deployments"
-	"github.com/portainer/portainer/pkg/libhelm"
+	libhelmtypes "github.com/portainer/portainer/pkg/libhelm/types"
 
 	"github.com/rs/zerolog/log"
 )
@@ -103,7 +103,7 @@ type Server struct {
 	DockerClientFactory         *dockerclient.ClientFactory
 	KubernetesClientFactory     *cli.ClientFactory
 	KubernetesDeployer          portainer.KubernetesDeployer
-	HelmPackageManager          libhelm.HelmPackageManager
+	HelmPackageManager          libhelmtypes.HelmPackageManager
 	Scheduler                   *scheduler.Scheduler
 	ShutdownCtx                 context.Context
 	ShutdownTrigger             context.CancelFunc

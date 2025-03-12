@@ -62,19 +62,19 @@ describe('HelmApplicationView', () => {
     expect(await screen.findByText('Helm details')).toBeInTheDocument();
 
     // Check for the release details
-    expect(screen.getByText('Release')).toBeInTheDocument();
+    expect(await screen.findByText('Release')).toBeInTheDocument();
 
     // Check for the table content
-    expect(screen.getByText('Name')).toBeInTheDocument();
-    expect(screen.getByText('Chart')).toBeInTheDocument();
-    expect(screen.getByText('App version')).toBeInTheDocument();
+    expect(await screen.findByText('Name')).toBeInTheDocument();
+    expect(await screen.findByText('Chart')).toBeInTheDocument();
+    expect(await screen.findByText('App version')).toBeInTheDocument();
 
     // Check for the actual values
-    expect(screen.getByTestId('k8sAppDetail-appName')).toHaveTextContent(
+    expect(await screen.findByTestId('k8sAppDetail-appName')).toHaveTextContent(
       'test-release'
     );
-    expect(screen.getByText('test-chart-1.0.0')).toBeInTheDocument();
-    expect(screen.getByText('1.0.0')).toBeInTheDocument();
+    expect(await screen.findByText('test-chart-1.0.0')).toBeInTheDocument();
+    expect(await screen.findByText('1.0.0')).toBeInTheDocument();
   });
 
   it('should display error message when API request fails', async () => {

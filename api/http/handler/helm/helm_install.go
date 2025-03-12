@@ -99,15 +99,11 @@ func (handler *Handler) installChart(r *http.Request, p installChartPayload) (*r
 	}
 
 	installOpts := options.InstallOptions{
-		Name:      p.Name,
-		Chart:     p.Chart,
-		Namespace: p.Namespace,
-		Repo:      p.Repo,
-		KubernetesClusterAccess: &options.KubernetesClusterAccess{
-			ClusterServerURL:         clusterAccess.ClusterServerURL,
-			CertificateAuthorityFile: clusterAccess.CertificateAuthorityFile,
-			AuthToken:                clusterAccess.AuthToken,
-		},
+		Name:                    p.Name,
+		Chart:                   p.Chart,
+		Namespace:               p.Namespace,
+		Repo:                    p.Repo,
+		KubernetesClusterAccess: clusterAccess,
 	}
 
 	if p.Values != "" {

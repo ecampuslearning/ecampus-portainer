@@ -49,6 +49,7 @@ import (
 	"github.com/portainer/portainer/pkg/build"
 	"github.com/portainer/portainer/pkg/featureflags"
 	"github.com/portainer/portainer/pkg/libhelm"
+	libhelmtypes "github.com/portainer/portainer/pkg/libhelm/types"
 	"github.com/portainer/portainer/pkg/libstack/compose"
 
 	"github.com/gofrs/uuid"
@@ -169,8 +170,8 @@ func initKubernetesDeployer(kubernetesTokenCacheManager *kubeproxy.TokenCacheMan
 	return exec.NewKubernetesDeployer(kubernetesTokenCacheManager, kubernetesClientFactory, dataStore, reverseTunnelService, signatureService, proxyManager, assetsPath)
 }
 
-func initHelmPackageManager(assetsPath string) (libhelm.HelmPackageManager, error) {
-	return libhelm.NewHelmPackageManager(libhelm.HelmConfig{BinaryPath: assetsPath})
+func initHelmPackageManager() (libhelmtypes.HelmPackageManager, error) {
+	return libhelm.NewHelmPackageManager()
 }
 
 func initAPIKeyService(datastore dataservices.DataStore) apikey.APIKeyService {
@@ -437,7 +438,7 @@ func buildServer(flags *portainer.CLIFlags) portainer.Server {
 
 	proxyManager.NewProxyFactory(dataStore, signatureService, reverseTunnelService, dockerClientFactory, kubernetesClientFactory, kubernetesTokenCacheManager, gitService, snapshotService)
 
-	helmPackageManager, err := initHelmPackageManager(*flags.Assets)
+	helmPackageManager, err := initHelmPackageManager()
 	if err != nil {
 		log.Fatal().Err(err).Msg("failed initializing helm package manager")
 	}
