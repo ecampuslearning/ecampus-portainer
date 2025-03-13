@@ -265,9 +265,12 @@ func isSystemNamespace(namespace *corev1.Namespace) bool {
 		return systemLabelValue == "true"
 	}
 
-	systemNamespaces := defaultSystemNamespaces()
+	return isSystemDefaultNamespace(namespace.Name)
+}
 
-	_, isSystem := systemNamespaces[namespace.Name]
+func isSystemDefaultNamespace(namespace string) bool {
+	systemNamespaces := defaultSystemNamespaces()
+	_, isSystem := systemNamespaces[namespace]
 	return isSystem
 }
 
@@ -390,7 +393,9 @@ func (kcl *KubeClient) CombineNamespaceWithResourceQuota(namespace portainer.K8s
 func (kcl *KubeClient) buildNonAdminNamespacesMap() map[string]struct{} {
 	nonAdminNamespaceSet := make(map[string]struct{}, len(kcl.NonAdminNamespaces))
 	for _, namespace := range kcl.NonAdminNamespaces {
-		nonAdminNamespaceSet[namespace] = struct{}{}
+		if !isSystemDefaultNamespace(namespace) {
+			nonAdminNamespaceSet[namespace] = struct{}{}
+		}
 	}
 
 	return nonAdminNamespaceSet
