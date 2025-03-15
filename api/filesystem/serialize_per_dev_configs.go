@@ -15,15 +15,19 @@ type MultiFilterArgs []struct {
 }
 
 // MultiFilterDirForPerDevConfigs filers the given dirEntries with multiple filter args, returns the merged entries for the given device
-func MultiFilterDirForPerDevConfigs(dirEntries []DirEntry, configPath string, multiFilterArgs MultiFilterArgs) []DirEntry {
+func MultiFilterDirForPerDevConfigs(dirEntries []DirEntry, configPath string, multiFilterArgs MultiFilterArgs) ([]DirEntry, []string) {
 	var filteredDirEntries []DirEntry
 
+	var envFiles []string
+
 	for _, multiFilterArg := range multiFilterArgs {
-		tmp := FilterDirForPerDevConfigs(dirEntries, multiFilterArg.FilterKey, configPath, multiFilterArg.FilterType)
+		tmp, efs := FilterDirForPerDevConfigs(dirEntries, multiFilterArg.FilterKey, configPath, multiFilterArg.FilterType)
 		filteredDirEntries = append(filteredDirEntries, tmp...)
+
+		envFiles = append(envFiles, efs...)
 	}
 
-	return deduplicate(filteredDirEntries)
+	return deduplicate(filteredDirEntries), envFiles
 }
 
 func deduplicate(dirEntries []DirEntry) []DirEntry {
@@ -32,8 +36,7 @@ func deduplicate(dirEntries []DirEntry) []DirEntry {
 	marks := make(map[string]struct{})
 
 	for _, dirEntry := range dirEntries {
-		_, ok := marks[dirEntry.Name]
-		if !ok {
+		if _, ok := marks[dirEntry.Name]; !ok {
 			marks[dirEntry.Name] = struct{}{}
 			deduplicatedDirEntries = append(deduplicatedDirEntries, dirEntry)
 		}
@@ -50,20 +53,25 @@ func deduplicate(dirEntries []DirEntry) []DirEntry {
 //  3. For filterType dir:
 //     dir entry:   A/B/C/<deviceName>
 //     all entries: A/B/C/<deviceName>/*
-func FilterDirForPerDevConfigs(dirEntries []DirEntry, deviceName, configPath string, filterType portainer.PerDevConfigsFilterType) []DirEntry {
+func FilterDirForPerDevConfigs(dirEntries []DirEntry, deviceName, configPath string, filterType portainer.PerDevConfigsFilterType) ([]DirEntry, []string) {
 	var filteredDirEntries []DirEntry
+
+	var envFiles []string
 
 	for _, dirEntry := range dirEntries {
 		if shouldIncludeEntry(dirEntry, deviceName, configPath, filterType) {
 			filteredDirEntries = append(filteredDirEntries, dirEntry)
+
+			if shouldParseEnvVars(dirEntry, deviceName, configPath, filterType) {
+				envFiles = append(envFiles, dirEntry.Name)
+			}
 		}
 	}
 
-	return filteredDirEntries
+	return filteredDirEntries, envFiles
 }
 
 func shouldIncludeEntry(dirEntry DirEntry, deviceName, configPath string, filterType portainer.PerDevConfigsFilterType) bool {
-
 	// Include all entries outside of dir A
 	if !isInConfigDir(dirEntry, configPath) {
 		return true
@@ -118,6 +126,15 @@ func shouldIncludeDir(dirEntry DirEntry, deviceName, configPath string) bool {
 
 	// include all entries A/B/C/<deviceName>/*
 	return strings.HasPrefix(dirEntry.Name, filterPrefix)
+}
+
+func shouldParseEnvVars(dirEntry DirEntry, deviceName, configPath string, filterType portainer.PerDevConfigsFilterType) bool {
+	if !dirEntry.IsFile {
+		return false
+	}
+
+	return isInConfigDir(dirEntry, configPath) &&
+		filepath.Base(dirEntry.Name) == deviceName+".env"
 }
 
 func appendTailSeparator(path string) string {

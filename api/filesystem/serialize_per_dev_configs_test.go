@@ -4,14 +4,17 @@ import (
 	"testing"
 
 	portainer "github.com/portainer/portainer/api"
+
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestMultiFilterDirForPerDevConfigs(t *testing.T) {
-	type args struct {
-		dirEntries      []DirEntry
-		configPath      string
-		multiFilterArgs MultiFilterArgs
+	f := func(dirEntries []DirEntry, configPath string, multiFilterArgs MultiFilterArgs, wantDirEntries []DirEntry) {
+		t.Helper()
+
+		dirEntries, _ = MultiFilterDirForPerDevConfigs(dirEntries, configPath, multiFilterArgs)
+		require.Equal(t, wantDirEntries, dirEntries)
 	}
 
 	baseDirEntries := []DirEntry{
@@ -26,69 +29,75 @@ func TestMultiFilterDirForPerDevConfigs(t *testing.T) {
 		{"configs/folder2/config2", "", true, 420},
 	}
 
-	tests := []struct {
-		name string
-		args args
-		want []DirEntry
-	}{
-		{
-			name: "filter file1",
-			args: args{
-				baseDirEntries,
-				"configs",
-				MultiFilterArgs{{"file1", portainer.PerDevConfigsTypeFile}},
-			},
-			want: []DirEntry{baseDirEntries[0], baseDirEntries[1], baseDirEntries[2], baseDirEntries[3]},
+	// Filter file1
+	f(
+		baseDirEntries,
+		"configs",
+		MultiFilterArgs{{"file1", portainer.PerDevConfigsTypeFile}},
+		[]DirEntry{baseDirEntries[0], baseDirEntries[1], baseDirEntries[2], baseDirEntries[3]},
+	)
+
+	// Filter folder1
+	f(
+		baseDirEntries,
+		"configs",
+		MultiFilterArgs{{"folder1", portainer.PerDevConfigsTypeDir}},
+		[]DirEntry{baseDirEntries[0], baseDirEntries[1], baseDirEntries[2], baseDirEntries[5], baseDirEntries[6]},
+	)
+
+	// Filter file1 and folder1
+	f(
+		baseDirEntries,
+		"configs",
+		MultiFilterArgs{{"folder1", portainer.PerDevConfigsTypeDir}},
+		[]DirEntry{baseDirEntries[0], baseDirEntries[1], baseDirEntries[2], baseDirEntries[5], baseDirEntries[6]},
+	)
+
+	// Filter file1 and file2
+	f(
+		baseDirEntries,
+		"configs",
+		MultiFilterArgs{
+			{"file1", portainer.PerDevConfigsTypeFile},
+			{"file2", portainer.PerDevConfigsTypeFile},
 		},
-		{
-			name: "filter folder1",
-			args: args{
-				baseDirEntries,
-				"configs",
-				MultiFilterArgs{{"folder1", portainer.PerDevConfigsTypeDir}},
-			},
-			want: []DirEntry{baseDirEntries[0], baseDirEntries[1], baseDirEntries[2], baseDirEntries[5], baseDirEntries[6]},
+		[]DirEntry{baseDirEntries[0], baseDirEntries[1], baseDirEntries[2], baseDirEntries[3], baseDirEntries[4]},
+	)
+
+	// Filter folder1 and folder2
+	f(
+		baseDirEntries,
+		"configs",
+		MultiFilterArgs{
+			{"folder1", portainer.PerDevConfigsTypeDir},
+			{"folder2", portainer.PerDevConfigsTypeDir},
 		},
-		{
-			name: "filter file1 and folder1",
-			args: args{
-				baseDirEntries,
-				"configs",
-				MultiFilterArgs{{"folder1", portainer.PerDevConfigsTypeDir}},
-			},
-			want: []DirEntry{baseDirEntries[0], baseDirEntries[1], baseDirEntries[2], baseDirEntries[5], baseDirEntries[6]},
-		},
-		{
-			name: "filter file1 and file2",
-			args: args{
-				baseDirEntries,
-				"configs",
-				MultiFilterArgs{
-					{"file1", portainer.PerDevConfigsTypeFile},
-					{"file2", portainer.PerDevConfigsTypeFile},
-				},
-			},
-			want: []DirEntry{baseDirEntries[0], baseDirEntries[1], baseDirEntries[2], baseDirEntries[3], baseDirEntries[4]},
-		},
-		{
-			name: "filter folder1 and folder2",
-			args: args{
-				baseDirEntries,
-				"configs",
-				MultiFilterArgs{
-					{"folder1", portainer.PerDevConfigsTypeDir},
-					{"folder2", portainer.PerDevConfigsTypeDir},
-				},
-			},
-			want: []DirEntry{baseDirEntries[0], baseDirEntries[1], baseDirEntries[2], baseDirEntries[5], baseDirEntries[6], baseDirEntries[7], baseDirEntries[8]},
-		},
+		[]DirEntry{baseDirEntries[0], baseDirEntries[1], baseDirEntries[2], baseDirEntries[5], baseDirEntries[6], baseDirEntries[7], baseDirEntries[8]},
+	)
+}
+
+func TestMultiFilterDirForPerDevConfigsEnvFiles(t *testing.T) {
+	f := func(dirEntries []DirEntry, configPath string, multiFilterArgs MultiFilterArgs, wantEnvFiles []string) {
+		t.Helper()
+
+		_, envFiles := MultiFilterDirForPerDevConfigs(dirEntries, configPath, multiFilterArgs)
+		require.Equal(t, wantEnvFiles, envFiles)
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			assert.Equalf(t, tt.want, MultiFilterDirForPerDevConfigs(tt.args.dirEntries, tt.args.configPath, tt.args.multiFilterArgs), "MultiFilterDirForPerDevConfigs(%v, %v, %v)", tt.args.dirEntries, tt.args.configPath, tt.args.multiFilterArgs)
-		})
+	baseDirEntries := []DirEntry{
+		{".env", "", true, 420},
+		{"docker-compose.yaml", "", true, 420},
+		{"configs", "", false, 420},
+		{"configs/edge-id/edge-id.env", "", true, 420},
 	}
+
+	f(
+		baseDirEntries,
+		"configs",
+		MultiFilterArgs{{"edge-id", portainer.PerDevConfigsTypeDir}},
+		[]string{"configs/edge-id/edge-id.env"},
+	)
+
 }
 
 func TestIsInConfigDir(t *testing.T) {
