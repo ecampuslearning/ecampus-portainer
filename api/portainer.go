@@ -309,7 +309,7 @@ type (
 		// FileVersion is the version of the stack file, used to detect changes
 		FileVersion int `json:"FileVersion"`
 		// ConfigHash is the commit hash of the git repository used for deploying the stack
-		ConfigHash string `json:"ConfigHash"`
+		ConfigHash string `json:"ConfigHash,omitempty"`
 	}
 
 	// EdgeStack represents an edge stack
@@ -353,24 +353,24 @@ type (
 		// EE only feature
 		DeploymentInfo StackDeploymentInfo
 		// ReadyRePullImage is a flag to indicate whether the auto update is trigger to re-pull image
-		ReadyRePullImage bool
+		ReadyRePullImage bool `json:"ReadyRePullImage,omitempty"`
 
 		// Deprecated
-		Details EdgeStackStatusDetails
+		Details *EdgeStackStatusDetails `json:"Details,omitempty"`
 		// Deprecated
-		Error string
+		Error string `json:"Error,omitempty"`
 		// Deprecated
-		Type EdgeStackStatusType `json:"Type"`
+		Type EdgeStackStatusType `json:"Type,omitempty"`
 	}
 
 	// EdgeStackDeploymentStatus represents an edge stack deployment status
 	EdgeStackDeploymentStatus struct {
 		Time  int64
 		Type  EdgeStackStatusType
-		Error string
+		Error string `json:"Error,omitempty"`
 		// EE only feature
-		RollbackTo *int
-		Version    int `json:"Version,omitempty"`
+		RollbackTo *int `json:"RollbackTo,omitempty"`
+		Version    int  `json:"Version,omitempty"`
 	}
 
 	// EdgeStackStatusType represents an edge stack status type
