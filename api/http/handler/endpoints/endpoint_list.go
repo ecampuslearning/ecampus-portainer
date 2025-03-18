@@ -105,14 +105,16 @@ func (handler *Handler) endpointList(w http.ResponseWriter, r *http.Request) *ht
 
 	for idx := range paginatedEndpoints {
 		hideFields(&paginatedEndpoints[idx])
+
 		paginatedEndpoints[idx].ComposeSyntaxMaxVersion = handler.ComposeStackManager.ComposeSyntaxMaxVersion()
 		if paginatedEndpoints[idx].EdgeCheckinInterval == 0 {
 			paginatedEndpoints[idx].EdgeCheckinInterval = settings.EdgeAgentCheckinInterval
 		}
+
 		endpointutils.UpdateEdgeEndpointHeartbeat(&paginatedEndpoints[idx], settings)
+
 		if !query.excludeSnapshots {
-			err = handler.SnapshotService.FillSnapshotData(&paginatedEndpoints[idx])
-			if err != nil {
+			if err := handler.SnapshotService.FillSnapshotData(&paginatedEndpoints[idx]); err != nil {
 				return httperror.InternalServerError("Unable to add snapshot data", err)
 			}
 		}
@@ -120,6 +122,7 @@ func (handler *Handler) endpointList(w http.ResponseWriter, r *http.Request) *ht
 
 	w.Header().Set("X-Total-Count", strconv.Itoa(filteredEndpointCount))
 	w.Header().Set("X-Total-Available", strconv.Itoa(totalAvailableEndpoints))
+
 	return response.JSON(w, paginatedEndpoints)
 }
 
@@ -130,18 +133,8 @@ func paginateEndpoints(endpoints []portainer.Endpoint, start, limit int) []porta
 
 	endpointCount := len(endpoints)
 
-	if start < 0 {
-		start = 0
-	}
-
-	if start > endpointCount {
-		start = endpointCount
-	}
-
-	end := start + limit
-	if end > endpointCount {
-		end = endpointCount
-	}
+	start = min(max(start, 0), endpointCount)
+	end := min(start+limit, endpointCount)
 
 	return endpoints[start:end]
 }
@@ -151,8 +144,10 @@ func getEndpointGroup(groupID portainer.EndpointGroupID, groups []portainer.Endp
 	for _, group := range groups {
 		if group.ID == groupID {
 			endpointGroup = group
+
 			break
 		}
 	}
+
 	return endpointGroup
 }
