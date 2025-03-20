@@ -3,6 +3,8 @@ import { DockerSnapshot } from '@/react/docker/snapshots/types';
 
 export type EnvironmentGroupId = number;
 
+export type EdgeGroupId = number;
+
 type RoleId = number;
 interface AccessPolicy {
   RoleId: RoleId;
