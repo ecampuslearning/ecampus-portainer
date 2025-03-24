@@ -78,7 +78,7 @@ describe('ClusterResourceReservation', () => {
       ),
       http.get('/api/kubernetes/3/metrics/applications_resources', () =>
         HttpResponse.json({
-          CpuRequest: 1000,
+          CpuRequest: 1,
           MemoryRequest: '2Gi',
         })
       )

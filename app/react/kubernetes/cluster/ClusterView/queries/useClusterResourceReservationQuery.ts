@@ -15,7 +15,7 @@ export function useClusterResourceReservationQuery(
     {
       enabled: !!environmentId && nodes.length > 0,
       select: (data) => ({
-        cpu: data.CpuRequest / 1000,
+        cpu: data.CpuRequest,
         memory: KubernetesResourceReservationHelper.megaBytesValue(
           data.MemoryRequest
         ),
