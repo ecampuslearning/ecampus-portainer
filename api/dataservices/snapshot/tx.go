@@ -12,3 +12,26 @@ type ServiceTx struct {
 func (service ServiceTx) Create(snapshot *portainer.Snapshot) error {
 	return service.Tx.CreateObjectWithId(BucketName, int(snapshot.EndpointID), snapshot)
 }
+
+func (service ServiceTx) ReadWithoutSnapshotRaw(ID portainer.EndpointID) (*portainer.Snapshot, error) {
+	var snapshot struct {
+		Docker *struct {
+			X struct{} `json:"DockerSnapshotRaw"`
+			*portainer.DockerSnapshot
+		} `json:"Docker"`
+
+		portainer.Snapshot
+	}
+
+	identifier := service.Connection.ConvertToKey(int(ID))
+
+	if err := service.Tx.GetObject(service.Bucket, identifier, &snapshot); err != nil {
+		return nil, err
+	}
+
+	if snapshot.Docker != nil {
+		snapshot.Snapshot.Docker = snapshot.Docker.DockerSnapshot
+	}
+
+	return &snapshot.Snapshot, nil
+}

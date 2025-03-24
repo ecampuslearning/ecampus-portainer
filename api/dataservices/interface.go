@@ -159,6 +159,7 @@ type (
 
 	SnapshotService interface {
 		BaseCRUD[portainer.Snapshot, portainer.EndpointID]
+		ReadWithoutSnapshotRaw(ID portainer.EndpointID) (*portainer.Snapshot, error)
 	}
 
 	// SSLSettingsService represents a service for managing application settings

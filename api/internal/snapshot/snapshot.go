@@ -170,8 +170,8 @@ func (service *Service) Create(snapshot portainer.Snapshot) error {
 	return service.dataStore.Snapshot().Create(&snapshot)
 }
 
-func (service *Service) FillSnapshotData(endpoint *portainer.Endpoint) error {
-	return FillSnapshotData(service.dataStore, endpoint)
+func (service *Service) FillSnapshotData(endpoint *portainer.Endpoint, includeRaw bool) error {
+	return FillSnapshotData(service.dataStore, endpoint, includeRaw)
 }
 
 func (service *Service) snapshotKubernetesEndpoint(endpoint *portainer.Endpoint) error {
@@ -328,8 +328,16 @@ func FetchDockerID(snapshot portainer.DockerSnapshot) (string, error) {
 	return info.Swarm.Cluster.ID, nil
 }
 
-func FillSnapshotData(tx dataservices.DataStoreTx, endpoint *portainer.Endpoint) error {
-	snapshot, err := tx.Snapshot().Read(endpoint.ID)
+func FillSnapshotData(tx dataservices.DataStoreTx, endpoint *portainer.Endpoint, includeRaw bool) error {
+	var snapshot *portainer.Snapshot
+	var err error
+
+	if includeRaw {
+		snapshot, err = tx.Snapshot().Read(endpoint.ID)
+	} else {
+		snapshot, err = tx.Snapshot().ReadWithoutSnapshotRaw(endpoint.ID)
+	}
+
 	if tx.IsErrObjectNotFound(err) {
 		endpoint.Snapshots = []portainer.DockerSnapshot{}
 		endpoint.Kubernetes.Snapshots = []portainer.KubernetesSnapshot{}

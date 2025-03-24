@@ -38,3 +38,16 @@ func (service *Service) Tx(tx portainer.Transaction) ServiceTx {
 func (service *Service) Create(snapshot *portainer.Snapshot) error {
 	return service.Connection.CreateObjectWithId(BucketName, int(snapshot.EndpointID), snapshot)
 }
+
+func (service *Service) ReadWithoutSnapshotRaw(ID portainer.EndpointID) (*portainer.Snapshot, error) {
+	var snapshot *portainer.Snapshot
+
+	err := service.Connection.ViewTx(func(tx portainer.Transaction) error {
+		var err error
+		snapshot, err = service.Tx(tx).ReadWithoutSnapshotRaw(ID)
+
+		return err
+	})
+
+	return snapshot, err
+}

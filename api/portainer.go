@@ -1622,7 +1622,7 @@ type (
 		Start()
 		SetSnapshotInterval(snapshotInterval string) error
 		SnapshotEndpoint(endpoint *Endpoint) error
-		FillSnapshotData(endpoint *Endpoint) error
+		FillSnapshotData(endpoint *Endpoint, includeRaw bool) error
 	}
 
 	// SwarmStackManager represents a service to manage Swarm stacks

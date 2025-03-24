@@ -110,6 +110,7 @@ export function EnvironmentList({ onClickBrowse, onRefresh }: Props) {
     updateInformation: isBE,
     edgeAsync: getEdgeAsyncValue(connectionTypes),
     platformTypes,
+    excludeSnapshotRaw: true,
   };
 
   const queryWithSort = {
