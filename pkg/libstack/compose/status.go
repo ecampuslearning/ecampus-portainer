@@ -125,7 +125,7 @@ func (c *ComposeDeployer) WaitForStatus(ctx context.Context, name string, status
 
 		var containerSummaries []api.ContainerSummary
 
-		if err := withComposeService(ctx, nil, libstack.Options{ProjectName: name}, func(composeService api.Service, project *types.Project) error {
+		if err := c.withComposeService(ctx, nil, libstack.Options{ProjectName: name}, func(composeService api.Service, project *types.Project) error {
 			var err error
 
 			psCtx, cancelFunc := context.WithTimeout(context.Background(), time.Minute)
