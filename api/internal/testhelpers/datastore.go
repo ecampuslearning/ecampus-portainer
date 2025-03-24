@@ -110,9 +110,11 @@ type datastoreOption = func(d *testDatastore)
 func NewDatastore(options ...datastoreOption) *testDatastore {
 	conn, _ := database.NewDatabase("boltdb", "", nil)
 	d := testDatastore{connection: conn}
+
 	for _, o := range options {
 		o(&d)
 	}
+
 	return &d
 }
 
@@ -128,6 +130,7 @@ func (s *stubSettingsService) Settings() (*portainer.Settings, error) {
 
 func (s *stubSettingsService) UpdateSettings(settings *portainer.Settings) error {
 	s.settings = settings
+
 	return nil
 }
 
@@ -140,20 +143,16 @@ func WithSettingsService(settings *portainer.Settings) datastoreOption {
 }
 
 type stubUserService struct {
+	dataservices.UserService
+
 	users []portainer.User
 }
 
-func (s *stubUserService) BucketName() string                                      { return "users" }
-func (s *stubUserService) Read(ID portainer.UserID) (*portainer.User, error)       { return nil, nil }
-func (s *stubUserService) UserByUsername(username string) (*portainer.User, error) { return nil, nil }
-func (s *stubUserService) ReadAll() ([]portainer.User, error)                      { return s.users, nil }
+func (s *stubUserService) BucketName() string                 { return "users" }
+func (s *stubUserService) ReadAll() ([]portainer.User, error) { return s.users, nil }
 func (s *stubUserService) UsersByRole(role portainer.UserRole) ([]portainer.User, error) {
 	return s.users, nil
 }
-func (s *stubUserService) Create(user *portainer.User) error                      { return nil }
-func (s *stubUserService) Update(ID portainer.UserID, user *portainer.User) error { return nil }
-func (s *stubUserService) Delete(ID portainer.UserID) error                       { return nil }
-func (s *stubUserService) Exists(ID portainer.UserID) (bool, error)               { return false, nil }
 
 // WithUsers testDatastore option that will instruct testDatastore to return provided users
 func WithUsers(us []portainer.User) datastoreOption {
@@ -163,35 +162,13 @@ func WithUsers(us []portainer.User) datastoreOption {
 }
 
 type stubEdgeJobService struct {
+	dataservices.EdgeJobService
+
 	jobs []portainer.EdgeJob
 }
 
 func (s *stubEdgeJobService) BucketName() string                    { return "edgejobs" }
 func (s *stubEdgeJobService) ReadAll() ([]portainer.EdgeJob, error) { return s.jobs, nil }
-func (s *stubEdgeJobService) Read(ID portainer.EdgeJobID) (*portainer.EdgeJob, error) {
-	return nil, nil
-}
-
-func (s *stubEdgeJobService) Create(edgeJob *portainer.EdgeJob) error {
-	return nil
-}
-
-func (s *stubEdgeJobService) CreateWithID(ID portainer.EdgeJobID, edgeJob *portainer.EdgeJob) error {
-	return nil
-}
-
-func (s *stubEdgeJobService) Update(ID portainer.EdgeJobID, edgeJob *portainer.EdgeJob) error {
-	return nil
-}
-
-func (s *stubEdgeJobService) UpdateEdgeJobFunc(ID portainer.EdgeJobID, updateFunc func(edgeJob *portainer.EdgeJob)) error {
-	return nil
-}
-func (s *stubEdgeJobService) Delete(ID portainer.EdgeJobID) error { return nil }
-func (s *stubEdgeJobService) GetNextIdentifier() int              { return 0 }
-func (s *stubEdgeJobService) Exists(ID portainer.EdgeJobID) (bool, error) {
-	return false, nil
-}
 
 // WithEdgeJobs option will instruct testDatastore to return provided jobs
 func WithEdgeJobs(js []portainer.EdgeJob) datastoreOption {
@@ -201,6 +178,8 @@ func WithEdgeJobs(js []portainer.EdgeJob) datastoreOption {
 }
 
 type stubEndpointRelationService struct {
+	dataservices.EndpointRelationService
+
 	relations []portainer.EndpointRelation
 }
 
@@ -217,10 +196,6 @@ func (s *stubEndpointRelationService) EndpointRelation(ID portainer.EndpointID) 
 	}
 
 	return nil, errors.ErrObjectNotFound
-}
-
-func (s *stubEndpointRelationService) Create(EndpointRelation *portainer.EndpointRelation) error {
-	return nil
 }
 
 func (s *stubEndpointRelationService) UpdateEndpointRelation(ID portainer.EndpointID, relation *portainer.EndpointRelation) error {
@@ -256,11 +231,6 @@ func (s *stubEndpointRelationService) RemoveEndpointRelationsForEdgeStack(endpoi
 
 	return nil
 }
-
-func (s *stubEndpointRelationService) DeleteEndpointRelation(ID portainer.EndpointID) error {
-	return nil
-}
-func (s *stubEndpointRelationService) GetNextIdentifier() int { return 0 }
 
 // WithEndpointRelations option will instruct testDatastore to return provided jobs
 func WithEndpointRelations(relations []portainer.EndpointRelation) datastoreOption {
@@ -360,6 +330,7 @@ func (s *stubEndpointService) EndpointsByTeamID(teamID portainer.TeamID) ([]port
 			}
 		}
 	}
+
 	return endpoints, nil
 }
 
@@ -371,22 +342,11 @@ func WithEndpoints(endpoints []portainer.Endpoint) datastoreOption {
 }
 
 type stubStacksService struct {
+	dataservices.StackService
 	stacks []portainer.Stack
 }
 
 func (s *stubStacksService) BucketName() string { return "stacks" }
-
-func (s *stubStacksService) Create(stack *portainer.Stack) error {
-	return nil
-}
-
-func (s *stubStacksService) Update(ID portainer.StackID, stack *portainer.Stack) error {
-	return nil
-}
-
-func (s *stubStacksService) Delete(ID portainer.StackID) error {
-	return nil
-}
 
 func (s *stubStacksService) Read(ID portainer.StackID) (*portainer.Stack, error) {
 	for _, stack := range s.stacks {
@@ -394,6 +354,7 @@ func (s *stubStacksService) Read(ID portainer.StackID) (*portainer.Stack, error)
 			return &stack, nil
 		}
 	}
+
 	return nil, errors.ErrObjectNotFound
 }
 
@@ -409,6 +370,7 @@ func (s *stubStacksService) StacksByEndpointID(endpointID portainer.EndpointID) 
 			result = append(result, stack)
 		}
 	}
+
 	return result, nil
 }
 
@@ -420,6 +382,7 @@ func (s *stubStacksService) RefreshableStacks() ([]portainer.Stack, error) {
 			result = append(result, stack)
 		}
 	}
+
 	return result, nil
 }
 
@@ -429,6 +392,7 @@ func (s *stubStacksService) StackByName(name string) (*portainer.Stack, error) {
 			return &stack, nil
 		}
 	}
+
 	return nil, errors.ErrObjectNotFound
 }
 
@@ -440,6 +404,7 @@ func (s *stubStacksService) StacksByName(name string) ([]portainer.Stack, error)
 			result = append(result, stack)
 		}
 	}
+
 	return result, nil
 }
 
@@ -449,6 +414,7 @@ func (s *stubStacksService) StackByWebhookID(webhookID string) (*portainer.Stack
 			return &stack, nil
 		}
 	}
+
 	return nil, errors.ErrObjectNotFound
 }
 
