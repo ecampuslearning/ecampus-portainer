@@ -21,7 +21,7 @@ func Test_Show(t *testing.T) {
 		Chart: "ingress-nginx",
 		Repo:  "https://kubernetes.github.io/ingress-nginx",
 	}
-	release, err := hspm.Install(installOpts)
+	release, err := hspm.Upgrade(installOpts)
 	if release != nil || err != nil {
 		defer hspm.Uninstall(options.UninstallOptions{
 			Name: "ingress-nginx",

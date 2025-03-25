@@ -73,6 +73,11 @@ func (hpm *helmMockPackageManager) Install(installOpts options.InstallOptions) (
 	return newMockRelease(releaseElement), nil
 }
 
+// Upgrade a helm chart (not thread safe)
+func (hpm *helmMockPackageManager) Upgrade(upgradeOpts options.InstallOptions) (*release.Release, error) {
+	return hpm.Install(upgradeOpts)
+}
+
 // Show values/readme/chart etc
 func (hpm *helmMockPackageManager) Show(showOpts options.ShowOptions) ([]byte, error) {
 	switch showOpts.OutputFormat {

@@ -26,12 +26,7 @@ func (hspm *HelmSDKPackageManager) Uninstall(uninstallOpts options.UninstallOpti
 	actionConfig := new(action.Configuration)
 	err := hspm.initActionConfig(actionConfig, uninstallOpts.Namespace, uninstallOpts.KubernetesClusterAccess)
 	if err != nil {
-		log.Error().
-			Str("context", "HelmClient").
-			Str("release", uninstallOpts.Name).
-			Str("namespace", uninstallOpts.Namespace).
-			Err(err).
-			Msg("Failed to initialize helm configuration")
+		// error is already logged in initActionConfig
 		return errors.Wrap(err, "failed to initialize helm configuration")
 	}
 

@@ -32,13 +32,11 @@ func (hspm *HelmSDKPackageManager) Show(showOpts options.ShowOptions) ([]byte, e
 		Str("output_format", string(showOpts.OutputFormat)).
 		Msg("Showing chart information")
 
-	// Initialize action configuration
+	// Initialize action configuration (no namespace or cluster access needed)
 	actionConfig := new(action.Configuration)
-	if err := actionConfig.Init(nil, "", "", func(format string, v ...interface{}) {}); err != nil {
-		log.Error().
-			Str("context", "HelmClient").
-			Err(err).
-			Msg("Failed to initialize helm configuration")
+	err := hspm.initActionConfig(actionConfig, "", nil)
+	if err != nil {
+		// error is already logged in initActionConfig
 		return nil, fmt.Errorf("failed to initialize helm configuration: %w", err)
 	}
 

@@ -48,7 +48,7 @@ func Test_Uninstall(t *testing.T) {
 		}
 
 		// Install the release
-		_, err := hspm.Install(installOpts)
+		_, err := hspm.Upgrade(installOpts)
 		if err != nil {
 			t.Logf("Error installing release: %v", err)
 			t.Skip("Skipping uninstall test because install failed")

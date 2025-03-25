@@ -26,11 +26,7 @@ func (hspm *HelmSDKPackageManager) List(listOpts options.ListOptions) ([]release
 	actionConfig := new(action.Configuration)
 	err := hspm.initActionConfig(actionConfig, listOpts.Namespace, listOpts.KubernetesClusterAccess)
 	if err != nil {
-		log.Error().
-			Str("context", "HelmClient").
-			Str("namespace", listOpts.Namespace).
-			Err(err).
-			Msg("Failed to initialize helm configuration")
+		// error is already logged in initActionConfig
 		return nil, errors.Wrap(err, "failed to initialize helm configuration")
 	}
 

@@ -1,5 +1,7 @@
 package options
 
+import "time"
+
 type InstallOptions struct {
 	Name                    string
 	Chart                   string
@@ -8,6 +10,7 @@ type InstallOptions struct {
 	Wait                    bool
 	ValuesFile              string
 	PostRenderer            string
+	Timeout                 time.Duration
 	KubernetesClusterAccess *KubernetesClusterAccess
 
 	// Optional environment vars to pass when running helm

@@ -125,7 +125,7 @@ func (handler *Handler) installChart(r *http.Request, p installChartPayload) (*r
 		installOpts.ValuesFile = file.Name()
 	}
 
-	release, err := handler.helmPackageManager.Install(installOpts)
+	release, err := handler.helmPackageManager.Upgrade(installOpts)
 	if err != nil {
 		return nil, err
 	}

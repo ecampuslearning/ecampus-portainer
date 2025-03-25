@@ -43,7 +43,7 @@ func Test_helmList(t *testing.T) {
 
 	// Install a single chart.  We expect to get these values back
 	options := options.InstallOptions{Name: "nginx-1", Chart: "nginx", Namespace: "default"}
-	h.helmPackageManager.Install(options)
+	h.helmPackageManager.Upgrade(options)
 
 	t.Run("helmList", func(t *testing.T) {
 		req := httptest.NewRequest(http.MethodGet, "/1/kubernetes/helm", nil)
