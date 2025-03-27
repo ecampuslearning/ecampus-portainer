@@ -232,6 +232,7 @@ export const ngModule = angular
       'data-cy',
       'versions',
       'onVersionChange',
+      'schema',
     ])
   )
   .component(

@@ -7,10 +7,16 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'jsdom',
-    setupFiles: ['./app/setup-tests/setup-msw.ts', './app/setup-tests/stub-modules.ts', './app/setup-tests/setup.ts', './app/setup-tests/setup-rtl.ts'],
+    setupFiles: [
+      './app/setup-tests/setup-msw.ts',
+      './app/setup-tests/stub-modules.ts',
+      './app/setup-tests/setup.ts',
+      './app/setup-tests/setup-codemirror.ts',
+      './app/setup-tests/setup-rtl.ts',
+    ],
     coverage: {
       provider: 'v8',
-      reporter: ['text', 'json', 'html'],      
+      reporter: ['text', 'json', 'html'],
       exclude: ['node_modules/', 'app/setup-tests/global-setup.js'],
     },
     bail: 2,

@@ -13,6 +13,7 @@ export const webEditorForm = {
     onChange: '<',
     hideTitle: '<',
     height: '@',
+    schema: '<',
   },
 
   transclude: {

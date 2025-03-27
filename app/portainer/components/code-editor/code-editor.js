@@ -13,5 +13,6 @@ angular.module('portainer.app').component('codeEditor', {
     onChange: '<',
     value: '<',
     height: '@',
+    schema: '<',
   },
 });

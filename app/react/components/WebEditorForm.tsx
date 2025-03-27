@@ -1,11 +1,12 @@
 import {
+  ReactNode,
   ComponentProps,
   PropsWithChildren,
-  ReactNode,
-  useEffect,
   useMemo,
+  useEffect,
 } from 'react';
 import { useTransitionHook } from '@uirouter/react';
+import { JSONSchema7 } from 'json-schema';
 
 import { BROWSER_OS_PLATFORM } from '@/react/constants';
 
@@ -63,6 +64,7 @@ interface Props extends CodeEditorProps {
   titleContent?: ReactNode;
   hideTitle?: boolean;
   error?: string;
+  schema?: JSONSchema7;
 }
 
 export function WebEditorForm({
@@ -71,6 +73,7 @@ export function WebEditorForm({
   hideTitle,
   children,
   error,
+  schema,
   ...props
 }: PropsWithChildren<Props>) {
   return (
@@ -94,6 +97,8 @@ export function WebEditorForm({
           <div className="col-sm-12 col-lg-12">
             <CodeEditor
               id={id}
+              type="yaml"
+              schema={schema as JSONSchema7}
               // eslint-disable-next-line react/jsx-props-no-spreading
               {...props}
             />

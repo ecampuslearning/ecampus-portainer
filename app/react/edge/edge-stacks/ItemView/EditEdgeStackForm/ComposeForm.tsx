@@ -1,5 +1,7 @@
 import { useFormikContext } from 'formik';
 
+import { useDockerComposeSchema } from '@/react/hooks/useDockerComposeSchema/useDockerComposeSchema';
+
 import { TextTip } from '@@/Tip/TextTip';
 import { WebEditorForm } from '@@/WebEditorForm';
 
@@ -19,6 +21,7 @@ export function ComposeForm({
   versionOptions: number[] | undefined;
 }) {
   const { errors, values } = useFormikContext<FormValues>();
+  const { data: dockerComposeSchema } = useDockerComposeSchema();
 
   return (
     <>
@@ -61,6 +64,7 @@ export function ComposeForm({
         data-cy="compose-editor"
         value={values.content}
         type="yaml"
+        schema={dockerComposeSchema}
         id="compose-editor"
         placeholder="Define or paste the content of your docker compose file here"
         onChange={(value) => handleContentChange(DeploymentType.Compose, value)}

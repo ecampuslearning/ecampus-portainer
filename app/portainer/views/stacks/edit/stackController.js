@@ -8,6 +8,7 @@ import { confirmStackUpdate } from '@/react/common/stacks/common/confirm-stack-u
 import { confirm, confirmDelete, confirmWebEditorDiscard } from '@@/modals/confirm';
 import { ModalType } from '@@/modals';
 import { buildConfirmButton } from '@@/modals/utils';
+import { getDockerComposeSchema } from '@/react/hooks/useDockerComposeSchema/useDockerComposeSchema';
 
 angular.module('portainer.app').controller('StackController', [
   '$async',
@@ -491,6 +492,12 @@ angular.module('portainer.app').controller('StackController', [
       }
 
       $scope.composeSyntaxMaxVersion = endpoint.ComposeSyntaxMaxVersion;
+
+      try {
+        $scope.dockerComposeSchema = await getDockerComposeSchema();
+      } catch (err) {
+        Notifications.error('Failure', err, 'Unable to load schema validation for editor');
+      }
     }
 
     initView();

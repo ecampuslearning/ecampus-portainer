@@ -150,8 +150,9 @@
                 <span class="col-sm-12 text-muted small">
                   You can get more information about Compose file format in the <a href="https://docs.docker.com/compose/compose-file/" target="_blank">official documentation</a>.
                 </span>
-                <div class="col-sm-12" ng-if="state.yamlError">
-                  <span class="text-danger small">{{ state.yamlError }}</span>
+                <!-- opacity-0 with &nbsp; fixes the layout shift causing tooltips to go over hovered text -->
+                <div class="col-sm-12" ng-class="{ 'opacity-100': state.yamlError, 'opacity-0': !state.yamlError }">
+                  <span class="text-danger small">{{ state.yamlError || '&nbsp;' }}</span>
                 </div>
               </div>
               <div class="form-group">
@@ -163,6 +164,7 @@
                     yml="true"
                     on-change="(editorUpdate)"
                     value="stackFileContent"
+                    schema="dockerComposeSchema"
                   ></code-editor>
                 </div>
               </div>

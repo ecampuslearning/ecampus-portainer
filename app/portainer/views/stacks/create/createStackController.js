@@ -10,6 +10,7 @@ import { confirmWebEditorDiscard } from '@@/modals/confirm';
 import { parseAutoUpdateResponse, transformAutoUpdateViewModel } from '@/react/portainer/gitops/AutoUpdateFieldset/utils';
 import { baseStackWebhookUrl, createWebhookId } from '@/portainer/helpers/webhookHelper';
 import { getVariablesFieldDefaultValues } from '@/react/portainer/custom-templates/components/CustomTemplatesVariablesField';
+import { getDockerComposeSchema } from '@/react/hooks/useDockerComposeSchema/useDockerComposeSchema';
 
 angular
   .module('portainer.app')
@@ -350,6 +351,12 @@ angular
           $scope.containerNames = ContainerHelper.getContainerNames(containers);
         } catch (err) {
           Notifications.error('Failure', err, 'Unable to retrieve Containers');
+        }
+
+        try {
+          $scope.dockerComposeSchema = await getDockerComposeSchema();
+        } catch (err) {
+          Notifications.error('Failure', err, 'Unable to load schema validation for editor');
         }
       }
 
