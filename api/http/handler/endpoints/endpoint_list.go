@@ -38,6 +38,7 @@ const (
 // @param tagIds query []int false "search environments(endpoints) with these tags (depends on tagsPartialMatch)"
 // @param tagsPartialMatch query bool false "If true, will return environment(endpoint) which has one of tagIds, if false (or missing) will return only environments(endpoints) that has all the tags"
 // @param endpointIds query []int false "will return only these environments(endpoints)"
+// @param excludeIds query []int false "will exclude these environments(endpoints)"
 // @param provisioned query bool false "If true, will return environment(endpoint) that were provisioned"
 // @param agentVersions query []string false "will return only environments with on of these agent versions"
 // @param edgeAsync query bool false "if exists true show only edge async agents, false show only standard edge agents. if missing, will show both types (relevant only for edge agents)"
@@ -48,6 +49,8 @@ const (
 // @param name query string false "will return only environments(endpoints) with this name"
 // @param edgeStackId query portainer.EdgeStackID false "will return the environements of the specified edge stack"
 // @param edgeStackStatus query string false "only applied when edgeStackId exists. Filter the returned environments based on their deployment status in the stack (not the environment status!)" Enum("Pending", "Ok", "Error", "Acknowledged", "Remove", "RemoteUpdateSuccess", "ImagesPulled")
+// @param edgeGroupIds query []int false "List environments(endpoints) of these edge groups"
+// @param excludeEdgeGroupIds query []int false "Exclude environments(endpoints) of these edge groups"
 // @success 200 {array} portainer.Endpoint "Endpoints"
 // @failure 500 "Server error"
 // @router /endpoints [get]

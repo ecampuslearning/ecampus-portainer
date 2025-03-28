@@ -9,13 +9,10 @@ export function getInternalNodeIpAddress(node?: Node) {
 const controlPlaneLabels = [
   'node-role.kubernetes.io/control-plane',
   'node-role.kubernetes.io/master',
-  'node.kubernetes.io/microk8s-controlplane'
+  'node.kubernetes.io/microk8s-controlplane',
 ];
 
-const roleLabels = [
-  'kubernetes.io/role',
-  'node.kubernetes.io/role'
-];
+const roleLabels = ['kubernetes.io/role', 'node.kubernetes.io/role'];
 
 export function getRole(node: Node): 'Control plane' | 'Worker' {
   const hasControlPlaneLabel = controlPlaneLabels.some(

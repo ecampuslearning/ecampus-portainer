@@ -37,6 +37,8 @@ type EnvironmentsQuery struct {
 	edgeStackId              portainer.EdgeStackID
 	edgeStackStatus          *portainer.EdgeStackStatusType
 	excludeIds               []portainer.EndpointID
+	edgeGroupIds             []portainer.EdgeGroupID
+	excludeEdgeGroupIds      []portainer.EdgeGroupID
 }
 
 func parseQuery(r *http.Request) (EnvironmentsQuery, error) {
@@ -73,6 +75,16 @@ func parseQuery(r *http.Request) (EnvironmentsQuery, error) {
 	}
 
 	excludeIDs, err := getNumberArrayQueryParameter[portainer.EndpointID](r, "excludeIds")
+	if err != nil {
+		return EnvironmentsQuery{}, err
+	}
+
+	edgeGroupIDs, err := getNumberArrayQueryParameter[portainer.EdgeGroupID](r, "edgeGroupIds")
+	if err != nil {
+		return EnvironmentsQuery{}, err
+	}
+
+	excludeEdgeGroupIds, err := getNumberArrayQueryParameter[portainer.EdgeGroupID](r, "excludeEdgeGroupIds")
 	if err != nil {
 		return EnvironmentsQuery{}, err
 	}
@@ -117,6 +129,8 @@ func parseQuery(r *http.Request) (EnvironmentsQuery, error) {
 		edgeCheckInPassedSeconds: edgeCheckInPassedSeconds,
 		edgeStackId:              portainer.EdgeStackID(edgeStackId),
 		edgeStackStatus:          edgeStackStatus,
+		edgeGroupIds:             edgeGroupIDs,
+		excludeEdgeGroupIds:      excludeEdgeGroupIds,
 	}, nil
 }
 
@@ -141,6 +155,14 @@ func (handler *Handler) filterEndpointsByQuery(
 
 	if len(query.groupIds) > 0 {
 		filteredEndpoints = filterEndpointsByGroupIDs(filteredEndpoints, query.groupIds)
+	}
+
+	if len(query.edgeGroupIds) > 0 {
+		filteredEndpoints, edgeGroups = filterEndpointsByEdgeGroupIDs(filteredEndpoints, edgeGroups, query.edgeGroupIds)
+	}
+
+	if len(query.excludeEdgeGroupIds) > 0 {
+		filteredEndpoints, edgeGroups = filterEndpointsByExcludeEdgeGroupIDs(filteredEndpoints, edgeGroups, query.excludeEdgeGroupIds)
 	}
 
 	if query.name != "" {
@@ -293,6 +315,70 @@ func filterEndpointsByGroupIDs(endpoints []portainer.Endpoint, endpointGroupIDs 
 	}
 
 	return endpoints[:n]
+}
+
+func filterEndpointsByEdgeGroupIDs(endpoints []portainer.Endpoint, edgeGroups []portainer.EdgeGroup, edgeGroupIDs []portainer.EdgeGroupID) ([]portainer.Endpoint, []portainer.EdgeGroup) {
+	edgeGroupIDFilterSet := make(map[portainer.EdgeGroupID]struct{}, len(edgeGroupIDs))
+	for _, id := range edgeGroupIDs {
+		edgeGroupIDFilterSet[id] = struct{}{}
+	}
+
+	n := 0
+	for _, edgeGroup := range edgeGroups {
+		if _, exists := edgeGroupIDFilterSet[edgeGroup.ID]; exists {
+			edgeGroups[n] = edgeGroup
+			n++
+		}
+	}
+	edgeGroups = edgeGroups[:n]
+
+	endpointIDSet := make(map[portainer.EndpointID]struct{})
+	for _, edgeGroup := range edgeGroups {
+		for _, endpointID := range edgeGroup.Endpoints {
+			endpointIDSet[endpointID] = struct{}{}
+		}
+	}
+
+	n = 0
+	for _, endpoint := range endpoints {
+		if _, exists := endpointIDSet[endpoint.ID]; exists {
+			endpoints[n] = endpoint
+			n++
+		}
+	}
+
+	return endpoints[:n], edgeGroups
+}
+
+func filterEndpointsByExcludeEdgeGroupIDs(endpoints []portainer.Endpoint, edgeGroups []portainer.EdgeGroup, excludeEdgeGroupIds []portainer.EdgeGroupID) ([]portainer.Endpoint, []portainer.EdgeGroup) {
+	excludeEdgeGroupIDSet := make(map[portainer.EdgeGroupID]struct{}, len(excludeEdgeGroupIds))
+	for _, id := range excludeEdgeGroupIds {
+		excludeEdgeGroupIDSet[id] = struct{}{}
+	}
+
+	n := 0
+	excludeEndpointIDSet := make(map[portainer.EndpointID]struct{})
+	for _, edgeGroup := range edgeGroups {
+		if _, ok := excludeEdgeGroupIDSet[edgeGroup.ID]; ok {
+			for _, endpointID := range edgeGroup.Endpoints {
+				excludeEndpointIDSet[endpointID] = struct{}{}
+			}
+		} else {
+			edgeGroups[n] = edgeGroup
+			n++
+		}
+	}
+	edgeGroups = edgeGroups[:n]
+
+	n = 0
+	for _, endpoint := range endpoints {
+		if _, ok := excludeEndpointIDSet[endpoint.ID]; !ok {
+			endpoints[n] = endpoint
+			n++
+		}
+	}
+
+	return endpoints[:n], edgeGroups
 }
 
 func filterEndpointsBySearchCriteria(

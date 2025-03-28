@@ -50,6 +50,7 @@ export interface BaseEnvironmentsQueryParams {
   edgeCheckInPassedSeconds?: number;
   platformTypes?: PlatformType[];
   edgeGroupIds?: EdgeGroupId[];
+  excludeEdgeGroupIds?: EdgeGroupId[];
 }
 
 export type EnvironmentsQueryParams = BaseEnvironmentsQueryParams &

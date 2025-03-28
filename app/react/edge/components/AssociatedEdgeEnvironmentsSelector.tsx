@@ -1,9 +1,8 @@
 import { EdgeTypes, EnvironmentId } from '@/react/portainer/environments/types';
+import { EdgeEnvironmentsAssociationTable } from '@/react/edge/components/EdgeEnvironmentsAssociationTable';
 
 import { FormError } from '@@/form-components/FormError';
 import { ArrayError } from '@@/form-components/InputList/InputList';
-
-import { EdgeGroupAssociationTable } from './EdgeGroupAssociationTable';
 
 export function AssociatedEdgeEnvironmentsSelector({
   onChange,
@@ -20,9 +19,9 @@ export function AssociatedEdgeEnvironmentsSelector({
   return (
     <>
       <div className="col-sm-12 small text-muted">
-        You can select which environment should be part of this group by moving
-        them to the associated environments table. Simply click on any
-        environment entry to move it from one table to the other.
+        You can also select environments individually by moving them to the
+        associated environments table. Simply click on any environment entry to
+        move it from one table to the other.
       </div>
 
       {error && (
@@ -36,7 +35,7 @@ export function AssociatedEdgeEnvironmentsSelector({
       <div className="col-sm-12 mt-4">
         <div className="flex">
           <div className="w-1/2">
-            <EdgeGroupAssociationTable
+            <EdgeEnvironmentsAssociationTable
               title="Available environments"
               query={{
                 types: EdgeTypes,
@@ -51,7 +50,7 @@ export function AssociatedEdgeEnvironmentsSelector({
             />
           </div>
           <div className="w-1/2">
-            <EdgeGroupAssociationTable
+            <EdgeEnvironmentsAssociationTable
               title="Associated environments"
               query={{
                 types: EdgeTypes,
