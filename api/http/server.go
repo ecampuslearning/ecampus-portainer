@@ -335,7 +335,7 @@ func (server *Server) Start() error {
 
 	handler := adminMonitor.WithRedirect(offlineGate.WaitingMiddleware(time.Minute, server.Handler))
 
-	handler = middlewares.WithSlowRequestsLogger(handler)
+	handler = middlewares.WithPanicLogger(middlewares.WithSlowRequestsLogger(handler))
 
 	handler, err := csrf.WithProtect(handler)
 	if err != nil {
