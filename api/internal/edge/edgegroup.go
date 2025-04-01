@@ -1,6 +1,8 @@
 package edge
 
 import (
+	"slices"
+
 	portainer "github.com/portainer/portainer/api"
 	"github.com/portainer/portainer/api/dataservices"
 	"github.com/portainer/portainer/api/internal/endpointutils"
@@ -70,17 +72,11 @@ func GetEndpointsFromEdgeGroups(edgeGroupIDs []portainer.EdgeGroupID, datastore 
 // edgeGroupRelatedToEndpoint returns true if edgeGroup is associated with environment(endpoint)
 func edgeGroupRelatedToEndpoint(edgeGroup *portainer.EdgeGroup, endpoint *portainer.Endpoint, endpointGroup *portainer.EndpointGroup) bool {
 	if !edgeGroup.Dynamic {
-		for _, endpointID := range edgeGroup.Endpoints {
-			if endpoint.ID == endpointID {
-				return true
-			}
-		}
-
-		return false
+		return slices.Contains(edgeGroup.Endpoints, endpoint.ID)
 	}
 
 	endpointTags := tag.Set(endpoint.TagIDs)
-	if endpointGroup.TagIDs != nil {
+	if endpointGroup != nil && endpointGroup.TagIDs != nil {
 		endpointTags = tag.Union(endpointTags, tag.Set(endpointGroup.TagIDs))
 	}
 
