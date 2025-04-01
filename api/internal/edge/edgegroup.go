@@ -13,21 +13,19 @@ func EdgeGroupRelatedEndpoints(edgeGroup *portainer.EdgeGroup, endpoints []porta
 		return edgeGroup.Endpoints
 	}
 
+	endpointGroupsMap := map[portainer.EndpointGroupID]*portainer.EndpointGroup{}
+	for i, group := range endpointGroups {
+		endpointGroupsMap[group.ID] = &endpointGroups[i]
+	}
+
 	endpointIDs := []portainer.EndpointID{}
 	for _, endpoint := range endpoints {
 		if !endpointutils.IsEdgeEndpoint(&endpoint) {
 			continue
 		}
 
-		var endpointGroup portainer.EndpointGroup
-		for _, group := range endpointGroups {
-			if endpoint.GroupID == group.ID {
-				endpointGroup = group
-				break
-			}
-		}
-
-		if edgeGroupRelatedToEndpoint(edgeGroup, &endpoint, &endpointGroup) {
+		endpointGroup := endpointGroupsMap[endpoint.GroupID]
+		if edgeGroupRelatedToEndpoint(edgeGroup, &endpoint, endpointGroup) {
 			endpointIDs = append(endpointIDs, endpoint.ID)
 		}
 	}
