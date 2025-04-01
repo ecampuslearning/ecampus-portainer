@@ -35,7 +35,7 @@ func (payload *edgeGroupUpdatePayload) Validate(r *http.Request) error {
 	return nil
 }
 
-// @id EgeGroupUpdate
+// @id EdgeGroupUpdate
 // @summary Updates an EdgeGroup
 // @description **Access policy**: administrator
 // @tags edge_groups
