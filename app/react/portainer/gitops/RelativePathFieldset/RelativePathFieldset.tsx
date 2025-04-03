@@ -10,6 +10,7 @@ import { TextTip } from '@@/Tip/TextTip';
 import { FormControl } from '@@/form-components/FormControl';
 import { Input, Select } from '@@/form-components/Input';
 import { useDocsUrl } from '@@/PageHeader/ContextHelp';
+import { InsightsBox } from '@@/InsightsBox';
 
 import { RelativePathModel, getPerDevConfigsFilterType } from './types';
 
@@ -135,6 +136,20 @@ export function RelativePathFieldset({
 
           {value.SupportPerDeviceConfigs && (
             <>
+              <InsightsBox
+                content={
+                  <p>
+                    Files named <code>$&#123;PORTAINER_EDGE_ID&#125;.env</code>{' '}
+                    and/or <code>$&#123;PORTAINER_EDGE_GROUP&#125;.env</code>{' '}
+                    contained by the config folder will be loaded for compose
+                    file interpolation.
+                  </p>
+                }
+                header="GitOps Edge Configurations"
+                insightCloseId="edge-config-interpolation-info"
+                className="mb-3"
+              />
+
               <div className="form-group">
                 <div className="col-sm-12">
                   <TextTip color="blue">{pathTipSwarm}</TextTip>
