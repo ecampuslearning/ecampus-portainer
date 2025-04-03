@@ -28,7 +28,7 @@ export function useColumns() {
             const name = getValue();
 
             return (
-              <>
+              <div className="flex gap-2">
                 <Link
                   to="kubernetes.resourcePools.resourcePool"
                   params={{
@@ -38,12 +38,8 @@ export function useColumns() {
                 >
                   {name}
                 </Link>
-                {item.IsSystem && (
-                  <span className="ml-2">
-                    <SystemBadge />
-                  </span>
-                )}
-              </>
+                {item.IsSystem && <SystemBadge className="ml-auto" />}
+              </div>
             );
           },
         }),

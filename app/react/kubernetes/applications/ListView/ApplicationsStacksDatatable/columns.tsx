@@ -30,7 +30,7 @@ function NamespaceCell({ row, getValue }: CellContext<Stack, string>) {
       >
         {value}
       </Link>
-      {isSystem && <SystemBadge />}
+      {isSystem && <SystemBadge className="ml-auto" />}
     </div>
   );
 }

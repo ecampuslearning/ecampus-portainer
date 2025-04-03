@@ -1,5 +1,9 @@
 import { Badge } from '@@/Badge';
 
-export function SystemBadge() {
-  return <Badge type="success">System</Badge>;
+export function SystemBadge({ className }: { className?: string }) {
+  return (
+    <Badge type="success" className={className}>
+      System
+    </Badge>
+  );
 }
