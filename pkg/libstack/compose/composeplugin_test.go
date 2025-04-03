@@ -991,10 +991,12 @@ func Test_createProject(t *testing.T) {
 			},
 			configFilepaths: []string{dir + "/docker-compose.yml"},
 			options: libstack.Options{
+				// Note that this is the execution working directory not the compose project working directory
+				// and so it has no affect on the created projects working directory
 				WorkingDir:  "/something-totally-different",
 				ProjectName: projectName,
 			},
-			expectedProject: expectedSimpleComposeProject("/something-totally-different", nil),
+			expectedProject: expectedSimpleComposeProject("", nil),
 		},
 		{
 			name: "Relative Working Directory",
@@ -1003,10 +1005,12 @@ func Test_createProject(t *testing.T) {
 			},
 			configFilepaths: []string{dir + "/docker-compose.yml"},
 			options: libstack.Options{
+				// Note that this is the execution working directory not the compose project working directory
+				// and so it has no affect on the created projects working directory
 				WorkingDir:  "something-totally-different",
 				ProjectName: projectName,
 			},
-			expectedProject: expectedSimpleComposeProject("something-totally-different", nil),
+			expectedProject: expectedSimpleComposeProject("", nil),
 		},
 		{
 			name: "Absolute Project Directory",

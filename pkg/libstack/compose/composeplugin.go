@@ -312,10 +312,6 @@ func createProject(ctx context.Context, configFilepaths []string, options libsta
 		workingDir = filepath.Dir(configFilepaths[0])
 	}
 
-	if options.WorkingDir != "" {
-		workingDir = options.WorkingDir
-	}
-
 	if options.ProjectDir != "" {
 		// When relative paths are used in the compose file, the project directory is used as the base path
 		workingDir = options.ProjectDir
