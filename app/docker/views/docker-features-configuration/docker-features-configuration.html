@@ -67,7 +67,7 @@
               <por-switch-field
                 checked="$ctrl.formValues.disableBindMountsForRegularUsers"
                 name="'disableBindMountsForRegularUsers'"
-                label="'Disable bind mounts for non-administrators'"
+                label="'Hide bind mounts for non-administrators'"
                 tooltip="'When enabled, regular users will not be able to use bind mounts when creating containers.'"
                 label-class="'col-sm-7 col-lg-4'"
                 on-change="($ctrl.onChangeDisableBindMountsForRegularUsers)"
@@ -79,7 +79,7 @@
               <por-switch-field
                 checked="$ctrl.formValues.disablePrivilegedModeForRegularUsers"
                 name="'disablePrivilegedModeForRegularUsers'"
-                label="'Disable privileged mode for non-administrators'"
+                label="'Hide privileged mode for non-administrators'"
                 tooltip="'When enabled, regular users will not be able to use privileged mode when creating containers.'"
                 label-class="'col-sm-7 col-lg-4'"
                 on-change="($ctrl.onChangeDisablePrivilegedModeForRegularUsers)"
@@ -91,7 +91,7 @@
               <por-switch-field
                 checked="$ctrl.formValues.disableHostNamespaceForRegularUsers"
                 name="'disableHostNamespaceForRegularUsers'"
-                label="'Disable the use of host PID 1 for non-administrators'"
+                label="'Hide the use of host PID 1 for non-administrators'"
                 tooltip="'Prevent users from accessing the host filesystem through the host PID namespace.'"
                 label-class="'col-sm-7 col-lg-4'"
                 on-change="($ctrl.onChangeDisableHostNamespaceForRegularUsers)"
@@ -103,7 +103,7 @@
               <por-switch-field
                 checked="$ctrl.formValues.disableStackManagementForRegularUsers"
                 name="'disableStackManagementForRegularUsers'"
-                label="'Disable the use of Stacks for non-administrators'"
+                label="'Hide the use of Stacks for non-administrators'"
                 label-class="'col-sm-7 col-lg-4'"
                 on-change="($ctrl.onChangeDisableStackManagementForRegularUsers)"
               ></por-switch-field>
@@ -114,7 +114,7 @@
               <por-switch-field
                 checked="$ctrl.formValues.disableDeviceMappingForRegularUsers"
                 name="'disableDeviceMappingForRegularUsers'"
-                label="'Disable device mappings for non-administrators'"
+                label="'Hide device mappings for non-administrators'"
                 label-class="'col-sm-7 col-lg-4'"
                 on-change="($ctrl.onChangeDisableDeviceMappingForRegularUsers)"
               ></por-switch-field>
@@ -125,7 +125,7 @@
               <por-switch-field
                 checked="$ctrl.formValues.disableContainerCapabilitiesForRegularUsers"
                 name="'disableContainerCapabilitiesForRegularUsers'"
-                label="'Disable container capabilities for non-administrators'"
+                label="'Hide container capabilities for non-administrators'"
                 label-class="'col-sm-7 col-lg-4'"
                 on-change="($ctrl.onChangeDisableContainerCapabilitiesForRegularUsers)"
               ></por-switch-field>
@@ -136,7 +136,7 @@
               <por-switch-field
                 checked="$ctrl.formValues.disableSysctlSettingForRegularUsers"
                 name="'disableSysctlSettingForRegularUsers'"
-                label="'Disable sysctl settings for non-administrators'"
+                label="'Hide sysctl settings for non-administrators'"
                 label-class="'col-sm-7 col-lg-4'"
                 on-change="($ctrl.onChangeDisableSysctlSettingForRegularUsers)"
               ></por-switch-field>
@@ -146,7 +146,7 @@
           <div class="form-group" ng-if="$ctrl.isContainerEditDisabled()">
             <span class="col-sm-12 text-muted small">
               <pr-icon icon="'info'" mode="'primary'" class-name="'mr-0.5'"></pr-icon>
-              Note: The recreate/duplicate/edit feature is currently disabled (for non-admin users) by one or more security settings.
+              Note: The recreate/duplicate/edit feature is currently hidden (for non-admin users) by one or more security settings.
             </span>
           </div>
           <!-- !security -->
