@@ -8,6 +8,7 @@ import (
 
 	models "github.com/portainer/portainer/api/http/models/kubernetes"
 	"github.com/rs/zerolog/log"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -111,34 +112,28 @@ func parseSecret(secret *corev1.Secret, withData bool) models.K8sSecret {
 	return result
 }
 
-// CombineSecretsWithApplications combines the secrets with the applications that use them.
+// SetSecretsIsUsed combines the secrets with the applications that use them.
 // the function fetches all the pods and replica sets in the cluster and checks if the secret is used by any of the pods.
 // if the secret is used by a pod, the application that uses the pod is added to the secret.
 // otherwise, the secret is returned as is.
-func (kcl *KubeClient) CombineSecretsWithApplications(secrets []models.K8sSecret) ([]models.K8sSecret, error) {
-	updatedSecrets := make([]models.K8sSecret, len(secrets))
-
+func (kcl *KubeClient) SetSecretsIsUsed(secrets *[]models.K8sSecret) error {
 	portainerApplicationResources, err := kcl.fetchAllApplicationsListResources("", metav1.ListOptions{})
 	if err != nil {
-		return nil, fmt.Errorf("an error occurred during the CombineSecretsWithApplications operation, unable to fetch pods and replica sets. Error: %w", err)
+		return fmt.Errorf("an error occurred during the SetSecretsIsUsed operation, unable to fetch Portainer application resources. Error: %w", err)
 	}
 
-	for index, secret := range secrets {
-		updatedSecret := secret
+	for i := range *secrets {
+		secret := &(*secrets)[i]
 
-		applicationConfigurationOwners, err := kcl.GetApplicationConfigurationOwnersFromSecret(secret, portainerApplicationResources.Pods, portainerApplicationResources.ReplicaSets)
-		if err != nil {
-			return nil, fmt.Errorf("an error occurred during the CombineSecretsWithApplications operation, unable to get applications from secret. Error: %w", err)
+		for _, pod := range portainerApplicationResources.Pods {
+			if isPodUsingSecret(&pod, *secret) {
+				secret.IsUsed = true
+				break
+			}
 		}
-
-		if len(applicationConfigurationOwners) > 0 {
-			updatedSecret.ConfigurationOwnerResources = applicationConfigurationOwners
-		}
-
-		updatedSecrets[index] = updatedSecret
 	}
 
-	return updatedSecrets, nil
+	return nil
 }
 
 // CombineSecretWithApplications combines the secret with the applications that use it.
@@ -156,20 +151,22 @@ func (kcl *KubeClient) CombineSecretWithApplications(secret models.K8sSecret) (m
 		break
 	}
 
+	var replicaSets *appsv1.ReplicaSetList
 	if containsReplicaSetOwner {
-		replicaSets, err := kcl.cli.AppsV1().ReplicaSets(secret.Namespace).List(context.Background(), metav1.ListOptions{})
+		replicaSets, err = kcl.cli.AppsV1().ReplicaSets(secret.Namespace).List(context.Background(), metav1.ListOptions{})
 		if err != nil {
 			return models.K8sSecret{}, fmt.Errorf("an error occurred during the CombineSecretWithApplications operation, unable to get replica sets. Error: %w", err)
 		}
+	}
 
-		applicationConfigurationOwners, err := kcl.GetApplicationConfigurationOwnersFromSecret(secret, pods.Items, replicaSets.Items)
-		if err != nil {
-			return models.K8sSecret{}, fmt.Errorf("an error occurred during the CombineSecretWithApplications operation, unable to get applications from secret. Error: %w", err)
-		}
+	applicationConfigurationOwners, err := kcl.GetApplicationConfigurationOwnersFromSecret(secret, pods.Items, replicaSets.Items)
+	if err != nil {
+		return models.K8sSecret{}, fmt.Errorf("an error occurred during the CombineSecretWithApplications operation, unable to get applications from secret. Error: %w", err)
+	}
 
-		if len(applicationConfigurationOwners) > 0 {
-			secret.ConfigurationOwnerResources = applicationConfigurationOwners
-		}
+	if len(applicationConfigurationOwners) > 0 {
+		secret.ConfigurationOwnerResources = applicationConfigurationOwners
+		secret.IsUsed = true
 	}
 
 	return secret, nil

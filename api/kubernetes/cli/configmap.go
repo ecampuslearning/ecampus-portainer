@@ -7,6 +7,7 @@ import (
 
 	models "github.com/portainer/portainer/api/http/models/kubernetes"
 	"github.com/rs/zerolog/log"
+	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -95,35 +96,28 @@ func parseConfigMap(configMap *corev1.ConfigMap, withData bool) models.K8sConfig
 	return result
 }
 
-// CombineConfigMapsWithApplications combines the config maps with the applications that use them.
+// SetConfigMapsIsUsed combines the config maps with the applications that use them.
 // the function fetches all the pods and replica sets in the cluster and checks if the config map is used by any of the pods.
 // if the config map is used by a pod, the application that uses the pod is added to the config map.
 // otherwise, the config map is returned as is.
-func (kcl *KubeClient) CombineConfigMapsWithApplications(configMaps []models.K8sConfigMap) ([]models.K8sConfigMap, error) {
-	updatedConfigMaps := make([]models.K8sConfigMap, len(configMaps))
-
+func (kcl *KubeClient) SetConfigMapsIsUsed(configMaps *[]models.K8sConfigMap) error {
 	portainerApplicationResources, err := kcl.fetchAllApplicationsListResources("", metav1.ListOptions{})
 	if err != nil {
-		return nil, fmt.Errorf("an error occurred during the CombineConfigMapsWithApplications operation, unable to fetch pods and replica sets. Error: %w", err)
+		return fmt.Errorf("an error occurred during the SetConfigMapsIsUsed operation, unable to fetch Portainer application resources. Error: %w", err)
 	}
 
-	for index, configMap := range configMaps {
-		updatedConfigMap := configMap
+	for i := range *configMaps {
+		configMap := &(*configMaps)[i]
 
-		applicationConfigurationOwners, err := kcl.GetApplicationConfigurationOwnersFromConfigMap(configMap, portainerApplicationResources.Pods, portainerApplicationResources.ReplicaSets)
-		if err != nil {
-			return nil, fmt.Errorf("an error occurred during the CombineConfigMapsWithApplications operation, unable to get applications from config map. Error: %w", err)
+		for _, pod := range portainerApplicationResources.Pods {
+			if isPodUsingConfigMap(&pod, *configMap) {
+				configMap.IsUsed = true
+				break
+			}
 		}
-
-		if len(applicationConfigurationOwners) > 0 {
-			updatedConfigMap.ConfigurationOwnerResources = applicationConfigurationOwners
-			updatedConfigMap.IsUsed = true
-		}
-
-		updatedConfigMaps[index] = updatedConfigMap
 	}
 
-	return updatedConfigMaps, nil
+	return nil
 }
 
 // CombineConfigMapWithApplications combines the config map with the applications that use it.
@@ -141,20 +135,22 @@ func (kcl *KubeClient) CombineConfigMapWithApplications(configMap models.K8sConf
 		break
 	}
 
+	var replicaSets *appsv1.ReplicaSetList
 	if containsReplicaSetOwner {
-		replicaSets, err := kcl.cli.AppsV1().ReplicaSets(configMap.Namespace).List(context.Background(), metav1.ListOptions{})
+		replicaSets, err = kcl.cli.AppsV1().ReplicaSets(configMap.Namespace).List(context.Background(), metav1.ListOptions{})
 		if err != nil {
 			return models.K8sConfigMap{}, fmt.Errorf("an error occurred during the CombineConfigMapWithApplications operation, unable to get replica sets. Error: %w", err)
 		}
+	}
 
-		applicationConfigurationOwners, err := kcl.GetApplicationConfigurationOwnersFromConfigMap(configMap, pods.Items, replicaSets.Items)
-		if err != nil {
-			return models.K8sConfigMap{}, fmt.Errorf("an error occurred during the CombineConfigMapWithApplications operation, unable to get applications from config map. Error: %w", err)
-		}
+	applicationConfigurationOwners, err := kcl.GetApplicationConfigurationOwnersFromConfigMap(configMap, pods.Items, replicaSets.Items)
+	if err != nil {
+		return models.K8sConfigMap{}, fmt.Errorf("an error occurred during the CombineConfigMapWithApplications operation, unable to get applications from config map. Error: %w", err)
+	}
 
-		if len(applicationConfigurationOwners) > 0 {
-			configMap.ConfigurationOwnerResources = applicationConfigurationOwners
-		}
+	if len(applicationConfigurationOwners) > 0 {
+		configMap.ConfigurationOwnerResources = applicationConfigurationOwners
+		configMap.IsUsed = true
 	}
 
 	return configMap, nil
