@@ -6,11 +6,12 @@ import { Link } from '@/react/components/Link';
 import { InsightsBox } from '@@/InsightsBox';
 import { SearchBar } from '@@/datatables/SearchBar';
 
-import { Chart, HelmTemplatesListItem } from './HelmTemplatesListItem';
+import { Chart } from '../types';
+
+import { HelmTemplatesListItem } from './HelmTemplatesListItem';
 
 interface Props {
   loading: boolean;
-  titleText: string;
   charts?: Chart[];
   selectAction: (chart: Chart) => void;
 }
@@ -70,7 +71,6 @@ function getFilteredCharts(
 
 export function HelmTemplatesList({
   loading,
-  titleText,
   charts = [],
   selectAction,
 }: Props) {
@@ -87,7 +87,7 @@ export function HelmTemplatesList({
   return (
     <section className="datatable" aria-label="Helm charts">
       <div className="toolBar vertical-center relative w-full flex-wrap !gap-x-5 !gap-y-1 !px-0">
-        <div className="toolBarTitle vertical-center">{titleText}</div>
+        <div className="toolBarTitle vertical-center">Helm chart</div>
 
         <SearchBar
           value={textFilter}

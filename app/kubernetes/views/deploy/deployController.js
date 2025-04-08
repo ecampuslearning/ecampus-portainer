@@ -16,7 +16,8 @@ import { kubernetes } from '@@/BoxSelector/common-options/deployment-methods';
 
 class KubernetesDeployController {
   /* @ngInject */
-  constructor($async, $state, $window, Authentication, Notifications, KubernetesResourcePoolService, StackService, CustomTemplateService, KubernetesApplicationService) {
+  constructor($scope, $async, $state, $window, Authentication, Notifications, KubernetesResourcePoolService, StackService, CustomTemplateService, KubernetesApplicationService) {
+    this.$scope = $scope;
     this.$async = $async;
     this.$state = $state;
     this.$window = $window;
@@ -110,6 +111,9 @@ class KubernetesDeployController {
 
   onSelectHelmChart(chart) {
     this.state.selectedHelmChart = chart;
+
+    // Force a digest cycle to ensure the change is reflected in the UI
+    this.$scope.$apply();
   }
 
   onChangeTemplateVariables(value) {

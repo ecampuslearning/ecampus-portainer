@@ -187,13 +187,7 @@
                 <!-- Helm -->
                 <div ng-show="ctrl.state.BuildMethod === ctrl.BuildMethods.HELM">
                   <div class="col-sm-12 form-section-title" ng-if="ctrl.state.selectedHelmChart">Selected Helm chart</div>
-                  <helm-templates-view
-                    on-select-helm-chart="(ctrl.onSelectHelmChart)"
-                    endpoint="ctrl.endpoint"
-                    namespace="ctrl.formValues.Namespace"
-                    stack-name="ctrl.formValues.StackName"
-                    name="ctrl.formValues.Name"
-                  ></helm-templates-view>
+                  <helm-templates-view on-select-helm-chart="(ctrl.onSelectHelmChart)" namespace="ctrl.formValues.Namespace" name="ctrl.formValues.Name" />
                 </div>
                 <!-- !Helm -->
 

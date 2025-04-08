@@ -1,18 +1,12 @@
 import React from 'react';
 
-import { HelmIcon } from '@/kubernetes/components/helm/helm-templates/HelmIcon';
 import { FallbackImage } from '@/react/components/FallbackImage';
 
 import Svg from '@@/Svg';
 
-export interface Chart {
-  name: string;
-  description: string;
-  icon?: string;
-  annotations?: {
-    category?: string;
-  };
-}
+import { Chart } from '../types';
+
+import { HelmIcon } from './HelmIcon';
 
 interface HelmTemplatesListItemProps {
   model: Chart;
@@ -30,7 +24,7 @@ export function HelmTemplatesListItem(props: HelmTemplatesListItemProps) {
   return (
     <button
       type="button"
-      className="blocklist-item mx-0 bg-inherit text-start"
+      className="blocklist-item !mx-0 bg-inherit text-start"
       onClick={handleSelect}
       tabIndex={0}
     >

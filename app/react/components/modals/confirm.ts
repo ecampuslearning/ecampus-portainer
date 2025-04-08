@@ -47,6 +47,16 @@ export function confirmWebEditorDiscard() {
   });
 }
 
+export function confirmGenericDiscard() {
+  return openConfirm({
+    modalType: ModalType.Warn,
+    title: 'Are you sure?',
+    message:
+      'You currently have unsaved changes. Are you sure you want to leave?',
+    confirmButton: buildConfirmButton('Yes', 'danger'),
+  });
+}
+
 export function confirmDelete(message: ReactNode) {
   return confirmDestructive({
     title: 'Are you sure?',

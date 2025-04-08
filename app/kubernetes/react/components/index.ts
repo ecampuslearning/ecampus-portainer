@@ -58,8 +58,7 @@ import { AppDeploymentTypeFormSection } from '@/react/kubernetes/applications/co
 import { EnvironmentVariablesFormSection } from '@/react/kubernetes/applications/components/EnvironmentVariablesFormSection/EnvironmentVariablesFormSection';
 import { kubeEnvVarValidationSchema } from '@/react/kubernetes/applications/components/EnvironmentVariablesFormSection/kubeEnvVarValidationSchema';
 import { IntegratedAppsDatatable } from '@/react/kubernetes/components/IntegratedAppsDatatable/IntegratedAppsDatatable';
-import { HelmTemplatesList } from '@/react/kubernetes/helm/HelmTemplates/HelmTemplatesList';
-import { HelmTemplatesListItem } from '@/react/kubernetes/helm/HelmTemplates/HelmTemplatesListItem';
+import { HelmTemplates } from '@/react/kubernetes/helm/HelmTemplates/HelmTemplates';
 
 import { namespacesModule } from './namespaces';
 import { clusterManagementModule } from './clusterManagement';
@@ -209,17 +208,12 @@ export const ngModule = angular
     ])
   )
   .component(
-    'helmTemplatesList',
-    r2a(withUIRouter(withCurrentUser(HelmTemplatesList)), [
-      'loading',
-      'titleText',
-      'charts',
-      'selectAction',
+    'helmTemplatesView',
+    r2a(withUIRouter(withCurrentUser(HelmTemplates)), [
+      'onSelectHelmChart',
+      'namespace',
+      'name',
     ])
-  )
-  .component(
-    'helmTemplatesListItem',
-    r2a(HelmTemplatesListItem, ['model', 'onSelect', 'actions'])
   );
 
 export const componentsModule = ngModule.name;

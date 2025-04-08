@@ -6,14 +6,16 @@ import { withUserProvider } from '@/react/test-utils/withUserProvider';
 import { withTestRouter } from '@/react/test-utils/withRouter';
 import { UserViewModel } from '@/portainer/models/user';
 
+import { Chart } from '../types';
+
 import { HelmTemplatesList } from './HelmTemplatesList';
-import { Chart } from './HelmTemplatesListItem';
 
 // Sample test data
 const mockCharts: Chart[] = [
   {
     name: 'test-chart-1',
     description: 'Test Chart 1 Description',
+    repo: 'https://example.com',
     annotations: {
       category: 'database',
     },
@@ -21,6 +23,7 @@ const mockCharts: Chart[] = [
   {
     name: 'test-chart-2',
     description: 'Test Chart 2 Description',
+    repo: 'https://example.com',
     annotations: {
       category: 'database',
     },
@@ -28,6 +31,7 @@ const mockCharts: Chart[] = [
   {
     name: 'nginx-chart',
     description: 'Nginx Web Server',
+    repo: 'https://example.com',
     annotations: {
       category: 'web',
     },
@@ -38,7 +42,6 @@ const selectActionMock = vi.fn();
 
 function renderComponent({
   loading = false,
-  titleText = 'Test Helm Templates',
   charts = mockCharts,
   selectAction = selectActionMock,
 } = {}) {
@@ -48,7 +51,6 @@ function renderComponent({
       withTestRouter(() => (
         <HelmTemplatesList
           loading={loading}
-          titleText={titleText}
           charts={charts}
           selectAction={selectAction}
         />
@@ -68,7 +70,7 @@ describe('HelmTemplatesList', () => {
     renderComponent();
 
     // Check for the title
-    expect(screen.getByText('Test Helm Templates')).toBeInTheDocument();
+    expect(screen.getByText('Helm chart')).toBeInTheDocument();
 
     // Check for charts
     expect(screen.getByText('test-chart-1')).toBeInTheDocument();
