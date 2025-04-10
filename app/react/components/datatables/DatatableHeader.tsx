@@ -16,6 +16,7 @@ type Props = {
   renderTableActions?(): ReactNode;
   description?: ReactNode;
   titleId?: string;
+  includeSearch?: boolean;
 } & AutomationTestingProps;
 
 export function DatatableHeader({
@@ -28,8 +29,9 @@ export function DatatableHeader({
   description,
   titleId,
   'data-cy': dataCy,
+  includeSearch = !!title,
 }: Props) {
-  if (!title) {
+  if (!title && !includeSearch) {
     return null;
   }
 
@@ -50,12 +52,12 @@ export function DatatableHeader({
   return (
     <Table.Title
       id={titleId}
-      label={title}
+      label={title ?? ''}
       icon={titleIcon}
       description={description}
       data-cy={dataCy}
     >
-      {searchBar}
+      {includeSearch && searchBar}
       {tableActions}
       {tableTitleSettings}
     </Table.Title>

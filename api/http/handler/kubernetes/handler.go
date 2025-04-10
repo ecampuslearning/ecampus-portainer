@@ -15,6 +15,7 @@ import (
 	"github.com/portainer/portainer/api/kubernetes/cli"
 	httperror "github.com/portainer/portainer/pkg/libhttp/error"
 	"github.com/portainer/portainer/pkg/libhttp/request"
+	"github.com/portainer/portainer/pkg/libkubectl"
 	"github.com/rs/zerolog/log"
 
 	"github.com/gorilla/mux"
@@ -102,6 +103,7 @@ func NewHandler(bouncer security.BouncerService, authorizationService *authoriza
 	endpointRouter.Handle("/cluster_roles/delete", httperror.LoggerHandler(h.deleteClusterRoles)).Methods(http.MethodPost)
 	endpointRouter.Handle("/cluster_role_bindings", httperror.LoggerHandler(h.getAllKubernetesClusterRoleBindings)).Methods(http.MethodGet)
 	endpointRouter.Handle("/cluster_role_bindings/delete", httperror.LoggerHandler(h.deleteClusterRoleBindings)).Methods(http.MethodPost)
+	endpointRouter.Handle("/describe", httperror.LoggerHandler(h.describeResource)).Methods(http.MethodGet)
 
 	// namespaces
 	// in the future this piece of code might be in another package (or a few different packages - namespaces/namespace?)
@@ -268,4 +270,37 @@ func (handler *Handler) kubeClientMiddleware(next http.Handler) http.Handler {
 		handler.KubernetesClientFactory.SetProxyKubeClient(strconv.Itoa(int(endpoint.ID)), tokenData.Token, kubeCli)
 		next.ServeHTTP(w, r)
 	})
+}
+
+func (handler *Handler) getLibKubectlAccess(r *http.Request) (*libkubectl.ClientAccess, error) {
+	tokenData, err := security.RetrieveTokenData(r)
+	if err != nil {
+		return nil, httperror.InternalServerError("Unable to retrieve user authentication token", err)
+	}
+
+	bearerToken, _, err := handler.JwtService.GenerateToken(tokenData)
+	if err != nil {
+		return nil, httperror.Unauthorized("Unauthorized", err)
+	}
+
+	endpoint, err := middlewares.FetchEndpoint(r)
+	if err != nil {
+		return nil, httperror.InternalServerError("Unable to find the Kubernetes endpoint associated to the request.", err)
+	}
+
+	sslSettings, err := handler.DataStore.SSLSettings().Settings()
+	if err != nil {
+		return nil, httperror.InternalServerError("Unable to retrieve settings from the database", err)
+	}
+
+	hostURL := "localhost"
+	if !sslSettings.SelfSigned {
+		hostURL = r.Host
+	}
+
+	kubeConfigInternal := handler.kubeClusterAccessService.GetClusterDetails(hostURL, endpoint.ID, true)
+	return &libkubectl.ClientAccess{
+		Token:     bearerToken,
+		ServerUrl: kubeConfigInternal.ClusterServerURL,
+	}, nil
 }

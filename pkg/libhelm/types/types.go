@@ -14,6 +14,8 @@ type HelmPackageManager interface {
 	List(listOpts options.ListOptions) ([]release.ReleaseElement, error)
 	Upgrade(upgradeOpts options.InstallOptions) (*release.Release, error)
 	Uninstall(uninstallOpts options.UninstallOptions) error
+	Get(getOpts options.GetOptions) (*release.Release, error)
+	GetHistory(historyOpts options.HistoryOptions) ([]*release.Release, error)
 }
 
 type Repository interface {

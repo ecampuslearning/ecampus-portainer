@@ -1,6 +1,7 @@
 package test
 
 import (
+	"slices"
 	"strings"
 
 	"github.com/portainer/portainer/pkg/libhelm/options"
@@ -91,29 +92,11 @@ func (hpm *helmMockPackageManager) Show(showOpts options.ShowOptions) ([]byte, e
 	return nil, nil
 }
 
-// Get release details - all, hooks, manifest, notes and values
-func (hpm *helmMockPackageManager) Get(getOpts options.GetOptions) ([]byte, error) {
-	switch getOpts.ReleaseResource {
-	case options.GetAll:
-		return []byte(strings.Join([]string{MockReleaseHooks, MockReleaseManifest, MockReleaseNotes, MockReleaseValues}, "---\n")), nil
-	case options.GetHooks:
-		return []byte(MockReleaseHooks), nil
-	case options.GetManifest:
-		return []byte(MockReleaseManifest), nil
-	case options.GetNotes:
-		return []byte(MockReleaseNotes), nil
-	case options.GetValues:
-		return []byte(MockReleaseValues), nil
-	default:
-		return nil, errors.New("invalid release resource")
-	}
-}
-
 // Uninstall a helm chart (not thread safe)
 func (hpm *helmMockPackageManager) Uninstall(uninstallOpts options.UninstallOptions) error {
 	for i, rel := range mockCharts {
 		if rel.Name == uninstallOpts.Name && rel.Namespace == uninstallOpts.Namespace {
-			mockCharts = append(mockCharts[:i], mockCharts[i+1:]...)
+			mockCharts = slices.Delete(mockCharts, i, i+1)
 		}
 	}
 	return nil
@@ -122,6 +105,25 @@ func (hpm *helmMockPackageManager) Uninstall(uninstallOpts options.UninstallOpti
 // List a helm chart (not thread safe)
 func (hpm *helmMockPackageManager) List(listOpts options.ListOptions) ([]release.ReleaseElement, error) {
 	return mockCharts, nil
+}
+
+// Get a helm release (not thread safe)
+func (hpm *helmMockPackageManager) Get(getOpts options.GetOptions) (*release.Release, error) {
+	index := slices.IndexFunc(mockCharts, func(re release.ReleaseElement) bool {
+		return re.Name == getOpts.Name && re.Namespace == getOpts.Namespace
+	})
+	return newMockRelease(&mockCharts[index]), nil
+}
+
+func (hpm *helmMockPackageManager) GetHistory(historyOpts options.HistoryOptions) ([]*release.Release, error) {
+	var result []*release.Release
+	for i, v := range mockCharts {
+		if v.Name == historyOpts.Name && v.Namespace == historyOpts.Namespace {
+			result = append(result, newMockRelease(&mockCharts[i]))
+		}
+	}
+
+	return result, nil
 }
 
 const mockPortainerIndex = `apiVersion: v1

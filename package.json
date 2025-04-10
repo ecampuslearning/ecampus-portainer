@@ -106,6 +106,7 @@
     "json-schema": "^0.4.0",
     "lodash": "^4.17.21",
     "lucide-react": "^0.468.0",
+    "markdown-to-jsx": "^7.7.4",
     "moment": "^2.29.1",
     "moment-timezone": "^0.5.40",
     "mustache": "^4.2.0",

@@ -47,10 +47,14 @@ export function Modal({
         <DialogContent
           aria-label={ariaLabel}
           aria-labelledby={ariaLabelledBy}
-          className={clsx(styles.modalDialog, 'bg-transparent p-0', {
-            'w-[450px]': size === 'md',
-            'w-[700px]': size === 'lg',
-          })}
+          className={clsx(
+            styles.modalDialog,
+            'max-w-[calc(100vw-2rem)] bg-transparent p-0',
+            {
+              'w-[450px]': size === 'md',
+              'w-[700px]': size === 'lg',
+            }
+          )}
         >
           <div className={clsx(styles.modalContent, 'relative', className)}>
             {children}

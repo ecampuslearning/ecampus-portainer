@@ -70,6 +70,7 @@ export interface Props<D extends DefaultType> extends AutomationTestingProps {
   getRowCanExpand?(row: Row<D>): boolean;
   noWidget?: boolean;
   extendTableOptions?: (options: TableOptions<D>) => TableOptions<D>;
+  includeSearch?: boolean;
 }
 
 export function Datatable<D extends DefaultType>({
@@ -98,6 +99,7 @@ export function Datatable<D extends DefaultType>({
   totalCount = dataset.length,
   isServerSidePagination = false,
   extendTableOptions = (value) => value,
+  includeSearch,
 }: Props<D> & PaginationProps) {
   const pageCount = useMemo(
     () => Math.ceil(totalCount / settings.pageSize),
@@ -192,6 +194,7 @@ export function Datatable<D extends DefaultType>({
         renderTableActions={() => renderTableActions(selectedItems)}
         renderTableSettings={() => renderTableSettings(tableInstance)}
         data-cy={`${dataCy}-header`}
+        includeSearch={includeSearch}
       />
 
       <DatatableContent<D>

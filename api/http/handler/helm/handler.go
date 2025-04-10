@@ -54,6 +54,14 @@ func NewHandler(bouncer security.BouncerService, dataStore dataservices.DataStor
 	h.Handle("/{id}/kubernetes/helm",
 		httperror.LoggerHandler(h.helmInstall)).Methods(http.MethodPost)
 
+	// `helm get all [RELEASE_NAME]`
+	h.Handle("/{id}/kubernetes/helm/{release}",
+		httperror.LoggerHandler(h.helmGet)).Methods(http.MethodGet)
+
+	// `helm history [RELEASE_NAME]`
+	h.Handle("/{id}/kubernetes/helm/{release}/history",
+		httperror.LoggerHandler(h.helmGetHistory)).Methods(http.MethodGet)
+
 	return h
 }
 

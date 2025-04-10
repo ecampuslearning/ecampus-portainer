@@ -4,7 +4,11 @@ import (
 	"os"
 
 	"github.com/pkg/errors"
+	"github.com/portainer/portainer/pkg/libhelm/options"
+	"github.com/portainer/portainer/pkg/libhelm/release"
 	"github.com/rs/zerolog/log"
+	"gopkg.in/yaml.v2"
+	"helm.sh/helm/v3/pkg/action"
 )
 
 // GetHelmValuesFromFile reads the values file and parses it into a map[string]any
@@ -39,4 +43,76 @@ func (hspm *HelmSDKPackageManager) GetHelmValuesFromFile(valuesFile string) (map
 	}
 
 	return vals, nil
+}
+
+func (hspm *HelmSDKPackageManager) getValues(getOpts options.GetOptions) (release.Values, error) {
+	log.Debug().
+		Str("context", "HelmClient").
+		Str("namespace", getOpts.Namespace).
+		Str("name", getOpts.Name).
+		Msg("Getting values")
+
+	actionConfig := new(action.Configuration)
+	err := hspm.initActionConfig(actionConfig, getOpts.Namespace, getOpts.KubernetesClusterAccess)
+	if err != nil {
+		log.Error().
+			Str("context", "HelmClient").
+			Str("namespace", getOpts.Namespace).
+			Err(err).Msg("Failed to initialise helm configuration")
+		return release.Values{}, err
+	}
+
+	// Create client for user supplied values
+	userValuesClient := action.NewGetValues(actionConfig)
+	userSuppliedValues, err := userValuesClient.Run(getOpts.Name)
+	if err != nil {
+		log.Error().
+			Str("context", "HelmClient").
+			Str("namespace", getOpts.Namespace).
+			Err(err).Msg("Failed to get user supplied values")
+		return release.Values{}, err
+	}
+
+	// Create separate client for computed values
+	computedValuesClient := action.NewGetValues(actionConfig)
+	computedValuesClient.AllValues = true
+	computedValues, err := computedValuesClient.Run(getOpts.Name)
+	if err != nil {
+		log.Error().
+			Str("context", "HelmClient").
+			Str("namespace", getOpts.Namespace).
+			Err(err).Msg("Failed to get computed values")
+		return release.Values{}, err
+	}
+
+	userSuppliedValuesByte, err := yaml.Marshal(userSuppliedValues)
+	if err != nil {
+		log.Error().
+			Str("context", "HelmClient").
+			Err(err).Msg("Failed to marshal user supplied values")
+		return release.Values{}, err
+	}
+
+	computedValuesByte, err := yaml.Marshal(computedValues)
+	if err != nil {
+		log.Error().
+			Str("context", "HelmClient").
+			Err(err).Msg("Failed to marshal computed values")
+		return release.Values{}, err
+	}
+
+	// Handle the case where the values are an empty object
+	userSuppliedValuesString := string(userSuppliedValuesByte)
+	if userSuppliedValuesString == "{}\n" {
+		userSuppliedValuesString = ""
+	}
+	computedValuesString := string(computedValuesByte)
+	if computedValuesString == "{}\n" {
+		computedValuesString = ""
+	}
+
+	return release.Values{
+		UserSuppliedValues: userSuppliedValuesString,
+		ComputedValues:     computedValuesString,
+	}, nil
 }

@@ -36,7 +36,7 @@ interface Props extends AutomationTestingProps {
   placeholder?: string;
   type?: Type;
   readonly?: boolean;
-  onChange: (value: string) => void;
+  onChange?: (value: string) => void;
   value: string;
   height?: string;
   versions?: number[];
@@ -136,7 +136,7 @@ function schemaValidationExtensions(schema: JSONSchema7) {
 
 export function CodeEditor({
   id,
-  onChange,
+  onChange = () => {},
   placeholder,
   readonly,
   value,
