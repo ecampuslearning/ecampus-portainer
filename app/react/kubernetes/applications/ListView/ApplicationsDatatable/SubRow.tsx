@@ -19,11 +19,11 @@ export function SubRow({
   const {
     user: { Username: username },
   } = useCurrentUser();
-  const colSpan = hideStacks ? 8 : 9;
+  const colSpan = hideStacks ? 7 : 8;
 
   return (
     <tr className={clsx({ 'secondary-body': !item.KubernetesApplications })}>
-      <td />
+      <td colSpan={2} />
       <td colSpan={colSpan} className="datatable-padding-vertical">
         {item.KubernetesApplications ? (
           <InnerTable
