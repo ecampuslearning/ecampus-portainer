@@ -136,6 +136,7 @@ func dockerSnapshotContainers(snapshot *portainer.DockerSnapshot, cli *client.Cl
 	stacks := make(map[string]struct{})
 	gpuUseSet := make(map[string]struct{})
 	gpuUseAll := false
+	containerEnvs := make(map[string][]string)
 
 	for _, container := range containers {
 		for k, v := range container.Labels {
@@ -148,7 +149,7 @@ func dockerSnapshotContainers(snapshot *portainer.DockerSnapshot, cli *client.Cl
 			continue
 		}
 
-		// Snapshot GPUs
+		// Snapshot GPUs and Env
 		response, err := cli.ContainerInspect(context.Background(), container.ID)
 		if err != nil && !snapshot.Swarm {
 			return err
@@ -166,6 +167,8 @@ func dockerSnapshotContainers(snapshot *portainer.DockerSnapshot, cli *client.Cl
 
 			continue
 		}
+
+		containerEnvs[container.ID] = response.Config.Env
 
 		var gpuOptions *_container.DeviceRequest
 
@@ -206,7 +209,7 @@ func dockerSnapshotContainers(snapshot *portainer.DockerSnapshot, cli *client.Cl
 	snapshot.StackCount += len(stacks)
 
 	for _, container := range containers {
-		snapshot.SnapshotRaw.Containers = append(snapshot.SnapshotRaw.Containers, portainer.DockerContainerSnapshot{Container: container})
+		snapshot.SnapshotRaw.Containers = append(snapshot.SnapshotRaw.Containers, portainer.DockerContainerSnapshot{Container: container, Env: containerEnvs[container.ID]})
 	}
 
 	return nil
