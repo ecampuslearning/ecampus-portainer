@@ -145,11 +145,15 @@ func (handler *Handler) handleChangeEdgeGroups(tx dataservices.DataStoreTx, edge
 	relatedEnvironmentsToRemove := oldRelatedEnvironmentsSet.Difference(newRelatedEnvironmentsSet)
 
 	if len(relatedEnvironmentsToRemove) > 0 {
-		tx.EndpointRelation().RemoveEndpointRelationsForEdgeStack(relatedEnvironmentsToRemove.Keys(), edgeStackID)
+		if err := tx.EndpointRelation().RemoveEndpointRelationsForEdgeStack(relatedEnvironmentsToRemove.Keys(), edgeStackID); err != nil {
+			return nil, nil, errors.WithMessage(err, "Unable to remove edge stack relations from the database")
+		}
 	}
 
 	if len(relatedEnvironmentsToAdd) > 0 {
-		tx.EndpointRelation().AddEndpointRelationsForEdgeStack(relatedEnvironmentsToAdd.Keys(), edgeStackID)
+		if err := tx.EndpointRelation().AddEndpointRelationsForEdgeStack(relatedEnvironmentsToAdd.Keys(), edgeStackID); err != nil {
+			return nil, nil, errors.WithMessage(err, "Unable to add edge stack relations to the database")
+		}
 	}
 
 	return newRelatedEnvironmentIDs, relatedEnvironmentsToAdd, nil
