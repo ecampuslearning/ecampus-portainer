@@ -93,6 +93,10 @@ func (service ServiceTx) AddEndpointRelationsForEdgeStack(endpointIDs []portaine
 		}
 	}
 
+	service.service.mu.Lock()
+	service.service.endpointRelationsCache = nil
+	service.service.mu.Unlock()
+
 	if err := service.service.updateStackFnTx(service.tx, edgeStackID, func(edgeStack *portainer.EdgeStack) {
 		edgeStack.NumDeployments += len(endpointIDs)
 	}); err != nil {
@@ -118,6 +122,10 @@ func (service ServiceTx) RemoveEndpointRelationsForEdgeStack(endpointIDs []porta
 			return err
 		}
 	}
+
+	service.service.mu.Lock()
+	service.service.endpointRelationsCache = nil
+	service.service.mu.Unlock()
 
 	if err := service.service.updateStackFnTx(service.tx, edgeStackID, func(edgeStack *portainer.EdgeStack) {
 		edgeStack.NumDeployments -= len(endpointIDs)
