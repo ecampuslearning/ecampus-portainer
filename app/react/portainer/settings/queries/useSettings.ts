@@ -22,6 +22,7 @@ export function useSettings<T = Settings>(
   return useQuery(queryKeys.base(), getSettings, {
     select,
     enabled,
+    staleTime: 50,
     ...withError('Unable to retrieve settings'),
   });
 }

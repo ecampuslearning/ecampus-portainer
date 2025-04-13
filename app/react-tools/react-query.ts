@@ -88,7 +88,6 @@ export function createQueryClient() {
     defaultOptions: {
       queries: {
         networkMode: 'offlineFirst',
-        staleTime: 1000, // 1s stale time by default
       },
     },
     mutationCache: new MutationCache({
