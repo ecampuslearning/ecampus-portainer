@@ -19,7 +19,6 @@ export function useExperimentalSettings<T = ExperimentalFeaturesSettings>(
   return useQuery(queryKeys.experimental(), getExperimentalSettings, {
     select,
     enabled,
-    staleTime: 50,
     ...withError('Unable to retrieve experimental settings'),
   });
 }

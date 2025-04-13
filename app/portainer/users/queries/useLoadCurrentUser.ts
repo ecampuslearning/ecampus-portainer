@@ -12,10 +12,9 @@ interface CurrentUserResponse extends User {
   forceChangePassword: boolean;
 }
 
-export function useLoadCurrentUser({ staleTime }: { staleTime?: number } = {}) {
+export function useLoadCurrentUser() {
   return useQuery(userQueryKeys.me(), () => getCurrentUser(), {
     ...withError('Unable to retrieve user details'),
-    staleTime,
   });
 }
 

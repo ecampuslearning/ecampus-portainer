@@ -20,7 +20,6 @@ export function useTags<T = Tag[]>({
   enabled = true,
 }: { select?: (tags: Tag[]) => T; enabled?: boolean } = {}) {
   return useQuery(tagKeys.all, () => getTags(), {
-    staleTime: 50,
     select,
     enabled,
     ...withError('Failed to retrieve tags'),

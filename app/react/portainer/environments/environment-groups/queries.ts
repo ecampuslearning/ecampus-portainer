@@ -31,7 +31,6 @@ export function useGroup<T = EnvironmentGroup>(
       return getGroup(groupId);
     },
     {
-      staleTime: 50,
       select,
       enabled: groupId !== undefined,
       ...withGlobalError('Failed loading group'),

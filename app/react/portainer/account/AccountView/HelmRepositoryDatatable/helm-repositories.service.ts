@@ -83,7 +83,6 @@ export function useDeleteHelmRepositoriesMutation() {
 
 export function useHelmRepositories(userId: number) {
   return useQuery(['helmrepositories'], () => getHelmRepositories(userId), {
-    staleTime: 20,
     ...withError('Unable to retrieve Helm repositories'),
   });
 }

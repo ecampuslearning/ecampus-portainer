@@ -8,13 +8,9 @@ import { User, UserId } from '../types';
 
 import { userQueryKeys } from './queryKeys';
 
-export function useUser(
-  id: UserId,
-  { staleTime }: { staleTime?: number } = {}
-) {
+export function useUser(id: UserId) {
   return useQuery(userQueryKeys.user(id), () => getUser(id), {
     ...withError('Unable to retrieve user details'),
-    staleTime,
   });
 }
 

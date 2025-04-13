@@ -20,7 +20,7 @@ interface Params {
 export function useTagDetails<T = RepositoryTagViewModel>(
   params: Params,
   {
-    staleTime = 0,
+    staleTime,
     select,
   }: { select?: (model: RepositoryTagViewModel) => T; staleTime?: number } = {}
 ) {
