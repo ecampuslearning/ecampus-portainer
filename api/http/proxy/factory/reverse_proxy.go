@@ -10,7 +10,7 @@ import (
 // newSingleHostReverseProxyWithHostHeader is based on NewSingleHostReverseProxy
 // from golang.org/src/net/http/httputil/reverseproxy.go and merely sets the Host
 // HTTP header, which NewSingleHostReverseProxy deliberately preserves.
-func newSingleHostReverseProxyWithHostHeader(target *url.URL) *httputil.ReverseProxy {
+func NewSingleHostReverseProxyWithHostHeader(target *url.URL) *httputil.ReverseProxy {
 	targetQuery := target.RawQuery
 	director := func(req *http.Request) {
 		req.URL.Scheme = target.Scheme

@@ -52,7 +52,7 @@ func (factory *ProxyFactory) NewAgentProxy(endpoint *portainer.Endpoint) (*Proxy
 		endpointURL.Scheme = "https"
 	}
 
-	proxy := newSingleHostReverseProxyWithHostHeader(endpointURL)
+	proxy := NewSingleHostReverseProxyWithHostHeader(endpointURL)
 
 	proxy.Transport = agent.NewTransport(factory.signatureService, httpTransport)
 
@@ -63,8 +63,7 @@ func (factory *ProxyFactory) NewAgentProxy(endpoint *portainer.Endpoint) (*Proxy
 		Port: 0,
 	}
 
-	err = proxyServer.start()
-	if err != nil {
+	if err := proxyServer.start(); err != nil {
 		return nil, errors.Wrap(err, "failed starting proxy server")
 	}
 
