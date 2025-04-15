@@ -1,4 +1,4 @@
-package main
+package logs
 
 import (
 	"fmt"
@@ -10,7 +10,7 @@ import (
 	"github.com/rs/zerolog/pkgerrors"
 )
 
-func configureLogger() {
+func ConfigureLogger() {
 	zerolog.ErrorStackFieldName = "stack_trace"
 	zerolog.ErrorStackMarshaler = pkgerrors.MarshalStack
 	zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
@@ -21,7 +21,7 @@ func configureLogger() {
 	log.Logger = log.Logger.With().Caller().Stack().Logger()
 }
 
-func setLoggingLevel(level string) {
+func SetLoggingLevel(level string) {
 	switch level {
 	case "ERROR":
 		zerolog.SetGlobalLevel(zerolog.ErrorLevel)
@@ -34,7 +34,7 @@ func setLoggingLevel(level string) {
 	}
 }
 
-func setLoggingMode(mode string) {
+func SetLoggingMode(mode string) {
 	switch mode {
 	case "PRETTY":
 		log.Logger = log.Output(zerolog.ConsoleWriter{

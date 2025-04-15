@@ -39,6 +39,7 @@ import (
 	"github.com/portainer/portainer/api/kubernetes"
 	kubecli "github.com/portainer/portainer/api/kubernetes/cli"
 	"github.com/portainer/portainer/api/ldap"
+	"github.com/portainer/portainer/api/logs"
 	"github.com/portainer/portainer/api/oauth"
 	"github.com/portainer/portainer/api/pendingactions"
 	"github.com/portainer/portainer/api/pendingactions/actions"
@@ -581,13 +582,13 @@ func buildServer(flags *portainer.CLIFlags) portainer.Server {
 }
 
 func main() {
-	configureLogger()
-	setLoggingMode("PRETTY")
+	logs.ConfigureLogger()
+	logs.SetLoggingMode("PRETTY")
 
 	flags := initCLI()
 
-	setLoggingLevel(*flags.LogLevel)
-	setLoggingMode(*flags.LogMode)
+	logs.SetLoggingLevel(*flags.LogLevel)
+	logs.SetLoggingMode(*flags.LogMode)
 
 	for {
 		server := buildServer(flags)
