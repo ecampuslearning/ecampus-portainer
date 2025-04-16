@@ -122,6 +122,9 @@ function schemaValidationExtensions(schema: JSONSchema7) {
           if (Array.isArray(completions)) {
             return null;
           }
+
+          completions.validFor = /^\w*$/;
+
           return completions;
         },
       ],
