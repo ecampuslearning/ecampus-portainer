@@ -12,6 +12,7 @@ linters:
     - copyloopvar
     - intrange
     - perfsprint
+    - ineffassign
 
 linters-settings:
   depguard:
