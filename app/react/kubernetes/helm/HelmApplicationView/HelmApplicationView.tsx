@@ -12,6 +12,7 @@ import { Alert } from '@@/Alert';
 import { HelmSummary } from './HelmSummary';
 import { ReleaseTabs } from './ReleaseDetails/ReleaseTabs';
 import { useHelmRelease } from './queries/useHelmRelease';
+import { ChartActions } from './ChartActions/ChartActions';
 
 export function HelmApplicationView() {
   const environmentId = useEnvironmentId();
@@ -32,8 +33,16 @@ export function HelmApplicationView() {
       <div className="row">
         <div className="col-sm-12">
           <Widget>
-            {name && <WidgetTitle icon={helm} title={name} />}
-            <WidgetBody className="!pt-1">
+            {name && (
+              <WidgetTitle icon={helm} title={name}>
+                <ChartActions
+                  environmentId={environmentId}
+                  releaseName={name}
+                  namespace={namespace}
+                />
+              </WidgetTitle>
+            )}
+            <WidgetBody>
               <HelmDetails
                 name={name}
                 namespace={namespace}
