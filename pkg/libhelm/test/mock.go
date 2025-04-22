@@ -79,6 +79,11 @@ func (hpm *helmMockPackageManager) Upgrade(upgradeOpts options.InstallOptions) (
 	return hpm.Install(upgradeOpts)
 }
 
+// Rollback a helm chart (not thread safe)
+func (hpm *helmMockPackageManager) Rollback(rollbackOpts options.RollbackOptions) (*release.Release, error) {
+	return hpm.Rollback(rollbackOpts)
+}
+
 // Show values/readme/chart etc
 func (hpm *helmMockPackageManager) Show(showOpts options.ShowOptions) ([]byte, error) {
 	switch showOpts.OutputFormat {

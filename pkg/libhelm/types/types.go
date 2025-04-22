@@ -16,6 +16,7 @@ type HelmPackageManager interface {
 	Uninstall(uninstallOpts options.UninstallOptions) error
 	Get(getOpts options.GetOptions) (*release.Release, error)
 	GetHistory(historyOpts options.HistoryOptions) ([]*release.Release, error)
+	Rollback(rollbackOpts options.RollbackOptions) (*release.Release, error)
 }
 
 type Repository interface {

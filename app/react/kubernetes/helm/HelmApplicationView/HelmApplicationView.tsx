@@ -3,11 +3,13 @@ import { useCurrentStateAndParams } from '@uirouter/react';
 import helm from '@/assets/ico/vendor/helm.svg?c';
 import { PageHeader } from '@/react/components/PageHeader';
 import { useEnvironmentId } from '@/react/hooks/useEnvironmentId';
-import { EnvironmentId } from '@/react/portainer/environments/types';
+import { Authorized } from '@/react/hooks/useUser';
 
 import { WidgetTitle, WidgetBody, Widget, Loading } from '@@/Widget';
 import { Card } from '@@/Card';
 import { Alert } from '@@/Alert';
+
+import { HelmRelease } from '../types';
 
 import { HelmSummary } from './HelmSummary';
 import { ReleaseTabs } from './ReleaseDetails/ReleaseTabs';
@@ -18,6 +20,10 @@ export function HelmApplicationView() {
   const environmentId = useEnvironmentId();
   const { params } = useCurrentStateAndParams();
   const { name, namespace } = params;
+
+  const helmReleaseQuery = useHelmRelease(environmentId, name, namespace, {
+    showResources: true,
+  });
 
   return (
     <>
@@ -35,18 +41,21 @@ export function HelmApplicationView() {
           <Widget>
             {name && (
               <WidgetTitle icon={helm} title={name}>
-                <ChartActions
-                  environmentId={environmentId}
-                  releaseName={name}
-                  namespace={namespace}
-                />
+                <Authorized authorizations="K8sApplicationsW">
+                  <ChartActions
+                    environmentId={environmentId}
+                    releaseName={name}
+                    namespace={namespace}
+                    currentRevision={helmReleaseQuery.data?.version}
+                  />
+                </Authorized>
               </WidgetTitle>
             )}
             <WidgetBody>
               <HelmDetails
-                name={name}
-                namespace={namespace}
-                environmentId={environmentId}
+                isLoading={helmReleaseQuery.isInitialLoading}
+                isError={helmReleaseQuery.isError}
+                release={helmReleaseQuery.data}
               />
             </WidgetBody>
           </Widget>
@@ -57,21 +66,13 @@ export function HelmApplicationView() {
 }
 
 type HelmDetailsProps = {
-  name: string;
-  namespace: string;
-  environmentId: EnvironmentId;
+  isLoading: boolean;
+  isError: boolean;
+  release: HelmRelease | undefined;
 };
 
-function HelmDetails({ name, namespace, environmentId }: HelmDetailsProps) {
-  const {
-    data: release,
-    isInitialLoading,
-    isError,
-  } = useHelmRelease(environmentId, name, namespace, {
-    showResources: true,
-  });
-
-  if (isInitialLoading) {
+function HelmDetails({ isLoading, isError, release: data }: HelmDetailsProps) {
+  if (isLoading) {
     return <Loading />;
   }
 
@@ -81,16 +82,16 @@ function HelmDetails({ name, namespace, environmentId }: HelmDetailsProps) {
     );
   }
 
-  if (!release) {
+  if (!data) {
     return <Alert color="error" title="No Helm application details found" />;
   }
 
   return (
     <>
-      <HelmSummary release={release} />
+      <HelmSummary release={data} />
       <div className="my-6 h-[1px] w-full bg-gray-5 th-dark:bg-gray-7 th-highcontrast:bg-white" />
       <Card className="bg-inherit">
-        <ReleaseTabs release={release} />
+        <ReleaseTabs release={data} />
       </Card>
     </>
   );

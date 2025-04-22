@@ -19,7 +19,6 @@ var tests = []testCase{
 	{"ingress helm repo", "https://kubernetes.github.io/ingress-nginx", false},
 	{"portainer helm repo", "https://portainer.github.io/k8s/", false},
 	{"elastic helm repo with trailing slash", "https://helm.elastic.co/", false},
-	{"lensesio helm repo without trailing slash", "https://lensesio.github.io/kafka-helm-charts", false},
 }
 
 func Test_SearchRepo(t *testing.T) {

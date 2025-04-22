@@ -62,6 +62,10 @@ func NewHandler(bouncer security.BouncerService, dataStore dataservices.DataStor
 	h.Handle("/{id}/kubernetes/helm/{release}/history",
 		httperror.LoggerHandler(h.helmGetHistory)).Methods(http.MethodGet)
 
+	// `helm rollback [RELEASE_NAME] [REVISION]`
+	h.Handle("/{id}/kubernetes/helm/{release}/rollback",
+		httperror.LoggerHandler(h.helmRollback)).Methods(http.MethodPost)
+
 	return h
 }
 
