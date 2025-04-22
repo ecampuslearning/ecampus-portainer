@@ -47,13 +47,6 @@ type (
 	}
 )
 
-func NewKubeClientFromClientset(cli *kubernetes.Clientset) *KubeClient {
-	return &KubeClient{
-		cli:        cli,
-		instanceID: "",
-	}
-}
-
 // NewClientFactory returns a new instance of a ClientFactory
 func NewClientFactory(signatureService portainer.DigitalSignatureService, reverseTunnelService portainer.ReverseTunnelService, dataStore dataservices.DataStore, instanceID, addrHTTPS, userSessionTimeout string) (*ClientFactory, error) {
 	if userSessionTimeout == "" {
