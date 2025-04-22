@@ -99,6 +99,10 @@ export interface BasicTableSettings
   extends SortableTableSettings,
     PaginationTableSettings {}
 
+export interface TableSettingsWithRefreshable
+  extends BasicTableSettings,
+    RefreshableTableSettings {}
+
 export function createPersistedStore<T extends BasicTableSettings>(
   storageKey: string,
   initialSortBy?: string | { id: string; desc: boolean },

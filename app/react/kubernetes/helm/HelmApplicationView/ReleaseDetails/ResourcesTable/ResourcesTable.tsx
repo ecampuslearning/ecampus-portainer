@@ -1,23 +1,47 @@
-import { Datatable } from '@@/datatables';
-import { createPersistedStore } from '@@/datatables/types';
+import { useCurrentStateAndParams } from '@uirouter/react';
+
+import { useEnvironmentId } from '@/react/hooks/useEnvironmentId';
+
+import { Datatable, TableSettingsMenu } from '@@/datatables';
+import {
+  createPersistedStore,
+  refreshableSettings,
+  TableSettingsWithRefreshable,
+} from '@@/datatables/types';
 import { useTableState } from '@@/datatables/useTableState';
 import { Widget } from '@@/Widget';
+import { TableSettingsMenuAutoRefresh } from '@@/datatables/TableSettingsMenuAutoRefresh';
 
-import { GenericResource } from '../../../types';
+import { useHelmRelease } from '../../queries/useHelmRelease';
 
 import { columns } from './columns';
 import { useResourceRows } from './useResourceRows';
 
-type Props = {
-  resources: GenericResource[];
-};
-
 const storageKey = 'helm-resources';
-const settingsStore = createPersistedStore(storageKey, 'resourceType');
 
-export function ResourcesTable({ resources }: Props) {
+export function createStore(storageKey: string) {
+  return createPersistedStore<TableSettingsWithRefreshable>(
+    storageKey,
+    'name',
+    (set) => ({
+      ...refreshableSettings(set),
+    })
+  );
+}
+
+const settingsStore = createStore('helm-resources');
+
+export function ResourcesTable() {
+  const environmentId = useEnvironmentId();
+  const { params } = useCurrentStateAndParams();
+  const { name, namespace } = params;
+
   const tableState = useTableState(settingsStore, storageKey);
-  const rows = useResourceRows(resources);
+  const helmReleaseQuery = useHelmRelease(environmentId, name, namespace, {
+    showResources: true,
+    refetchInterval: tableState.autoRefreshRate * 1000,
+  });
+  const rows = useResourceRows(helmReleaseQuery.data?.info?.resources);
 
   return (
     <Widget>
@@ -32,6 +56,14 @@ export function ResourcesTable({ resources }: Props) {
         disableSelect
         getRowId={(row) => row.id}
         data-cy="helm-resources-datatable"
+        renderTableSettings={() => (
+          <TableSettingsMenu>
+            <TableSettingsMenuAutoRefresh
+              value={tableState.autoRefreshRate}
+              onChange={(value) => tableState.setAutoRefreshRate(value)}
+            />
+          </TableSettingsMenu>
+        )}
       />
     </Widget>
   );

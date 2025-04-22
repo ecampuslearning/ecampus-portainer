@@ -25,7 +25,7 @@ function helmTabs(
     {
       label: 'Resources',
       id: 'resources',
-      children: <ResourcesTable resources={release.info?.resources ?? []} />,
+      children: <ResourcesTable />,
     },
     {
       label: 'Values',

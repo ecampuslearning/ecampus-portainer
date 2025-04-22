@@ -8,6 +8,24 @@ import { GenericResource } from '../../../types';
 
 import { ResourcesTable } from './ResourcesTable';
 
+// Mock the necessary hooks
+const mockUseCurrentStateAndParams = vi.fn();
+const mockUseEnvironmentId = vi.fn();
+const mockUseHelmRelease = vi.fn();
+
+vi.mock('@uirouter/react', async (importOriginal: () => Promise<object>) => ({
+  ...(await importOriginal()),
+  useCurrentStateAndParams: () => mockUseCurrentStateAndParams(),
+}));
+
+vi.mock('@/react/hooks/useEnvironmentId', () => ({
+  useEnvironmentId: () => mockUseEnvironmentId(),
+}));
+
+vi.mock('../../queries/useHelmRelease', () => ({
+  useHelmRelease: () => mockUseHelmRelease(),
+}));
+
 const successResources = [
   {
     kind: 'ValidatingWebhookConfiguration',
@@ -108,8 +126,26 @@ const failedResources = [
 ];
 
 function renderResourcesTable(resources: GenericResource[]) {
+  // Setup mock return values
+  mockUseEnvironmentId.mockReturnValue(3);
+  mockUseCurrentStateAndParams.mockReturnValue({
+    params: {
+      name: 'test-release',
+      namespace: 'default',
+    },
+  });
+  mockUseHelmRelease.mockReturnValue({
+    data: {
+      info: {
+        resources,
+      },
+    },
+    isLoading: false,
+    error: null,
+  });
+
   const Wrapped = withTestQueryProvider(withTestRouter(ResourcesTable));
-  return render(<Wrapped resources={resources} />);
+  return render(<Wrapped />);
 }
 
 afterEach(() => {

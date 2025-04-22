@@ -9,10 +9,9 @@ import {
 
 import { Datatable, defaultGlobalFilterFn, Props } from './Datatable';
 import {
-  BasicTableSettings,
   createPersistedStore,
   refreshableSettings,
-  RefreshableTableSettings,
+  TableSettingsWithRefreshable,
 } from './types';
 import { useTableState } from './useTableState';
 
@@ -30,13 +29,14 @@ const mockColumns = [
 ];
 
 // mock table settings / state
-export interface TableSettings
-  extends BasicTableSettings,
-    RefreshableTableSettings {}
 function createStore(storageKey: string) {
-  return createPersistedStore<TableSettings>(storageKey, 'name', (set) => ({
-    ...refreshableSettings(set),
-  }));
+  return createPersistedStore<TableSettingsWithRefreshable>(
+    storageKey,
+    'name',
+    (set) => ({
+      ...refreshableSettings(set),
+    })
+  );
 }
 const storageKey = 'test-table';
 const settingsStore = createStore(storageKey);

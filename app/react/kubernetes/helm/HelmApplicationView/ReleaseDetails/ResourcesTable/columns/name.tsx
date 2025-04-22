@@ -6,11 +6,15 @@ import { ResourceRow } from '../types';
 
 import { columnHelper } from './helper';
 
-export const name = columnHelper.accessor((row) => row.name.label, {
-  header: 'Name',
-  cell: Cell,
-  id: 'name',
-});
+// `${row.name.label}/${row.resourceType}` reduces shuffling when the name is the same but the resourceType is different
+export const name = columnHelper.accessor(
+  (row) => `${row.name.label}/${row.resourceType}`,
+  {
+    header: 'Name',
+    cell: Cell,
+    id: 'name',
+  }
+);
 
 function Cell({ row }: CellContext<ResourceRow, string>) {
   const { name } = row.original;

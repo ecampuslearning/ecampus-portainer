@@ -16,19 +16,22 @@ export function useHelmRelease<T = HelmRelease>(
   options: {
     select?: (data: HelmRelease) => T;
     showResources?: boolean;
+    refetchInterval?: number;
   } = {}
 ) {
+  const { select, showResources, refetchInterval } = options;
   return useQuery(
     [environmentId, 'helm', 'releases', namespace, name, options.showResources],
     () =>
       getHelmRelease(environmentId, name, {
         namespace,
-        showResources: options.showResources,
+        showResources,
       }),
     {
       enabled: !!environmentId && !!name && !!namespace,
       ...withGlobalError('Unable to retrieve helm application details'),
-      select: options.select,
+      select,
+      refetchInterval,
     }
   );
 }

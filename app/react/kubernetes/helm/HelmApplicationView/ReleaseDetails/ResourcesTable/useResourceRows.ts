@@ -27,11 +27,15 @@ const statusToColorMap: Record<string, StatusBadgeType> = {
   Unknown: 'mutedLite',
 };
 
-export function useResourceRows(resources: GenericResource[]): ResourceRow[] {
+export function useResourceRows(resources?: GenericResource[]): ResourceRow[] {
   return useMemo(() => getResourceRows(resources), [resources]);
 }
 
-function getResourceRows(resources: GenericResource[]): ResourceRow[] {
+function getResourceRows(resources?: GenericResource[]): ResourceRow[] {
+  if (!resources) {
+    return [];
+  }
+
   return resources.map(getResourceRow);
 }
 
