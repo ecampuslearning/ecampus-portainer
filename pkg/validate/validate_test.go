@@ -18,6 +18,11 @@ func Test_IsURL(t *testing.T) {
 			expectedResult: true,
 		},
 		{
+			name:           "empty",
+			url:            "",
+			expectedResult: false,
+		},
+		{
 			name:           "no schema",
 			url:            "google.com",
 			expectedResult: true,
@@ -33,9 +38,14 @@ func Test_IsURL(t *testing.T) {
 			expectedResult: true,
 		},
 		{
-			name:           "invalid",
+			name:           "no top level domain",
 			url:            "google",
-			expectedResult: false,
+			expectedResult: true,
+		},
+		{
+			name:           "Unicode URL",
+			url:            "www.xn--exampe-7db.ai",
+			expectedResult: true,
 		},
 	}
 
@@ -144,6 +154,11 @@ func Test_HasWhitespaceOnly(t *testing.T) {
 			name:           "text",
 			s:              "something like this",
 			expectedResult: false,
+		},
+		{
+			name:           "all whitespace",
+			s:              "\t\n\v\f\r ",
+			expectedResult: true,
 		},
 	}
 
