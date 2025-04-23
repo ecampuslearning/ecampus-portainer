@@ -11,8 +11,7 @@ import (
 	httperror "github.com/portainer/portainer/pkg/libhttp/error"
 	"github.com/portainer/portainer/pkg/libhttp/request"
 	"github.com/portainer/portainer/pkg/libhttp/response"
-
-	"github.com/asaskevich/govalidator"
+	"github.com/portainer/portainer/pkg/validate"
 )
 
 type userAccessTokenCreatePayload struct {
@@ -24,10 +23,10 @@ func (payload *userAccessTokenCreatePayload) Validate(r *http.Request) error {
 	if len(payload.Description) == 0 {
 		return errors.New("invalid description: cannot be empty")
 	}
-	if govalidator.HasWhitespaceOnly(payload.Description) {
+	if validate.HasWhitespaceOnly(payload.Description) {
 		return errors.New("invalid description: cannot contain only whitespaces")
 	}
-	if govalidator.MinStringLength(payload.Description, "128") {
+	if validate.MinStringLength(payload.Description, 128) {
 		return errors.New("invalid description: cannot be longer than 128 characters")
 	}
 	return nil

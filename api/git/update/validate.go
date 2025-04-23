@@ -3,9 +3,9 @@ package update
 import (
 	"time"
 
-	"github.com/asaskevich/govalidator"
 	portainer "github.com/portainer/portainer/api"
 	httperrors "github.com/portainer/portainer/api/http/errors"
+	"github.com/portainer/portainer/pkg/validate"
 )
 
 func ValidateAutoUpdateSettings(autoUpdate *portainer.AutoUpdateSettings) error {
@@ -17,7 +17,7 @@ func ValidateAutoUpdateSettings(autoUpdate *portainer.AutoUpdateSettings) error 
 		return httperrors.NewInvalidPayloadError("Webhook or Interval must be provided")
 	}
 
-	if autoUpdate.Webhook != "" && !govalidator.IsUUID(autoUpdate.Webhook) {
+	if autoUpdate.Webhook != "" && !validate.IsUUID(autoUpdate.Webhook) {
 		return httperrors.NewInvalidPayloadError("invalid Webhook format")
 	}
 

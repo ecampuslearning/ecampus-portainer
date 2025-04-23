@@ -9,8 +9,7 @@ import (
 	httperror "github.com/portainer/portainer/pkg/libhttp/error"
 	"github.com/portainer/portainer/pkg/libhttp/request"
 	"github.com/portainer/portainer/pkg/libhttp/response"
-
-	"github.com/asaskevich/govalidator"
+	"github.com/portainer/portainer/pkg/validate"
 )
 
 type fileResponse struct {
@@ -29,7 +28,7 @@ type repositoryFilePreviewPayload struct {
 }
 
 func (payload *repositoryFilePreviewPayload) Validate(r *http.Request) error {
-	if len(payload.Repository) == 0 || !govalidator.IsURL(payload.Repository) {
+	if len(payload.Repository) == 0 || !validate.IsURL(payload.Repository) {
 		return errors.New("invalid repository URL. Must correspond to a valid URL format")
 	}
 
