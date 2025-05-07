@@ -12,3 +12,15 @@ type kubernetesMockDeployer struct {
 func NewKubernetesDeployer() *kubernetesMockDeployer {
 	return &kubernetesMockDeployer{}
 }
+
+func (deployer *kubernetesMockDeployer) Deploy(userID portainer.UserID, endpoint *portainer.Endpoint, manifestFiles []string, namespace string) (string, error) {
+	return "", nil
+}
+
+func (deployer *kubernetesMockDeployer) Remove(userID portainer.UserID, endpoint *portainer.Endpoint, manifestFiles []string, namespace string) (string, error) {
+	return "", nil
+}
+
+func (deployer *kubernetesMockDeployer) Restart(userID portainer.UserID, endpoint *portainer.Endpoint, manifestFiles []string, namespace string) (string, error) {
+	return "", nil
+}
