@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"maps"
+	"os"
 	"path/filepath"
 	"slices"
 	"strconv"
@@ -28,6 +29,8 @@ import (
 )
 
 const PortainerEdgeStackLabel = "io.portainer.edge_stack_id"
+
+const portainerEnvVarsPrefix = "PORTAINER_"
 
 var mu sync.Mutex
 
@@ -322,11 +325,19 @@ func createProject(ctx context.Context, configFilepaths []string, options libsta
 		envFiles = append(envFiles, options.EnvFilePath)
 	}
 
+	var osPortainerEnvVars []string
+	for _, ev := range os.Environ() {
+		if strings.HasPrefix(ev, portainerEnvVarsPrefix) {
+			osPortainerEnvVars = append(osPortainerEnvVars, ev)
+		}
+	}
+
 	projectOptions, err := cli.NewProjectOptions(configFilepaths,
 		cli.WithWorkingDirectory(workingDir),
 		cli.WithName(options.ProjectName),
 		cli.WithoutEnvironmentResolution,
 		cli.WithResolvedPaths(!slices.Contains(options.ConfigOptions, "--no-path-resolution")),
+		cli.WithEnv(osPortainerEnvVars),
 		cli.WithEnv(options.Env),
 		cli.WithEnvFiles(envFiles...),
 		func(o *cli.ProjectOptions) error {

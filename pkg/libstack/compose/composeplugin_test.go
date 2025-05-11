@@ -719,6 +719,7 @@ func Test_createProject(t *testing.T) {
 		filesToCreate   map[string]string
 		configFilepaths []string
 		options         libstack.Options
+		osEnv           map[string]string
 		expectedProject *types.Project
 	}{
 		{
@@ -1049,6 +1050,217 @@ func Test_createProject(t *testing.T) {
 			},
 			expectedProject: expectedSimpleComposeProject("/project-dir", nil),
 		},
+		{
+			name: "OS Env Vars",
+			filesToCreate: map[string]string{
+				"docker-compose.yml": testSimpleComposeConfig,
+			},
+			configFilepaths: []string{dir + "/docker-compose.yml"},
+			options: libstack.Options{
+				ProjectName: projectName,
+			},
+			osEnv: map[string]string{
+				"PORTAINER_WEB_FOLDER": "html-1",
+				"other_var":            "something",
+			},
+			expectedProject: expectedSimpleComposeProject("", map[string]string{"PORTAINER_WEB_FOLDER": "html-1"}),
+		},
+		{
+			name: "Env Vars in compose file, compose env file, env, os, and env_file",
+			filesToCreate: map[string]string{
+				"docker-compose.yml": `services:
+  nginx:
+    container_name: nginx
+    image: nginx:latest
+    env_file: ` + dir + `/compose-stack.env
+    environment:
+        PORTAINER_VAR: compose_file_environment`,
+				"stack.env":         "PORTAINER_VAR=env_file",
+				"compose-stack.env": "PORTAINER_VAR=compose_env_file",
+			},
+			configFilepaths: []string{dir + "/docker-compose.yml"},
+			options: libstack.Options{
+				ProjectName: projectName,
+				Env:         []string{"PORTAINER_VAR=env"},
+				EnvFilePath: dir + "/stack.env",
+			},
+			osEnv: map[string]string{
+				"PORTAINER_VAR": "os",
+			},
+			expectedProject: &types.Project{
+				Name:       projectName,
+				WorkingDir: dir,
+				Services: types.Services{
+					"nginx": {
+						Name:          "nginx",
+						ContainerName: "nginx",
+						Environment:   types.NewMappingWithEquals([]string{"PORTAINER_VAR=compose_file_environment"}),
+						Image:         "nginx:latest",
+						Networks:      map[string]*types.ServiceNetworkConfig{"default": nil},
+					},
+				},
+				Networks: types.Networks{"default": {Name: "create-project-test_default"}},
+				ComposeFiles: []string{
+					dir + "/docker-compose.yml",
+				},
+				Environment:      map[string]string{"COMPOSE_PROJECT_NAME": "create-project-test", "PORTAINER_VAR": "env"},
+				DisabledServices: types.Services{},
+				Profiles:         []string{""},
+			},
+		},
+		{
+			name: "Env Vars in compose env file, env, os, and env_file",
+			filesToCreate: map[string]string{
+				"docker-compose.yml": `services:
+  nginx:
+    container_name: nginx
+    image: nginx:latest
+    env_file: ` + dir + `/compose-stack.env`,
+				"stack.env":         "PORTAINER_VAR=env_file",
+				"compose-stack.env": "PORTAINER_VAR=compose_env_file",
+			},
+			configFilepaths: []string{dir + "/docker-compose.yml"},
+			options: libstack.Options{
+				ProjectName: projectName,
+				Env:         []string{"PORTAINER_VAR=env"},
+				EnvFilePath: dir + "/stack.env",
+			},
+			osEnv: map[string]string{
+				"PORTAINER_VAR": "os",
+			},
+			expectedProject: &types.Project{
+				Name:       projectName,
+				WorkingDir: dir,
+				Services: types.Services{
+					"nginx": {
+						Name:          "nginx",
+						ContainerName: "nginx",
+						Environment:   types.NewMappingWithEquals([]string{"PORTAINER_VAR=compose_env_file"}),
+						Image:         "nginx:latest",
+						Networks:      map[string]*types.ServiceNetworkConfig{"default": nil},
+					},
+				},
+				Networks: types.Networks{"default": {Name: "create-project-test_default"}},
+				ComposeFiles: []string{
+					dir + "/docker-compose.yml",
+				},
+				Environment:      map[string]string{"COMPOSE_PROJECT_NAME": "create-project-test", "PORTAINER_VAR": "env"},
+				DisabledServices: types.Services{},
+				Profiles:         []string{""},
+			},
+		},
+		{
+			name: "Env Vars in env, os, and env_file",
+			filesToCreate: map[string]string{
+				"docker-compose.yml": `services:
+  nginx:
+    container_name: nginx
+    image: nginx:latest`,
+				"stack.env": "PORTAINER_VAR=env_file",
+			},
+			configFilepaths: []string{dir + "/docker-compose.yml"},
+			options: libstack.Options{
+				ProjectName: projectName,
+				Env:         []string{"PORTAINER_VAR=env"},
+				EnvFilePath: dir + "/stack.env",
+			},
+			osEnv: map[string]string{
+				"PORTAINER_VAR": "os",
+			},
+			expectedProject: &types.Project{
+				Name:       projectName,
+				WorkingDir: dir,
+				Services: types.Services{
+					"nginx": {
+						Name:          "nginx",
+						ContainerName: "nginx",
+						Environment:   types.MappingWithEquals{},
+						Image:         "nginx:latest",
+						Networks:      map[string]*types.ServiceNetworkConfig{"default": nil},
+					},
+				},
+				Networks: types.Networks{"default": {Name: "create-project-test_default"}},
+				ComposeFiles: []string{
+					dir + "/docker-compose.yml",
+				},
+				Environment:      map[string]string{"COMPOSE_PROJECT_NAME": "create-project-test", "PORTAINER_VAR": "env"},
+				DisabledServices: types.Services{},
+				Profiles:         []string{""},
+			},
+		},
+		{
+			name: "Env Vars in os and env_file",
+			filesToCreate: map[string]string{
+				"docker-compose.yml": `services:
+  nginx:
+    container_name: nginx
+    image: nginx:latest`,
+				"stack.env": "PORTAINER_VAR=env_file",
+			},
+			configFilepaths: []string{dir + "/docker-compose.yml"},
+			options: libstack.Options{
+				ProjectName: projectName,
+				EnvFilePath: dir + "/stack.env",
+			},
+			osEnv: map[string]string{
+				"PORTAINER_VAR": "os",
+			},
+			expectedProject: &types.Project{
+				Name:       projectName,
+				WorkingDir: dir,
+				Services: types.Services{
+					"nginx": {
+						Name:          "nginx",
+						ContainerName: "nginx",
+						Environment:   types.MappingWithEquals{},
+						Image:         "nginx:latest",
+						Networks:      map[string]*types.ServiceNetworkConfig{"default": nil},
+					},
+				},
+				Networks: types.Networks{"default": {Name: "create-project-test_default"}},
+				ComposeFiles: []string{
+					dir + "/docker-compose.yml",
+				},
+				Environment:      map[string]string{"COMPOSE_PROJECT_NAME": "create-project-test", "PORTAINER_VAR": "os"},
+				DisabledServices: types.Services{},
+				Profiles:         []string{""},
+			},
+		},
+		{
+			name: "Env Vars in env_file",
+			filesToCreate: map[string]string{
+				"docker-compose.yml": `services:
+  nginx:
+    container_name: nginx
+    image: nginx:latest`,
+				"stack.env": "PORTAINER_VAR=env_file",
+			},
+			configFilepaths: []string{dir + "/docker-compose.yml"},
+			options: libstack.Options{
+				ProjectName: projectName,
+				EnvFilePath: dir + "/stack.env",
+			},
+			expectedProject: &types.Project{
+				Name:       projectName,
+				WorkingDir: dir,
+				Services: types.Services{
+					"nginx": {
+						Name:          "nginx",
+						ContainerName: "nginx",
+						Environment:   types.MappingWithEquals{},
+						Image:         "nginx:latest",
+						Networks:      map[string]*types.ServiceNetworkConfig{"default": nil},
+					},
+				},
+				Networks: types.Networks{"default": {Name: "create-project-test_default"}},
+				ComposeFiles: []string{
+					dir + "/docker-compose.yml",
+				},
+				Environment:      map[string]string{"COMPOSE_PROJECT_NAME": "create-project-test", "PORTAINER_VAR": "env_file"},
+				DisabledServices: types.Services{},
+				Profiles:         []string{""},
+			},
+		},
 	}
 
 	for _, tc := range testcases {
@@ -1069,6 +1281,10 @@ func Test_createProject(t *testing.T) {
 					t.Fatalf("Failed to remove config files: %v", err)
 				}
 			}()
+
+			for k, v := range tc.osEnv {
+				t.Setenv(k, v)
+			}
 
 			gotProject, err := createProject(ctx, tc.configFilepaths, tc.options)
 			if err != nil {
