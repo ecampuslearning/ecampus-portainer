@@ -12,7 +12,10 @@ func (c *Client) RolloutRestart(ctx context.Context, manifests []string) (string
 	buf := new(bytes.Buffer)
 
 	cmd := rollout.NewCmdRollout(c.factory, c.streams)
-	cmd.SetArgs(manifestFilesToArgs(manifests))
+	args := []string{"restart"}
+	args = append(args, resourcesToArgs(manifests)...)
+
+	cmd.SetArgs(args)
 	cmd.SetOut(buf)
 
 	if err := cmd.ExecuteContext(ctx); err != nil {

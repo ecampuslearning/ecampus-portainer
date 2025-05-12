@@ -12,7 +12,7 @@ func (c *Client) Delete(ctx context.Context, manifests []string) (string, error)
 	buf := new(bytes.Buffer)
 
 	cmd := delete.NewCmdDelete(c.factory, c.streams)
-	cmd.SetArgs(manifestFilesToArgs(manifests))
+	cmd.SetArgs(resourcesToArgs(manifests))
 	cmd.Flags().Set("ignore-not-found", "true")
 	cmd.SetOut(buf)
 
