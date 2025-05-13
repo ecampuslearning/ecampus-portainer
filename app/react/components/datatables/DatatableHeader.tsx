@@ -8,7 +8,7 @@ import { SearchBar } from './SearchBar';
 import { Table } from './Table';
 
 type Props = {
-  title?: string;
+  title?: React.ReactNode;
   titleIcon?: IconProps['icon'];
   searchValue: string;
   onSearchChange(value: string): void;
@@ -52,7 +52,7 @@ export function DatatableHeader({
   return (
     <Table.Title
       id={titleId}
-      label={title ?? ''}
+      label={title}
       icon={titleIcon}
       description={description}
       data-cy={dataCy}

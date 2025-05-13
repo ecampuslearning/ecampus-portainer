@@ -26,6 +26,7 @@ type installChartPayload struct {
 	Chart     string `json:"chart"`
 	Repo      string `json:"repo"`
 	Values    string `json:"values"`
+	Version   string `json:"version"`
 }
 
 var errChartNameInvalid = errors.New("invalid chart name. " +
@@ -101,6 +102,7 @@ func (handler *Handler) installChart(r *http.Request, p installChartPayload) (*r
 	installOpts := options.InstallOptions{
 		Name:                    p.Name,
 		Chart:                   p.Chart,
+		Version:                 p.Version,
 		Namespace:               p.Namespace,
 		Repo:                    p.Repo,
 		KubernetesClusterAccess: clusterAccess,
@@ -192,7 +194,7 @@ func (handler *Handler) updateHelmAppManifest(r *http.Request, manifest []byte, 
 	g := new(errgroup.Group)
 	for _, resource := range yamlResources {
 		g.Go(func() error {
-			tmpfile, err := os.CreateTemp("", "helm-manifest-*")
+			tmpfile, err := os.CreateTemp("", "helm-manifest-*.yaml")
 			if err != nil {
 				return errors.Wrap(err, "failed to create a tmp helm manifest file")
 			}

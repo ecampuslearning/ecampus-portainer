@@ -60,7 +60,7 @@ func (hspm *HelmSDKPackageManager) install(installOpts options.InstallOptions) (
 		return nil, errors.Wrap(err, "failed to get Helm values from file for helm release installation")
 	}
 
-	chart, err := hspm.loadAndValidateChartWithPathOptions(&installClient.ChartPathOptions, installOpts.Chart, installOpts.Repo, installClient.DependencyUpdate, "release installation")
+	chart, err := hspm.loadAndValidateChartWithPathOptions(&installClient.ChartPathOptions, installOpts.Chart, installOpts.Version, installOpts.Repo, installClient.DependencyUpdate, "release installation")
 	if err != nil {
 		log.Error().
 			Str("context", "HelmClient").
@@ -109,7 +109,6 @@ func (hspm *HelmSDKPackageManager) install(installOpts options.InstallOptions) (
 // and return the install client.
 func initInstallClient(actionConfig *action.Configuration, installOpts options.InstallOptions) (*action.Install, error) {
 	installClient := action.NewInstall(actionConfig)
-	installClient.CreateNamespace = true
 	installClient.DependencyUpdate = true
 	installClient.ReleaseName = installOpts.Name
 	installClient.ChartPathOptions.RepoURL = installOpts.Repo

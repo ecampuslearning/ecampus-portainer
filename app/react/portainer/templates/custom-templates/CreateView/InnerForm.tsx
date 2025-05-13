@@ -101,7 +101,7 @@ export function InnerForm({
           value={values.FileContent}
           onChange={handleChangeFileContent}
           type="yaml"
-          placeholder={texts.editor.placeholder}
+          textTip={texts.editor.placeholder}
           error={errors.FileContent}
         >
           {texts.editor.description}

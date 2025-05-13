@@ -39,7 +39,7 @@ export function Modal({
         isOpen
         className={clsx(
           styles.overlay,
-          'z-50 flex items-center justify-center'
+          'flex items-center justify-center z-50'
         )}
         onDismiss={onDismiss}
         role="dialog"
@@ -56,7 +56,13 @@ export function Modal({
             }
           )}
         >
-          <div className={clsx(styles.modalContent, 'relative', className)}>
+          <div
+            className={clsx(
+              styles.modalContent,
+              'relative overflow-y-auto p-5 rounded-lg',
+              className
+            )}
+          >
             {children}
             {onDismiss && <CloseButton onClose={onDismiss} />}
           </div>

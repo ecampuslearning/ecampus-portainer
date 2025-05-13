@@ -6,6 +6,15 @@ import axios, { parseAxiosError } from '@/portainer/services/axios';
 
 import { HelmRelease } from '../../types';
 
+type Options<T> = {
+  select?: (data: HelmRelease) => T;
+  showResources?: boolean;
+  refetchInterval?: number;
+  enabled?: boolean;
+  staleTime?: number;
+  /** when the revision is undefined, the latest revision is fetched */
+  revision?: number;
+};
 /**
  * React hook to fetch a specific Helm release
  */
@@ -13,28 +22,44 @@ export function useHelmRelease<T = HelmRelease>(
   environmentId: EnvironmentId,
   name: string,
   namespace: string,
-  options: {
-    select?: (data: HelmRelease) => T;
-    showResources?: boolean;
-    refetchInterval?: number;
-  } = {}
+  options: Options<T> = {}
 ) {
-  const { select, showResources, refetchInterval } = options;
+  const { select, showResources, refetchInterval, revision, staleTime } =
+    options;
   return useQuery(
-    [environmentId, 'helm', 'releases', namespace, name, options.showResources],
+    [
+      environmentId,
+      'helm',
+      'releases',
+      namespace,
+      name,
+      revision,
+      showResources,
+    ],
     () =>
       getHelmRelease(environmentId, name, {
         namespace,
         showResources,
+        revision,
       }),
     {
-      enabled: !!environmentId && !!name && !!namespace,
+      enabled: !!environmentId && !!name && !!namespace && options.enabled,
       ...withGlobalError('Unable to retrieve helm application details'),
+      retry: 3,
+      // occasionally the application shows before the release is created, take some more time to refetch
+      retryDelay: 2000,
       select,
       refetchInterval,
+      staleTime,
     }
   );
 }
+
+type Params = {
+  namespace: string;
+  showResources?: boolean;
+  revision?: number;
+};
 
 /**
  * Get a specific Helm release
@@ -42,10 +67,7 @@ export function useHelmRelease<T = HelmRelease>(
 async function getHelmRelease(
   environmentId: EnvironmentId,
   name: string,
-  params: {
-    namespace: string;
-    showResources?: boolean;
-  }
+  params: Params
 ) {
   try {
     const { data } = await axios.get<HelmRelease>(

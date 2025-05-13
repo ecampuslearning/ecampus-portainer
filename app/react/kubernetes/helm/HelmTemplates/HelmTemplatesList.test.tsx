@@ -50,7 +50,7 @@ function renderComponent({
     withUserProvider(
       withTestRouter(() => (
         <HelmTemplatesList
-          loading={loading}
+          isLoading={loading}
           charts={charts}
           selectAction={selectAction}
         />
@@ -137,10 +137,10 @@ describe('HelmTemplatesList', () => {
   });
 
   it('should show loading message when loading prop is true', async () => {
-    renderComponent({ loading: true });
+    renderComponent({ loading: true, charts: [] });
 
     // Check for loading message
-    expect(screen.getByText('Loading...')).toBeInTheDocument();
+    expect(screen.getByText('Loading helm charts...')).toBeInTheDocument();
     expect(
       screen.getByText('Initial download of Helm charts can take a few minutes')
     ).toBeInTheDocument();

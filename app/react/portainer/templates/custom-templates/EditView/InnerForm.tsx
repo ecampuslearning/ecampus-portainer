@@ -93,7 +93,7 @@ export function InnerForm({
         value={gitFileContent || values.FileContent}
         onChange={handleChangeFileContent}
         type="yaml"
-        placeholder={
+        textTip={
           gitFileContent
             ? 'Preview of the file from git repository'
             : texts.editor.placeholder

@@ -14,5 +14,9 @@ export const status = columnHelper.accessor((row) => row.status.label, {
 
 function Cell({ row }: CellContext<ResourceRow, string>) {
   const { status } = row.original;
+  if (!status.label) {
+    return '-';
+  }
+
   return <StatusBadge color={status.type}>{status.label}</StatusBadge>;
 }

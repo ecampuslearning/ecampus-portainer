@@ -1,31 +1,53 @@
 import { EnvironmentId } from '@/react/portainer/environments/types';
 
+import { HelmRelease } from '../../types';
+
 import { RollbackButton } from './RollbackButton';
 import { UninstallButton } from './UninstallButton';
+import { UpgradeButton } from './UpgradeButton';
+
+type Props = {
+  environmentId: EnvironmentId;
+  releaseName: string;
+  namespace: string;
+  latestRevision?: number;
+  earlistRevision?: number;
+  selectedRevision?: number;
+  release?: HelmRelease;
+  updateRelease: (release: HelmRelease) => void;
+};
 
 export function ChartActions({
   environmentId,
   releaseName,
   namespace,
-  currentRevision,
-}: {
-  environmentId: EnvironmentId;
-  releaseName: string;
-  namespace?: string;
-  currentRevision?: number;
-}) {
-  const hasPreviousRevision = currentRevision && currentRevision >= 2;
+  latestRevision,
+  earlistRevision,
+  selectedRevision,
+  release,
+  updateRelease,
+}: Props) {
+  const showRollbackButton =
+    latestRevision && earlistRevision && latestRevision > earlistRevision;
 
   return (
-    <div className="inline-flex gap-x-2">
+    <div className="inline-flex gap-2 flex-wrap">
+      <UpgradeButton
+        environmentId={environmentId}
+        releaseName={releaseName}
+        namespace={namespace}
+        release={release}
+        updateRelease={updateRelease}
+      />
       <UninstallButton
         environmentId={environmentId}
         releaseName={releaseName}
         namespace={namespace}
       />
-      {hasPreviousRevision && (
+      {showRollbackButton && (
         <RollbackButton
-          latestRevision={currentRevision}
+          latestRevision={latestRevision}
+          selectedRevision={selectedRevision}
           environmentId={environmentId}
           releaseName={releaseName}
           namespace={namespace}

@@ -47,15 +47,31 @@
 
 .root :global(.cm-editor .cm-gutters) {
   border-right: 0px;
+  @apply bg-gray-2 th-dark:bg-gray-10 th-highcontrast:bg-black;
+}
+
+.root :global(.cm-merge-b) {
+  @apply border-0 border-l border-solid border-l-gray-5 th-dark:border-l-gray-7 th-highcontrast:border-l-gray-2;
 }
 
 .root :global(.cm-editor .cm-gutters .cm-lineNumbers .cm-gutterElement) {
   text-align: left;
 }
 
-.root :global(.cm-editor),
-.root :global(.cm-editor .cm-scroller) {
+.codeEditor :global(.cm-editor),
+.codeEditor :global(.cm-editor .cm-scroller) {
   border-radius: 8px;
+}
+
+/* code mirror merge side-by-side editor */
+.root :global(.cm-merge-a),
+.root :global(.cm-merge-a .cm-scroller) {
+  @apply !rounded-r-none;
+}
+
+.root :global(.cm-merge-b),
+.root :global(.cm-merge-b .cm-scroller) {
+  @apply !rounded-l-none;
 }
 
 /*  Search Panel  */
@@ -161,4 +177,30 @@
 /* Active line gutter styles for all themes */
 .root :global(.cm-activeLineGutter) {
   @apply bg-inherit;
+}
+
+/* Collapsed lines gutter styles for all themes */
+.root :global(.cm-editor .cm-collapsedLines) {
+  /* inherit bg, instead of using styles from library */
+  background: inherit;
+  @apply bg-blue-2 th-dark:bg-blue-10 th-highcontrast:bg-white th-dark:text-white th-highcontrast:text-black;
+}
+.root :global(.cm-editor .cm-collapsedLines):hover {
+  @apply bg-blue-3 th-dark:bg-blue-9 th-highcontrast:bg-white th-dark:text-white th-highcontrast:text-black;
+}
+
+.root :global(.cm-editor .cm-collapsedLines:before) {
+  content: '↧ Expand all';
+  background: var(--bg-tooltip-color);
+  color: var(--text-tooltip-color);
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  white-space: nowrap;
+  z-index: 1000;
+  margin-left: 4px;
+}
+/* override the default content */
+.root :global(.cm-editor .cm-collapsedLines:after) {
+  content: '';
 }

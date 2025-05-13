@@ -84,7 +84,7 @@ func (hspm *HelmSDKPackageManager) Upgrade(upgradeOpts options.InstallOptions) (
 		return nil, errors.Wrap(err, "failed to get Helm values from file for helm release upgrade")
 	}
 
-	chart, err := hspm.loadAndValidateChartWithPathOptions(&upgradeClient.ChartPathOptions, upgradeOpts.Chart, upgradeOpts.Repo, upgradeClient.DependencyUpdate, "release upgrade")
+	chart, err := hspm.loadAndValidateChartWithPathOptions(&upgradeClient.ChartPathOptions, upgradeOpts.Chart, upgradeOpts.Version, upgradeOpts.Repo, upgradeClient.DependencyUpdate, "release upgrade")
 	if err != nil {
 		log.Error().
 			Str("context", "HelmClient").

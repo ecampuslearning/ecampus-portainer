@@ -1,9 +1,21 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { Extension } from '@codemirror/state';
 
 import { CodeEditor } from './CodeEditor';
 
-vi.mock('yaml-schema', () => ({}));
+const mockExtension: Extension = { extension: [] };
+vi.mock('yaml-schema', () => ({
+  // yamlSchema has 5 return values (all extensions)
+  yamlSchema: () => [
+    mockExtension,
+    mockExtension,
+    mockExtension,
+    mockExtension,
+    mockExtension,
+  ],
+  yamlCompletion: () => () => ({}),
+}));
 
 const defaultProps = {
   id: 'test-editor',
@@ -24,7 +36,7 @@ test('should render with basic props', () => {
 test('should display placeholder when provided', async () => {
   const placeholder = 'Enter your code here';
   const { findByText } = render(
-    <CodeEditor {...defaultProps} placeholder={placeholder} />
+    <CodeEditor {...defaultProps} textTip={placeholder} />
   );
 
   const placeholderText = await findByText(placeholder);
@@ -44,7 +56,7 @@ test('should show copy button and copy content', async () => {
     clipboard: mockClipboard,
   });
 
-  const copyButton = await findByText('Copy to clipboard');
+  const copyButton = await findByText('Copy');
   expect(copyButton).toBeVisible();
 
   await userEvent.click(copyButton);
@@ -112,4 +124,15 @@ test('should apply custom height', async () => {
 
   const editor = (await findByRole('textbox')).parentElement?.parentElement;
   expect(editor).toHaveStyle({ height: customHeight });
+});
+
+test('should render with file name header when provided', async () => {
+  const fileName = 'example.yaml';
+  const testValue = 'file content';
+  const { findByText } = render(
+    <CodeEditor {...defaultProps} fileName={fileName} value={testValue} />
+  );
+
+  expect(await findByText(fileName)).toBeInTheDocument();
+  expect(await findByText(testValue)).toBeInTheDocument();
 });

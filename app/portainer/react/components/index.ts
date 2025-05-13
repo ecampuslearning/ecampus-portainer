@@ -223,7 +223,7 @@ export const ngModule = angular
     'reactCodeEditor',
     r2a(CodeEditor, [
       'id',
-      'placeholder',
+      'textTip',
       'type',
       'readonly',
       'onChange',
@@ -233,6 +233,8 @@ export const ngModule = angular
       'versions',
       'onVersionChange',
       'schema',
+      'fileName',
+      'placeholder',
     ])
   )
   .component(

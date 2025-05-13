@@ -268,7 +268,7 @@
   --bg-body-color: var(--grey-2);
   --bg-btn-default-color: var(--grey-3);
   --bg-blocklist-hover-color: var(--ui-gray-iron-10);
-  --bg-blocklist-item-selected-color: var(--grey-3);
+  --bg-blocklist-item-selected-color: var(--ui-gray-iron-10);
   --bg-card-color: var(--grey-1);
   --bg-checkbox-border-color: var(--grey-8);
   --bg-code-color: var(--grey-2);
@@ -388,7 +388,7 @@
   --border-navtabs-color: var(--grey-38);
   --border-pre-color: var(--grey-3);
   --border-blocklist: var(--ui-gray-9);
-  --border-blocklist-item-selected-color: var(--grey-38);
+  --border-blocklist-item-selected-color: var(--grey-31);
   --border-pagination-span-color: var(--grey-1);
   --border-pagination-hover-color: var(--grey-3);
   --border-panel-color: var(--grey-2);

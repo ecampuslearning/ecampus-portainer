@@ -5,13 +5,14 @@ import { Link } from '@/react/components/Link';
 
 import { InsightsBox } from '@@/InsightsBox';
 import { SearchBar } from '@@/datatables/SearchBar';
+import { InlineLoader } from '@@/InlineLoader';
 
 import { Chart } from '../types';
 
 import { HelmTemplatesListItem } from './HelmTemplatesListItem';
 
 interface Props {
-  loading: boolean;
+  isLoading: boolean;
   charts?: Chart[];
   selectAction: (chart: Chart) => void;
 }
@@ -70,7 +71,7 @@ function getFilteredCharts(
 }
 
 export function HelmTemplatesList({
-  loading,
+  isLoading,
   charts = [],
   selectAction,
 }: Props) {
@@ -159,16 +160,20 @@ export function HelmTemplatesList({
           <div className="text-muted small mt-4">No Helm charts found</div>
         )}
 
-        {loading && (
-          <div className="text-muted text-center">
-            Loading...
-            <div className="text-muted text-center">
-              Initial download of Helm charts can take a few minutes
-            </div>
+        {isLoading && (
+          <div className="flex flex-col">
+            <InlineLoader className="justify-center">
+              Loading helm charts...
+            </InlineLoader>
+            {charts.length === 0 && (
+              <div className="text-muted text-center">
+                Initial download of Helm charts can take a few minutes
+              </div>
+            )}
           </div>
         )}
 
-        {!loading && charts.length === 0 && (
+        {!isLoading && charts.length === 0 && (
           <div className="text-muted text-center">
             No helm charts available.
           </div>

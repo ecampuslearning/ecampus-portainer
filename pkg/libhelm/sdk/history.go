@@ -1,6 +1,8 @@
 package sdk
 
 import (
+	"sort"
+
 	"github.com/portainer/portainer/pkg/libhelm/options"
 	"github.com/portainer/portainer/pkg/libhelm/release"
 	"github.com/portainer/portainer/pkg/libhelm/time"
@@ -43,6 +45,11 @@ func (hspm *HelmSDKPackageManager) GetHistory(historyOptions options.HistoryOpti
 	for _, r := range history {
 		result = append(result, convertHistory(r))
 	}
+
+	// sort the result by version (latest first)
+	sort.Slice(result, func(i, j int) bool {
+		return result[i].Version > result[j].Version
+	})
 
 	return result, nil
 }

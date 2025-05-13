@@ -1,4 +1,4 @@
-import { EventList } from 'kubernetes-types/core/v1';
+import { EventList, Event } from 'kubernetes-types/core/v1';
 import { useQuery } from '@tanstack/react-query';
 
 import { EnvironmentId } from '@/react/portainer/environments/types';
@@ -41,7 +41,7 @@ const queryKeys = {
 async function getEvents(
   environmentId: EnvironmentId,
   options?: RequestOptions
-) {
+): Promise<Event[]> {
   const { namespace, params } = options ?? {};
   try {
     const { data } = await axios.get<EventList>(
@@ -56,15 +56,16 @@ async function getEvents(
   }
 }
 
-type QueryOptions = {
+type QueryOptions<T> = {
   queryOptions?: {
     autoRefreshRate?: number;
+    select?: (data: Event[]) => T;
   };
 } & RequestOptions;
 
-export function useEvents(
+export function useEvents<T = Event[]>(
   environmentId: EnvironmentId,
-  options?: QueryOptions
+  options?: QueryOptions<T>
 ) {
   const { queryOptions, params, namespace } = options ?? {};
   return useQuery(
@@ -75,6 +76,7 @@ export function useEvents(
       refetchInterval() {
         return queryOptions?.autoRefreshRate ?? false;
       },
+      select: queryOptions?.select,
     }
   );
 }
@@ -83,11 +85,13 @@ export function useEventWarningsCount(
   environmentId: EnvironmentId,
   namespace?: string
 ) {
-  const resourceEventsQuery = useEvents(environmentId, {
+  const resourceEventsQuery = useEvents<number>(environmentId, {
     namespace,
+    queryOptions: {
+      select: (data) => data.filter((e) => e.type === 'Warning').length,
+    },
   });
-  const events = resourceEventsQuery.data || [];
-  return events.filter((e) => e.type === 'Warning').length;
+  return resourceEventsQuery.data || 0;
 }
 
 function buildUrl(environmentId: EnvironmentId, namespace?: string) {

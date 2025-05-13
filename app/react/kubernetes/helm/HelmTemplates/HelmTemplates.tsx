@@ -3,8 +3,11 @@ import { useState } from 'react';
 import { useCurrentUser } from '@/react/hooks/useUser';
 
 import { Chart } from '../types';
+import {
+  useHelmChartList,
+  useHelmRepositories,
+} from '../queries/useHelmChartList';
 
-import { useHelmChartList } from './queries/useHelmChartList';
 import { HelmTemplatesList } from './HelmTemplatesList';
 import { HelmTemplatesSelectedItem } from './HelmTemplatesSelectedItem';
 
@@ -18,10 +21,8 @@ export function HelmTemplates({ onSelectHelmChart, namespace, name }: Props) {
   const [selectedChart, setSelectedChart] = useState<Chart | null>(null);
 
   const { user } = useCurrentUser();
-  const { data: charts = [], isLoading: chartsLoading } = useHelmChartList(
-    user.Id
-  );
-
+  const helmReposQuery = useHelmRepositories(user.Id);
+  const chartListQuery = useHelmChartList(user.Id, helmReposQuery.data ?? []);
   function clearHelmChart() {
     setSelectedChart(null);
     onSelectHelmChart('');
@@ -44,9 +45,9 @@ export function HelmTemplates({ onSelectHelmChart, namespace, name }: Props) {
           />
         ) : (
           <HelmTemplatesList
-            charts={charts}
+            charts={chartListQuery.data}
             selectAction={handleChartSelection}
-            loading={chartsLoading}
+            isLoading={chartListQuery.isInitialLoading}
           />
         )}
       </div>

@@ -9,7 +9,8 @@ export type BadgeType =
   | 'successSecondary'
   | 'dangerSecondary'
   | 'warnSecondary'
-  | 'infoSecondary';
+  | 'infoSecondary'
+  | 'muted';
 
 // the classes are typed in full because tailwind doesn't render the interpolated classes
 const typeClasses: Record<BadgeType, string> = {
@@ -53,6 +54,11 @@ const typeClasses: Record<BadgeType, string> = {
     'text-blue-9 bg-blue-3',
     'th-dark:text-blue-3 th-dark:bg-blue-9',
     'th-highcontrast:text-blue-3 th-highcontrast:bg-blue-9'
+  ),
+  muted: clsx(
+    'text-gray-9 bg-gray-3',
+    'th-dark:text-gray-3 th-dark:bg-gray-9',
+    'th-highcontrast:text-gray-3 th-highcontrast:bg-gray-9'
   ),
 };
 

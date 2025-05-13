@@ -11,6 +11,7 @@ import {
 import { useTableState } from '@@/datatables/useTableState';
 import { Widget } from '@@/Widget';
 import { TableSettingsMenuAutoRefresh } from '@@/datatables/TableSettingsMenuAutoRefresh';
+import { TextTip } from '@@/Tip/TextTip';
 
 import { useHelmRelease } from '../../queries/useHelmRelease';
 
@@ -34,12 +35,14 @@ const settingsStore = createStore('helm-resources');
 export function ResourcesTable() {
   const environmentId = useEnvironmentId();
   const { params } = useCurrentStateAndParams();
-  const { name, namespace } = params;
+  const { name, namespace, revision } = params;
+  const revisionNumber = revision ? parseInt(revision, 10) : undefined;
 
   const tableState = useTableState(settingsStore, storageKey);
   const helmReleaseQuery = useHelmRelease(environmentId, name, namespace, {
     showResources: true,
     refetchInterval: tableState.autoRefreshRate * 1000,
+    revision: revisionNumber,
   });
   const rows = useResourceRows(helmReleaseQuery.data?.info?.resources);
 
@@ -48,11 +51,17 @@ export function ResourcesTable() {
       <Datatable
         // no widget to avoid extra padding from app/react/components/datatables/TableContainer.tsx
         noWidget
+        isLoading={helmReleaseQuery.isLoading}
         dataset={rows}
         columns={columns}
         includeSearch
         settingsManager={tableState}
         emptyContentLabel="No resources found"
+        title={
+          <TextTip inline color="blue" className="!text-xs">
+            Resources reflect the latest revision only.
+          </TextTip>
+        }
         disableSelect
         getRowId={(row) => row.id}
         data-cy="helm-resources-datatable"

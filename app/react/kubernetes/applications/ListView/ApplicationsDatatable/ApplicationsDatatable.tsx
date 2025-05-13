@@ -96,6 +96,7 @@ export function ApplicationsDatatable({
           item={row.original}
           hideStacks={hideStacks}
           areSecretsRestricted={!!restrictSecretsQuery.data}
+          selectDisabled={!hasWriteAuth}
         />
       )}
       renderTableActions={(selectedItems) =>

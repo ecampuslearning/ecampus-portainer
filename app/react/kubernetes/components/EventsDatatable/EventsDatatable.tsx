@@ -1,5 +1,6 @@
 import { Event } from 'kubernetes-types/core/v1';
 import { History } from 'lucide-react';
+import { ReactNode } from 'react';
 
 import { IndexOptional } from '@/react/kubernetes/configs/types';
 import { TableSettings } from '@/react/kubernetes/datatables/DefaultDatatableSettings';
@@ -16,6 +17,8 @@ type Props = {
   isLoading: boolean;
   'data-cy': string;
   noWidget?: boolean;
+  title?: ReactNode;
+  titleIcon?: ReactNode;
 };
 
 export function EventsDatatable({
@@ -24,6 +27,8 @@ export function EventsDatatable({
   isLoading,
   'data-cy': dataCy,
   noWidget,
+  title = 'Events',
+  titleIcon = History,
 }: Props) {
   return (
     <Datatable<IndexOptional<Event>>
@@ -31,8 +36,8 @@ export function EventsDatatable({
       columns={columns}
       settingsManager={tableState}
       isLoading={isLoading}
-      title="Events"
-      titleIcon={History}
+      title={title}
+      titleIcon={titleIcon}
       getRowId={(row) => row.metadata?.uid || ''}
       disableSelect
       renderTableSettings={() => (

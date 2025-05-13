@@ -29,7 +29,7 @@ export function YAMLInspector({
       <WebEditorForm
         data-cy={dataCy}
         value={yaml}
-        placeholder={
+        textTip={
           hideMessage
             ? undefined
             : 'Define or paste the content of your manifest here'

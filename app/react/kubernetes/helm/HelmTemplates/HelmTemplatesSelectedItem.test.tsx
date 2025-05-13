@@ -106,10 +106,7 @@ describe('HelmTemplatesSelectedItem', () => {
     renderComponent();
     const user = userEvent.setup();
 
-    // First show the editor
-    await user.click(await screen.findByText('Custom values'));
-
-    // Verify editor is visible
+    // Verify editor is visible by default
     expect(screen.getByTestId('helm-app-creation-editor')).toBeInTheDocument();
 
     // Now hide the editor

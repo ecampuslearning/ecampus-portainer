@@ -16,6 +16,7 @@ export interface GenericResource {
   metadata: {
     name: string;
     namespace?: string;
+    uid?: string;
   };
   status: ResourceStatus;
 }
@@ -29,6 +30,7 @@ export interface HelmRelease {
     notes?: string;
     description?: string;
     resources?: GenericResource[];
+    last_deployed: string;
   };
   /** The chart that was released */
   chart: HelmChart;
@@ -104,10 +106,10 @@ export interface HelmChartsResponse {
   generated: string;
 }
 
-export type InstallChartPayload = {
+export interface InstallChartPayload {
   Name: string;
   Repo: string;
   Chart: string;
   Values: string;
   Namespace: string;
-};
+}

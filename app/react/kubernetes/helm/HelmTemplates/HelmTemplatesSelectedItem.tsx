@@ -143,7 +143,12 @@ export function HelmTemplatesSelectedItem({
         {({ values, setFieldValue }) => (
           <Form className="form-horizontal">
             <div className="form-group !m-0">
-              <FormSection title="Custom values" isFoldable className="mt-4">
+              <FormSection
+                title="Custom values"
+                isFoldable
+                defaultFolded={false}
+                className="mt-4"
+              >
                 {loadingValues && (
                   <div className="col-sm-12 p-0">
                     <InlineLoader>Loading values.yaml...</InlineLoader>
@@ -156,7 +161,7 @@ export function HelmTemplatesSelectedItem({
                     onChange={(value) => setFieldValue('values', value)}
                     type="yaml"
                     data-cy="helm-app-creation-editor"
-                    placeholder="Define or paste the content of your values yaml file here"
+                    textTip="Define or paste the content of your values yaml file here"
                   >
                     You can get more information about Helm values file format
                     in the{' '}

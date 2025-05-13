@@ -15,9 +15,10 @@ import (
 // loadAndValidateChartWithPathOptions locates and loads the chart, and validates it.
 // it also checks for chart dependencies and updates them if necessary.
 // it returns the chart information.
-func (hspm *HelmSDKPackageManager) loadAndValidateChartWithPathOptions(chartPathOptions *action.ChartPathOptions, chartName, repoURL string, dependencyUpdate bool, operation string) (*chart.Chart, error) {
+func (hspm *HelmSDKPackageManager) loadAndValidateChartWithPathOptions(chartPathOptions *action.ChartPathOptions, chartName, version string, repoURL string, dependencyUpdate bool, operation string) (*chart.Chart, error) {
 	// Locate and load the chart
 	chartPathOptions.RepoURL = repoURL
+	chartPathOptions.Version = version
 	chartPath, err := chartPathOptions.LocateChart(chartName, hspm.settings)
 	if err != nil {
 		log.Error().

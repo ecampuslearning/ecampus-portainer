@@ -1,44 +1,74 @@
-import { Checkbox } from '@@/form-components/Checkbox';
+import { ReactNode } from 'react';
+
 import { CodeEditor } from '@@/CodeEditor';
 
 import { Values } from '../../types';
 
+import { DiffViewMode } from './DiffControl';
+import { DiffViewSection } from './DiffViewSection';
+import { SelectedRevisionNumber, CompareRevisionNumberFetched } from './types';
+
 interface Props {
   values?: Values;
   isUserSupplied: boolean;
-  setIsUserSupplied: (isUserSupplied: boolean) => void;
+  selectedRevisionNumber: SelectedRevisionNumber;
+  diffViewMode: DiffViewMode;
+  compareValues?: Values;
+  compareRevisionNumberFetched?: CompareRevisionNumberFetched;
+  isCompareReleaseLoading: boolean;
+  isCompareReleaseError: boolean;
+  diffControl: ReactNode;
 }
-
-const noValuesMessage = 'No values found';
 
 export function ValuesDetails({
   values,
   isUserSupplied,
-  setIsUserSupplied,
+  selectedRevisionNumber,
+  diffViewMode,
+  compareValues,
+  compareRevisionNumberFetched,
+  isCompareReleaseLoading,
+  isCompareReleaseError,
+  diffControl,
 }: Props) {
   return (
-    <div className="relative">
-      {/* bring in line with the code editor copy button */}
-      <div className="absolute top-1 left-0">
-        <Checkbox
-          label="User defined only"
-          id="values-details-user-supplied"
-          checked={isUserSupplied}
-          onChange={() => setIsUserSupplied(!isUserSupplied)}
-          data-cy="values-details-user-supplied"
+    <>
+      {diffControl}
+      {diffViewMode === 'view' ? (
+        <CodeEditor
+          type="yaml"
+          id="values-details-code-editor"
+          data-cy="values-details-code-editor"
+          value={
+            isUserSupplied
+              ? values?.userSuppliedValues ?? ''
+              : values?.computedValues ?? ''
+          }
+          readonly
+          fileName={`Revision #${selectedRevisionNumber}`}
+          placeholder="No values found"
+          height="60vh"
         />
-      </div>
-      <CodeEditor
-        type="yaml"
-        id="values-details-code-editor"
-        data-cy="values-details-code-editor"
-        value={
-          isUserSupplied
-            ? values?.userSuppliedValues ?? noValuesMessage
-            : values?.computedValues ?? noValuesMessage
-        }
-        readonly
-      />
-    </div>
+      ) : (
+        <DiffViewSection
+          isCompareReleaseLoading={isCompareReleaseLoading}
+          isCompareReleaseError={isCompareReleaseError}
+          compareRevisionNumberFetched={compareRevisionNumberFetched}
+          selectedRevisionNumber={selectedRevisionNumber}
+          newText={
+            isUserSupplied
+              ? values?.userSuppliedValues ?? ''
+              : values?.computedValues ?? ''
+          }
+          originalText={
+            isUserSupplied
+              ? compareValues?.userSuppliedValues ?? ''
+              : compareValues?.computedValues ?? ''
+          }
+          id="values-details-diff-viewer"
+          data-cy="values-details-diff-viewer"
+        />
+      )}
+    </>
   );
 }

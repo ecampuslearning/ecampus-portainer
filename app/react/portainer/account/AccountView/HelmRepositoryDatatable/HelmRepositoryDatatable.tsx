@@ -59,6 +59,7 @@ export function HelmRepositoryDatatable() {
 
   return (
     <Datatable
+      id="helm-repositories"
       getRowId={(row) => String(row.Id)}
       dataset={helmRepos}
       description={<HelmDatatableDescription isAdmin={isAdminUser} />}

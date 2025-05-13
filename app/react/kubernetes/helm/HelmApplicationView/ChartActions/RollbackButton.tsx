@@ -1,4 +1,5 @@
 import { RotateCcw } from 'lucide-react';
+import { useRouter } from '@uirouter/react';
 
 import { EnvironmentId } from '@/react/portainer/environments/types';
 import { notifySuccess } from '@/portainer/services/notifications';
@@ -12,6 +13,7 @@ import { useHelmRollbackMutation } from '../queries/useHelmRollbackMutation';
 
 type Props = {
   latestRevision: number;
+  selectedRevision?: number;
   environmentId: EnvironmentId;
   releaseName: string;
   namespace?: string;
@@ -19,13 +21,16 @@ type Props = {
 
 export function RollbackButton({
   latestRevision,
+  selectedRevision,
   environmentId,
   releaseName,
   namespace,
 }: Props) {
-  // the selectedRevision can be a prop when selecting a revision is implemented
-  const selectedRevision = latestRevision ? latestRevision - 1 : undefined;
-
+  // when the latest revision is selected, rollback to the previous revision
+  // otherwise, rollback to the selected revision
+  const rollbackRevision =
+    selectedRevision === latestRevision ? latestRevision - 1 : selectedRevision;
+  const router = useRouter();
   const rollbackMutation = useHelmRollbackMutation(environmentId);
 
   return (
@@ -38,7 +43,7 @@ export function RollbackButton({
       color="default"
       size="medium"
     >
-      Rollback to #{selectedRevision}
+      Rollback to #{rollbackRevision}
     </LoadingButton>
   );
 
@@ -47,7 +52,7 @@ export function RollbackButton({
       title: 'Are you sure?',
       modalType: ModalType.Warn,
       confirmButton: buildConfirmButton('Rollback'),
-      message: `Rolling back will restore the application to revision #${selectedRevision}, which will cause service interruption. Do you wish to continue?`,
+      message: `Rolling back will restore the application to revision #${rollbackRevision}, which could cause service interruption. Do you wish to continue?`,
     });
     if (!confirmed) {
       return;
@@ -56,14 +61,20 @@ export function RollbackButton({
     rollbackMutation.mutate(
       {
         releaseName,
-        params: { namespace, revision: selectedRevision },
+        params: { namespace, revision: rollbackRevision },
       },
       {
         onSuccess: () => {
           notifySuccess(
             'Success',
-            `Application rolled back to revision #${selectedRevision} successfully.`
+            `Application rolled back to revision #${rollbackRevision} successfully.`
           );
+          // set the revision url param to undefined to refresh the page at the latest revision
+          router.stateService.go('kubernetes.helm', {
+            namespace,
+            name: releaseName,
+            revision: undefined,
+          });
         },
       }
     );

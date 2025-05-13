@@ -3,6 +3,7 @@ package sdk
 import (
 	"github.com/portainer/portainer/pkg/libhelm/options"
 	"github.com/portainer/portainer/pkg/libhelm/release"
+	"github.com/portainer/portainer/pkg/libhelm/time"
 	"github.com/rs/zerolog/log"
 	"helm.sh/helm/v3/pkg/action"
 	sdkrelease "helm.sh/helm/v3/pkg/release"
@@ -82,10 +83,11 @@ func convert(sdkRelease *sdkrelease.Release, values release.Values) *release.Rel
 		Namespace: sdkRelease.Namespace,
 		Version:   sdkRelease.Version,
 		Info: &release.Info{
-			Status:      release.Status(sdkRelease.Info.Status),
-			Notes:       sdkRelease.Info.Notes,
-			Resources:   resources,
-			Description: sdkRelease.Info.Description,
+			Status:       release.Status(sdkRelease.Info.Status),
+			Notes:        sdkRelease.Info.Notes,
+			Resources:    resources,
+			Description:  sdkRelease.Info.Description,
+			LastDeployed: time.Time(sdkRelease.Info.LastDeployed),
 		},
 		Manifest: sdkRelease.Manifest,
 		Chart: release.Chart{

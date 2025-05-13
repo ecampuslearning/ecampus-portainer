@@ -74,6 +74,7 @@ export function WebEditorForm({
   children,
   error,
   schema,
+  textTip,
   ...props
 }: PropsWithChildren<Props>) {
   return (
@@ -99,6 +100,7 @@ export function WebEditorForm({
               id={id}
               type="yaml"
               schema={schema as JSONSchema7}
+              textTip={textTip}
               // eslint-disable-next-line react/jsx-props-no-spreading
               {...props}
             />

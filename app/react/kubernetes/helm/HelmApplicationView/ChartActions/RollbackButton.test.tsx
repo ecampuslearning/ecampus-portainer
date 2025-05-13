@@ -6,6 +6,7 @@ import { vi, type Mock } from 'vitest';
 import { server } from '@/setup-tests/server';
 import { notifySuccess } from '@/portainer/services/notifications';
 import { withTestQueryProvider } from '@/react/test-utils/withTestQuery';
+import { withTestRouter } from '@/react/test-utils/withRouter';
 
 import { confirm } from '@@/modals/confirm';
 
@@ -25,13 +26,18 @@ vi.mock('@/portainer/services/notifications', () => ({
 function renderButton(props = {}) {
   const defaultProps = {
     latestRevision: 3, // So we're rolling back to revision 2
+    selectedRevision: 3, // This simulates the selectedRevision from URL params
     environmentId: 1,
     releaseName: 'test-release',
     namespace: 'default',
     ...props,
   };
 
-  const Wrapped = withTestQueryProvider(RollbackButton);
+  const Wrapped = withTestQueryProvider(
+    withTestRouter(RollbackButton, {
+      route: '/?revision=3',
+    })
+  );
   return render(<Wrapped {...defaultProps} />);
 }
 

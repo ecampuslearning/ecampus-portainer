@@ -5,6 +5,7 @@ import "time"
 type InstallOptions struct {
 	Name                    string
 	Chart                   string
+	Version                 string
 	Namespace               string
 	Repo                    string
 	Wait                    bool

@@ -1,0 +1,99 @@
+import { useQuery, useQueries } from '@tanstack/react-query';
+import { useMemo } from 'react';
+import { compact, flatMap } from 'lodash';
+
+import { withGlobalError } from '@/react-tools/react-query';
+import axios, { parseAxiosError } from '@/portainer/services/axios';
+import { useCurrentUser } from '@/react/hooks/useUser';
+
+import { getHelmRepositories } from '../../queries/useHelmChartList';
+
+interface HelmSearch {
+  entries: Entries;
+}
+
+interface Entries {
+  [key: string]: { version: string }[];
+}
+
+export interface ChartVersion {
+  Repo: string;
+  Version: string;
+}
+
+/**
+ * Hook to fetch all Helm repositories for the current user
+ */
+export function useHelmRepositories() {
+  const { user } = useCurrentUser();
+  return useQuery(
+    ['helm', 'repositories'],
+    async () => getHelmRepositories(user.Id),
+    {
+      enabled: !!user.Id,
+      ...withGlobalError('Unable to retrieve helm repositories'),
+    }
+  );
+}
+
+/**
+ * React hook to get a list of available versions for a chart from specified repositories
+ *
+ * @param chart The chart name to get versions for
+ * @param repositories Array of repository URLs to search in
+ */
+export function useHelmRepoVersions(
+  chart: string,
+  staleTime: number,
+  repositories: string[] = []
+) {
+  // Fetch versions from each repository in parallel as separate queries
+  const versionQueries = useQueries({
+    queries: useMemo(
+      () =>
+        repositories.map((repo) => ({
+          queryKey: ['helm', 'repositories', chart, repo],
+          queryFn: () => getSearchHelmRepo(repo, chart),
+          enabled: !!chart && repositories.length > 0,
+          staleTime,
+          ...withGlobalError(`Unable to retrieve versions from ${repo}`),
+        })),
+      [repositories, chart, staleTime]
+    ),
+  });
+
+  // Combine the results from all repositories for easier consumption
+  const allVersions = useMemo(() => {
+    const successfulResults = compact(versionQueries.map((q) => q.data));
+    return flatMap(successfulResults);
+  }, [versionQueries]);
+
+  return {
+    data: allVersions,
+    isInitialLoading: versionQueries.some((q) => q.isLoading),
+    isError: versionQueries.some((q) => q.isError),
+  };
+}
+
+/**
+ * Get Helm repositories for user
+ */
+async function getSearchHelmRepo(
+  repo: string,
+  chart: string
+): Promise<ChartVersion[]> {
+  try {
+    const { data } = await axios.get<HelmSearch>(`templates/helm`, {
+      params: { repo, chart },
+    });
+    const versions = data.entries[chart];
+    return (
+      versions?.map((v) => ({
+        Repo: repo,
+        Version: v.version,
+      })) ?? []
+    );
+  } catch (err) {
+    throw parseAxiosError(err, 'Unable to retrieve helm repositories for user');
+  }
+}

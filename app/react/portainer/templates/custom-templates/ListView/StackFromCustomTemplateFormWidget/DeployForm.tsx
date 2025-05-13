@@ -121,7 +121,7 @@ export function DeployForm({
               }}
               type="yaml"
               error={errors.fileContent}
-              placeholder="Define or paste the content of your docker compose file here"
+              textTip="Define or paste the content of your docker compose file here"
               readonly={isGit}
               data-cy="custom-template-creation-editor"
             >

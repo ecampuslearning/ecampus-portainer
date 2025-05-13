@@ -1,22 +1,17 @@
 import { Badge } from '@/react/components/Badge';
+import { localizeDate } from '@/react/common/date-utils';
 
 import { Alert } from '@@/Alert';
 
 import { HelmRelease } from '../types';
+import {
+  DeploymentStatus,
+  getStatusColor,
+  getStatusText,
+} from '../helm-status-utils';
 
 interface Props {
   release: HelmRelease;
-}
-
-export enum DeploymentStatus {
-  DEPLOYED = 'deployed',
-  FAILED = 'failed',
-  PENDING = 'pending-install',
-  PENDINGUPGRADE = 'pending-upgrade',
-  PENDINGROLLBACK = 'pending-rollback',
-  SUPERSEDED = 'superseded',
-  UNINSTALLED = 'uninstalled',
-  UNINSTALLING = 'uninstalling',
 }
 
 export function HelmSummary({ release }: Props) {
@@ -29,9 +24,14 @@ export function HelmSummary({ release }: Props) {
       <div className="flex flex-col gap-y-4">
         <div>
           <Badge type={getStatusColor(release.info?.status)}>
-            {getText(release.info?.status)}
+            {getStatusText(release.info?.status)}
           </Badge>
         </div>
+        {!!release.info?.description && !isSuccess && (
+          <Alert color={getAlertColor(release.info?.status)}>
+            {release.info?.description}
+          </Alert>
+        )}
         <div className="flex flex-wrap gap-2">
           {!!release.namespace && <Badge>Namespace: {release.namespace}</Badge>}
           {!!release.version && <Badge>Revision: #{release.version}</Badge>}
@@ -47,12 +47,13 @@ export function HelmSummary({ release }: Props) {
               {release.chart.metadata.version}
             </Badge>
           )}
+          {!!release.info?.last_deployed && (
+            <Badge>
+              Last deployed:{' '}
+              {localizeDate(new Date(release.info.last_deployed))}
+            </Badge>
+          )}
         </div>
-        {!!release.info?.description && !isSuccess && (
-          <Alert color={getAlertColor(release.info?.status)}>
-            {release.info?.description}
-          </Alert>
-        )}
       </div>
     </div>
   );
@@ -72,40 +73,5 @@ function getAlertColor(status?: string) {
     case DeploymentStatus.SUPERSEDED:
     default:
       return 'info';
-  }
-}
-
-function getStatusColor(status?: string) {
-  switch (status?.toLowerCase()) {
-    case DeploymentStatus.DEPLOYED:
-      return 'success';
-    case DeploymentStatus.FAILED:
-      return 'danger';
-    case DeploymentStatus.PENDING:
-    case DeploymentStatus.PENDINGUPGRADE:
-    case DeploymentStatus.PENDINGROLLBACK:
-    case DeploymentStatus.UNINSTALLING:
-      return 'warn';
-    case DeploymentStatus.SUPERSEDED:
-    default:
-      return 'info';
-  }
-}
-
-function getText(status?: string) {
-  switch (status?.toLowerCase()) {
-    case DeploymentStatus.DEPLOYED:
-      return 'Deployed';
-    case DeploymentStatus.FAILED:
-      return 'Failed';
-    case DeploymentStatus.PENDING:
-    case DeploymentStatus.PENDINGUPGRADE:
-    case DeploymentStatus.PENDINGROLLBACK:
-    case DeploymentStatus.UNINSTALLING:
-      return 'Pending';
-    case DeploymentStatus.SUPERSEDED:
-      return 'Superseded';
-    default:
-      return 'Unknown';
   }
 }
