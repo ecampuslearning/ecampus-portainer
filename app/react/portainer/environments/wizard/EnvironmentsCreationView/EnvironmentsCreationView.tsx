@@ -17,6 +17,7 @@ import { PageHeader } from '@@/PageHeader';
 import { Button } from '@@/buttons';
 import { FormSection } from '@@/form-components/FormSection';
 import { Icon } from '@@/Icon';
+import { Alert } from '@@/Alert';
 
 import {
   EnvironmentOptionValue,
@@ -84,6 +85,19 @@ export function EnvironmentCreationView() {
 
             <div className="mt-12">
               <FormSection title={formTitles[currentStep.id]}>
+                {currentStep.id === 'kaas' && (
+                  <Alert
+                    color="warn"
+                    title="Deprecated Feature"
+                    className="mb-2"
+                  >
+                    Provisioning a KaaS environment from Portainer is deprecated
+                    and will be removed in a future release. You will still be
+                    able to use any Kubernetes clusters provisioned using this
+                    method but will no longer have access to any of the
+                    KaaS-specific management functionality.
+                  </Alert>
+                )}
                 <Component
                   onCreate={handleCreateEnvironment}
                   isDockerStandalone={isDockerStandalone}
