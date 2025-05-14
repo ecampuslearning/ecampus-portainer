@@ -42,7 +42,8 @@ export function HelmEventsDatatable({
         dataset={eventsQuery.data || []}
         title={
           <TextTip inline color="blue" className="!text-xs">
-            Events reflect the latest revision only.
+            Only events for resources currently in the cluster will be
+            displayed.
           </TextTip>
         }
         titleIcon={null}

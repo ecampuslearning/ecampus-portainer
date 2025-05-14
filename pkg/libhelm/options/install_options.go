@@ -11,6 +11,7 @@ type InstallOptions struct {
 	Wait                    bool
 	ValuesFile              string
 	PostRenderer            string
+	Atomic                  bool
 	Timeout                 time.Duration
 	KubernetesClusterAccess *KubernetesClusterAccess
 

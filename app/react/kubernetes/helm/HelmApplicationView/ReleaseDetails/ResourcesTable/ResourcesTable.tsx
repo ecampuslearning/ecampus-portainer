@@ -59,7 +59,7 @@ export function ResourcesTable() {
         emptyContentLabel="No resources found"
         title={
           <TextTip inline color="blue" className="!text-xs">
-            Resources reflect the latest revision only.
+            Only resources currently in the cluster will be displayed.
           </TextTip>
         }
         disableSelect

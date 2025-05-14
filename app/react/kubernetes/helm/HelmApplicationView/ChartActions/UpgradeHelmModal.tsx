@@ -11,6 +11,7 @@ import { Input } from '@@/form-components/Input';
 import { CodeEditor } from '@@/CodeEditor';
 import { FormControl } from '@@/form-components/FormControl';
 import { WidgetTitle } from '@@/Widget';
+import { Checkbox } from '@@/form-components/Checkbox';
 
 import { UpdateHelmReleasePayload } from '../queries/useUpdateHelmReleaseMutation';
 import { ChartVersion } from '../queries/useHelmRepositories';
@@ -37,7 +38,7 @@ export function UpgradeHelmModal({ values, versions, onSubmit }: Props) {
     versionOptions[0]?.value;
   const [version, setVersion] = useState<ChartVersion>(defaultVersion);
   const [userValues, setUserValues] = useState<string>(values.values || '');
-
+  const [atomic, setAtomic] = useState<boolean>(false);
   return (
     <Modal
       onDismiss={() => onSubmit()}
@@ -89,6 +90,20 @@ export function UpgradeHelmModal({ values, versions, onSubmit }: Props) {
             />
           </FormControl>
           <FormControl
+            label="Rollback on failure"
+            tooltip="Enables automatic rollback on failure (equivalent to the helm --atomic flag). It may increase the time to upgrade."
+            inputId="atomic-input"
+            className="[&>label]:!pl-0"
+            size="medium"
+          >
+            <Checkbox
+              id="atomic-input"
+              checked={atomic}
+              data-cy="atomic-checkbox"
+              onChange={(e) => setAtomic(e.target.checked)}
+            />
+          </FormControl>
+          <FormControl
             label="User-defined values"
             inputId="user-values-editor"
             size="vertical"
@@ -125,6 +140,7 @@ export function UpgradeHelmModal({ values, versions, onSubmit }: Props) {
                 chart: values.chart,
                 repo: version.Repo,
                 version: version.Version,
+                atomic,
               })
             }
             color="primary"

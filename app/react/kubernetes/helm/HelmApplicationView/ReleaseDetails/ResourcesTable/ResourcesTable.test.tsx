@@ -167,9 +167,13 @@ describe('ResourcesTable', () => {
     );
 
     // Check that success badge is rendered
-    const successBadge = screen.getByText('MinimumReplicasAvailable');
+    const successBadge = screen.getByText(
+      (content, element) =>
+        content.includes('MinimumReplicasAvailable') &&
+        element !== null &&
+        element.className.includes('bg-success')
+    );
     expect(successBadge).toBeInTheDocument();
-    expect(successBadge.className).toContain('bg-success');
   });
 
   it('should show error badges for failed resources', () => {
@@ -177,8 +181,12 @@ describe('ResourcesTable', () => {
     expect(screen.getByText('probe-failure-nginx-bad')).toBeInTheDocument();
 
     // Check for the unhealthy status badge and make sure it has the error styling
-    const errorBadge = screen.getByText('InsufficientPods');
+    const errorBadge = screen.getByText(
+      (content, element) =>
+        content.includes('InsufficientPods') &&
+        element !== null &&
+        element.className.includes('bg-error')
+    );
     expect(errorBadge).toBeInTheDocument();
-    expect(errorBadge.className).toContain('bg-error');
   });
 });

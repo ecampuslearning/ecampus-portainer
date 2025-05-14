@@ -218,7 +218,9 @@ describe('HelmEventsDatatable', () => {
 
     await waitFor(() => {
       expect(
-        screen.getByText('Events reflect the latest revision only.')
+        screen.getByText(
+          'Only events for resources currently in the cluster will be displayed.'
+        )
       ).toBeInTheDocument();
     });
 

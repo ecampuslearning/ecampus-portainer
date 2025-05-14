@@ -27,6 +27,7 @@ type installChartPayload struct {
 	Repo      string `json:"repo"`
 	Values    string `json:"values"`
 	Version   string `json:"version"`
+	Atomic    bool   `json:"atomic"`
 }
 
 var errChartNameInvalid = errors.New("invalid chart name. " +
@@ -105,6 +106,7 @@ func (handler *Handler) installChart(r *http.Request, p installChartPayload) (*r
 		Version:                 p.Version,
 		Namespace:               p.Namespace,
 		Repo:                    p.Repo,
+		Atomic:                  p.Atomic,
 		KubernetesClusterAccess: clusterAccess,
 	}
 

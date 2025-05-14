@@ -133,7 +133,7 @@ func (hspm *HelmSDKPackageManager) Upgrade(upgradeOpts options.InstallOptions) (
 func initUpgradeClient(actionConfig *action.Configuration, upgradeOpts options.InstallOptions) (*action.Upgrade, error) {
 	upgradeClient := action.NewUpgrade(actionConfig)
 	upgradeClient.DependencyUpdate = true
-	upgradeClient.Atomic = true
+	upgradeClient.Atomic = upgradeOpts.Atomic
 	upgradeClient.ChartPathOptions.RepoURL = upgradeOpts.Repo
 	upgradeClient.Wait = upgradeOpts.Wait
 

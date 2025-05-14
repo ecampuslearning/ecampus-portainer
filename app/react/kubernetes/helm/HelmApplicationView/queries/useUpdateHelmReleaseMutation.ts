@@ -14,6 +14,7 @@ export interface UpdateHelmReleasePayload {
   name: string;
   chart: string;
   version?: string;
+  atomic?: boolean;
 }
 export function useUpdateHelmReleaseMutation(environmentId: EnvironmentId) {
   const queryClient = useQueryClient();
