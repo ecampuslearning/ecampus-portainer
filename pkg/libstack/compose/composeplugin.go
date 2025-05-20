@@ -270,8 +270,9 @@ func (c *ComposeDeployer) GetExistingEdgeStacks(ctx context.Context) ([]libstack
 					}
 
 					m[id] = libstack.EdgeStack{
-						ID:   id,
-						Name: cs.Labels[api.ProjectLabel],
+						ID:       id,
+						Name:     cs.Labels[api.ProjectLabel],
+						ExitCode: cs.ExitCode,
 					}
 				}
 			}
