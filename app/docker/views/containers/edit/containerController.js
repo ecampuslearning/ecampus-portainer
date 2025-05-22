@@ -54,7 +54,7 @@ angular.module('portainer.docker').controller('ContainerController', [
 
     $scope.computeDockerGPUCommand = () => {
       const gpuOptions = _.find($scope.container.HostConfig.DeviceRequests, function (o) {
-        return o.Driver === 'nvidia' || o.Capabilities[0][0] === 'gpu';
+        return o.Driver === 'nvidia' || (o.Capabilities && o.Capabilities.length > 0 && o.Capabilities[0] > 0 && o.Capabilities[0][0] === 'gpu');
       });
       if (!gpuOptions) {
         return 'No GPU config found';
