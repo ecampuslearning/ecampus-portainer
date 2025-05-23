@@ -13,6 +13,7 @@ import (
 	gittypes "github.com/portainer/portainer/api/git/types"
 	models "github.com/portainer/portainer/api/http/models/kubernetes"
 	"github.com/portainer/portainer/pkg/featureflags"
+	"github.com/segmentio/encoding/json"
 
 	"golang.org/x/oauth2"
 	corev1 "k8s.io/api/core/v1"
@@ -1372,6 +1373,12 @@ type (
 		EndpointID EndpointID          `json:"EndpointId"`
 		Docker     *DockerSnapshot     `json:"Docker"`
 		Kubernetes *KubernetesSnapshot `json:"Kubernetes"`
+	}
+
+	SnapshotRawMessage struct {
+		EndpointID EndpointID      `json:"EndpointId"`
+		Docker     json.RawMessage `json:"Docker"`
+		Kubernetes json.RawMessage `json:"Kubernetes"`
 	}
 
 	// CLIService represents a service for managing CLI

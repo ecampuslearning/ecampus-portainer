@@ -35,3 +35,19 @@ func (service ServiceTx) ReadWithoutSnapshotRaw(ID portainer.EndpointID) (*porta
 
 	return &snapshot.Snapshot, nil
 }
+
+func (service ServiceTx) ReadRawMessage(ID portainer.EndpointID) (*portainer.SnapshotRawMessage, error) {
+	var snapshot = portainer.SnapshotRawMessage{}
+
+	identifier := service.Connection.ConvertToKey(int(ID))
+
+	if err := service.Tx.GetObject(service.Bucket, identifier, &snapshot); err != nil {
+		return nil, err
+	}
+
+	return &snapshot, nil
+}
+
+func (service ServiceTx) CreateRawMessage(snapshot *portainer.SnapshotRawMessage) error {
+	return service.Tx.CreateObjectWithId(BucketName, int(snapshot.EndpointID), snapshot)
+}
