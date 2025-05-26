@@ -7,7 +7,6 @@ import (
 
 	"github.com/portainer/portainer/pkg/libhelm/options"
 	httperror "github.com/portainer/portainer/pkg/libhttp/error"
-	"github.com/portainer/portainer/pkg/libhttp/request"
 
 	"github.com/pkg/errors"
 )
@@ -33,18 +32,13 @@ func (handler *Handler) helmRepoSearch(w http.ResponseWriter, r *http.Request) *
 		return httperror.BadRequest("Bad request", errors.New("missing `repo` query parameter"))
 	}
 
-	chart, _ := request.RetrieveQueryParameter(r, "chart", false)
-	useCache, _ := request.RetrieveBooleanQueryParameter(r, "useCache", false)
-
 	_, err := url.ParseRequestURI(repo)
 	if err != nil {
 		return httperror.BadRequest("Bad request", errors.Wrap(err, fmt.Sprintf("provided URL %q is not valid", repo)))
 	}
 
 	searchOpts := options.SearchRepoOptions{
-		Repo:     repo,
-		Chart:    chart,
-		UseCache: useCache,
+		Repo: repo,
 	}
 
 	result, err := handler.helmPackageManager.SearchRepo(searchOpts)

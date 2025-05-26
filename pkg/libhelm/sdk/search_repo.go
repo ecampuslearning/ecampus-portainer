@@ -4,8 +4,6 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
-	"sync"
-	"time"
 
 	"github.com/pkg/errors"
 	"github.com/portainer/portainer/pkg/libhelm/options"
@@ -26,17 +24,6 @@ type RepoIndex struct {
 	Entries    map[string][]ChartInfo `json:"entries"`
 	Generated  string                 `json:"generated"`
 }
-
-type RepoIndexCache struct {
-	Index     *repo.IndexFile
-	Timestamp time.Time
-}
-
-var (
-	indexCache    = make(map[string]RepoIndexCache)
-	cacheMutex    sync.RWMutex
-	cacheDuration = 60 * time.Minute
-)
 
 // SearchRepo downloads the `index.yaml` file for specified repo, parses it and returns JSON to caller.
 func (hspm *HelmSDKPackageManager) SearchRepo(searchRepoOpts options.SearchRepoOptions) ([]byte, error) {
@@ -64,18 +51,6 @@ func (hspm *HelmSDKPackageManager) SearchRepo(searchRepoOpts options.SearchRepoO
 			Err(err).
 			Msg("Invalid repository URL")
 		return nil, err
-	}
-
-	// Check cache first
-	if searchRepoOpts.UseCache {
-		cacheMutex.RLock()
-		if cached, exists := indexCache[repoURL.String()]; exists {
-			if time.Since(cached.Timestamp) < cacheDuration {
-				cacheMutex.RUnlock()
-				return convertAndMarshalIndex(cached.Index, searchRepoOpts.Chart)
-			}
-		}
-		cacheMutex.RUnlock()
 	}
 
 	// Set up Helm CLI environment
@@ -117,21 +92,23 @@ func (hspm *HelmSDKPackageManager) SearchRepo(searchRepoOpts options.SearchRepoO
 		return nil, err
 	}
 
-	// Update cache and remove old entries
-	cacheMutex.Lock()
-	indexCache[searchRepoOpts.Repo] = RepoIndexCache{
-		Index:     indexFile,
-		Timestamp: time.Now(),
-	}
-	for key, index := range indexCache {
-		if time.Since(index.Timestamp) > cacheDuration {
-			delete(indexCache, key)
-		}
+	// Convert the index file to our response format
+	result, err := convertIndexToResponse(indexFile)
+	if err != nil {
+		log.Error().
+			Str("context", "HelmClient").
+			Err(err).
+			Msg("Failed to convert index to response format")
+		return nil, errors.Wrap(err, "failed to convert index to response format")
 	}
 
-	cacheMutex.Unlock()
+	log.Debug().
+		Str("context", "HelmClient").
+		Str("repo", searchRepoOpts.Repo).
+		Int("entries_count", len(indexFile.Entries)).
+		Msg("Successfully searched repository")
 
-	return convertAndMarshalIndex(indexFile, searchRepoOpts.Chart)
+	return json.Marshal(result)
 }
 
 // validateSearchRepoOptions validates the required search repository options.
@@ -239,7 +216,7 @@ func loadIndexFile(indexPath string) (*repo.IndexFile, error) {
 }
 
 // convertIndexToResponse converts the Helm index file to our response format.
-func convertIndexToResponse(indexFile *repo.IndexFile, chartName string) (RepoIndex, error) {
+func convertIndexToResponse(indexFile *repo.IndexFile) (RepoIndex, error) {
 	result := RepoIndex{
 		APIVersion: indexFile.APIVersion,
 		Entries:    make(map[string][]ChartInfo),
@@ -248,9 +225,7 @@ func convertIndexToResponse(indexFile *repo.IndexFile, chartName string) (RepoIn
 
 	// Convert Helm SDK types to our response types
 	for name, charts := range indexFile.Entries {
-		if chartName == "" || name == chartName {
-			result.Entries[name] = convertChartsToChartInfo(charts)
-		}
+		result.Entries[name] = convertChartsToChartInfo(charts)
 	}
 
 	return result, nil
@@ -373,24 +348,4 @@ func ensureHelmDirectoriesExist(settings *cli.EnvSettings) error {
 		Msg("Successfully ensured all Helm directories exist")
 
 	return nil
-}
-
-func convertAndMarshalIndex(indexFile *repo.IndexFile, chartName string) ([]byte, error) {
-	// Convert the index file to our response format
-	result, err := convertIndexToResponse(indexFile, chartName)
-	if err != nil {
-		log.Error().
-			Str("context", "HelmClient").
-			Err(err).
-			Msg("Failed to convert index to response format")
-		return nil, errors.Wrap(err, "failed to convert index to response format")
-	}
-
-	log.Debug().
-		Str("context", "HelmClient").
-		Str("repo", chartName).
-		Int("entries_count", len(indexFile.Entries)).
-		Msg("Successfully searched repository")
-
-	return json.Marshal(result)
 }

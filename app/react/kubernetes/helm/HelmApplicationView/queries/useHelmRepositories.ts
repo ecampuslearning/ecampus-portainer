@@ -45,21 +45,20 @@ export function useHelmRepositories() {
 export function useHelmRepoVersions(
   chart: string,
   staleTime: number,
-  repositories: string[] = [],
-  useCache: boolean = true
+  repositories: string[] = []
 ) {
   // Fetch versions from each repository in parallel as separate queries
   const versionQueries = useQueries({
     queries: useMemo(
       () =>
         repositories.map((repo) => ({
-          queryKey: ['helm', 'repositories', chart, repo, useCache],
-          queryFn: () => getSearchHelmRepo(repo, chart, useCache),
+          queryKey: ['helm', 'repositories', chart, repo],
+          queryFn: () => getSearchHelmRepo(repo, chart),
           enabled: !!chart && repositories.length > 0,
           staleTime,
           ...withGlobalError(`Unable to retrieve versions from ${repo}`),
         })),
-      [repositories, chart, staleTime, useCache]
+      [repositories, chart, staleTime]
     ),
   });
 
@@ -73,8 +72,6 @@ export function useHelmRepoVersions(
     data: allVersions,
     isInitialLoading: versionQueries.some((q) => q.isLoading),
     isError: versionQueries.some((q) => q.isError),
-    isFetching: versionQueries.some((q) => q.isFetching),
-    refetch: () => Promise.all(versionQueries.map((q) => q.refetch())),
   };
 }
 
@@ -83,12 +80,11 @@ export function useHelmRepoVersions(
  */
 async function getSearchHelmRepo(
   repo: string,
-  chart: string,
-  useCache: boolean = true
+  chart: string
 ): Promise<ChartVersion[]> {
   try {
     const { data } = await axios.get<HelmSearch>(`templates/helm`, {
-      params: { repo, chart, useCache },
+      params: { repo, chart },
     });
     const versions = data.entries[chart];
     return (
