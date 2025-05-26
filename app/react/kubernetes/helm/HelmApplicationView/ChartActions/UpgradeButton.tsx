@@ -1,5 +1,6 @@
 import { ArrowUp } from 'lucide-react';
 import { useRouter } from '@uirouter/react';
+import { useState } from 'react';
 
 import { EnvironmentId } from '@/react/portainer/environments/types';
 import { notifySuccess } from '@/portainer/services/notifications';
@@ -41,16 +42,19 @@ export function UpgradeButton({
   const updateHelmReleaseMutation = useUpdateHelmReleaseMutation(environmentId);
 
   const repositoriesQuery = useHelmRepositories();
+  const [useCache, setUseCache] = useState(true);
   const helmRepoVersionsQuery = useHelmRepoVersions(
     release?.chart.metadata?.name || '',
     60 * 60 * 1000, // 1 hour
-    repositoriesQuery.data
+    repositoriesQuery.data,
+    useCache
   );
   const versions = helmRepoVersionsQuery.data;
 
   // Combined loading state
   const isInitialLoading =
     repositoriesQuery.isInitialLoading ||
+    helmRepoVersionsQuery.isFetching ||
     helmRepoVersionsQuery.isInitialLoading;
   const isError = repositoriesQuery.isError || helmRepoVersionsQuery.isError;
 
@@ -58,9 +62,10 @@ export function UpgradeButton({
     select: (data) => data.chart.metadata?.version,
   });
   const latestVersionAvailable = versions[0]?.Version ?? '';
-  const isNewVersionAvailable =
+  const isNewVersionAvailable = Boolean(
     latestVersion?.data &&
-    semverCompare(latestVersionAvailable, latestVersion?.data) === 1;
+      semverCompare(latestVersionAvailable, latestVersion?.data) === 1
+  );
 
   const editableHelmRelease: UpdateHelmReleasePayload = {
     name: releaseName,
@@ -69,6 +74,14 @@ export function UpgradeButton({
     chart: release?.chart.metadata?.name || '',
     version: release?.chart.metadata?.version,
   };
+
+  function handleRefreshVersions() {
+    if (useCache === false) {
+      helmRepoVersionsQuery.refetch();
+    } else {
+      setUseCache(false);
+    }
+  }
 
   return (
     <div className="relative">
@@ -97,30 +110,38 @@ export function UpgradeButton({
           Checking for new versions...
         </InlineLoader>
       )}
-      {versions.length === 0 && !isInitialLoading && !isError && (
+      {!isInitialLoading && !isError && (
         <span className="absolute flex items-center -bottom-5 left-0 right-0 text-xs text-muted text-center whitespace-nowrap">
-          No versions available
-          <Tooltip
-            message={
-              <div>
-                Portainer is unable to find any versions for this chart in the
-                repositories saved. Try adding a new repository which contains
-                the chart in the{' '}
-                <Link
-                  to="portainer.account"
-                  params={{ '#': 'helm-repositories' }}
-                  data-cy="user-settings-link"
-                >
-                  Helm repositories settings
-                </Link>
-              </div>
-            }
-          />
-        </span>
-      )}
-      {isNewVersionAvailable && (
-        <span className="absolute -bottom-5 left-0 right-0 text-xs text-muted text-center whitespace-nowrap">
-          New version available ({latestVersionAvailable})
+          {getStatusMessage(
+            versions.length === 0,
+            latestVersionAvailable,
+            isNewVersionAvailable
+          )}
+          {versions.length === 0 && (
+            <Tooltip
+              message={
+                <div>
+                  Portainer is unable to find any versions for this chart in the
+                  repositories saved. Try adding a new repository which contains
+                  the chart in the{' '}
+                  <Link
+                    to="portainer.account"
+                    params={{ '#': 'helm-repositories' }}
+                    data-cy="user-settings-link"
+                  >
+                    Helm repositories settings
+                  </Link>
+                </div>
+              }
+            />
+          )}
+          <button
+            onClick={handleRefreshVersions}
+            className="text-primary hover:text-primary-light cursor-pointer bg-transparent border-0 pl-1 p-0"
+            type="button"
+          >
+            Refresh versions
+          </button>
         </span>
       )}
     </div>
@@ -163,5 +184,19 @@ export function UpgradeButton({
         });
       },
     });
+  }
+
+  function getStatusMessage(
+    hasNoAvailableVersions: boolean,
+    latestVersionAvailable: string,
+    isNewVersionAvailable: boolean
+  ): string {
+    if (hasNoAvailableVersions) {
+      return 'No versions available ';
+    }
+    if (isNewVersionAvailable) {
+      return `New version available (${latestVersionAvailable}) `;
+    }
+    return '';
   }
 }
