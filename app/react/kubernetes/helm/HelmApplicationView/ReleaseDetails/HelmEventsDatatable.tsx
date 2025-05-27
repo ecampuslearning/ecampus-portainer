@@ -1,6 +1,6 @@
 import { compact } from 'lodash';
-import { Event } from 'kubernetes-types/core/v1';
 
+import { Event } from '@/react/kubernetes/queries/types';
 import { createStore } from '@/react/kubernetes/datatables/default-kube-datatable-store';
 import { EventsDatatable } from '@/react/kubernetes/components/EventsDatatable';
 import { useEvents } from '@/react/kubernetes/queries/useEvents';

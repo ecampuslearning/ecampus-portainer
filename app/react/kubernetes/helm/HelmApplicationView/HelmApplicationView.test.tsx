@@ -184,15 +184,8 @@ describe(
         http.get('/api/endpoints/3/kubernetes/helm/test-release/history', () =>
           HttpResponse.json(helmReleaseHistory)
         ),
-        http.get(
-          '/api/endpoints/3/kubernetes/api/v1/namespaces/default/events',
-          () =>
-            HttpResponse.json({
-              kind: 'EventList',
-              apiVersion: 'v1',
-              metadata: { resourceVersion: '12345' },
-              items: [],
-            })
+        http.get('/api/kubernetes/3/namespaces/default/events', () =>
+          HttpResponse.json([])
         )
       );
 
@@ -236,15 +229,8 @@ describe(
           HttpResponse.error()
         ),
         // Add mock for events endpoint
-        http.get(
-          '/api/endpoints/3/kubernetes/api/v1/namespaces/default/events',
-          () =>
-            HttpResponse.json({
-              kind: 'EventList',
-              apiVersion: 'v1',
-              metadata: { resourceVersion: '12345' },
-              items: [],
-            })
+        http.get('/api/kubernetes/3/namespaces/default/events', () =>
+          HttpResponse.json([])
         )
       );
 
@@ -274,15 +260,8 @@ describe(
         http.get('/api/endpoints/3/kubernetes/helm/test-release/history', () =>
           HttpResponse.json(helmReleaseHistory)
         ),
-        http.get(
-          '/api/endpoints/3/kubernetes/api/v1/namespaces/default/events',
-          () =>
-            HttpResponse.json({
-              kind: 'EventList',
-              apiVersion: 'v1',
-              metadata: { resourceVersion: '12345' },
-              items: [],
-            })
+        http.get('/api/kubernetes/3/namespaces/default/events', () =>
+          HttpResponse.json([])
         )
       );
 

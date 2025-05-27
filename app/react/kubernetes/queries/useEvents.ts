@@ -1,6 +1,6 @@
-import { EventList, Event } from 'kubernetes-types/core/v1';
 import { useQuery } from '@tanstack/react-query';
 
+import { Event } from '@/react/kubernetes/queries/types';
 import { EnvironmentId } from '@/react/portainer/environments/types';
 import axios from '@/portainer/services/axios';
 import { withGlobalError } from '@/react-tools/react-query';
@@ -13,10 +13,7 @@ type RequestOptions = {
   /** if undefined, events are fetched at the cluster scope */
   namespace?: string;
   params?: {
-    /** https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/#label-selectors */
-    labelSelector?: string;
-    /** https://kubernetes.io/docs/concepts/overview/working-with-objects/field-selectors */
-    fieldSelector?: string;
+    resourceId?: string;
   };
 };
 
@@ -44,13 +41,13 @@ async function getEvents(
 ): Promise<Event[]> {
   const { namespace, params } = options ?? {};
   try {
-    const { data } = await axios.get<EventList>(
+    const { data } = await axios.get<Event[]>(
       buildUrl(environmentId, namespace),
       {
         params,
       }
     );
-    return data.items;
+    return data;
   } catch (e) {
     throw parseKubernetesAxiosError(e, 'Unable to retrieve events');
   }
@@ -96,6 +93,6 @@ export function useEventWarningsCount(
 
 function buildUrl(environmentId: EnvironmentId, namespace?: string) {
   return namespace
-    ? `/endpoints/${environmentId}/kubernetes/api/v1/namespaces/${namespace}/events`
-    : `/endpoints/${environmentId}/kubernetes/api/v1/events`;
+    ? `/kubernetes/${environmentId}/namespaces/${namespace}/events`
+    : `/kubernetes/${environmentId}/events`;
 }

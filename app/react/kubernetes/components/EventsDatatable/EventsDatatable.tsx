@@ -1,7 +1,7 @@
-import { Event } from 'kubernetes-types/core/v1';
 import { History } from 'lucide-react';
 import { ReactNode } from 'react';
 
+import { Event } from '@/react/kubernetes/queries/types';
 import { IndexOptional } from '@/react/kubernetes/configs/types';
 import { TableSettings } from '@/react/kubernetes/datatables/DefaultDatatableSettings';
 
@@ -38,7 +38,7 @@ export function EventsDatatable({
       isLoading={isLoading}
       title={title}
       titleIcon={titleIcon}
-      getRowId={(row) => row.metadata?.uid || ''}
+      getRowId={(row) => row.uid || ''}
       disableSelect
       renderTableSettings={() => (
         <TableSettingsMenu>

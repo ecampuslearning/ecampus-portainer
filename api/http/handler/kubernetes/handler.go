@@ -58,6 +58,7 @@ func NewHandler(bouncer security.BouncerService, authorizationService *authoriza
 	endpointRouter.Handle("/configmaps/count", httperror.LoggerHandler(h.getAllKubernetesConfigMapsCount)).Methods(http.MethodGet)
 	endpointRouter.Handle("/cron_jobs", httperror.LoggerHandler(h.getAllKubernetesCronJobs)).Methods(http.MethodGet)
 	endpointRouter.Handle("/cron_jobs/delete", httperror.LoggerHandler(h.deleteKubernetesCronJobs)).Methods(http.MethodPost)
+	endpointRouter.Handle("/events", httperror.LoggerHandler(h.getAllKubernetesEvents)).Methods(http.MethodGet)
 	endpointRouter.Handle("/jobs", httperror.LoggerHandler(h.getAllKubernetesJobs)).Methods(http.MethodGet)
 	endpointRouter.Handle("/jobs/delete", httperror.LoggerHandler(h.deleteKubernetesJobs)).Methods(http.MethodPost)
 	endpointRouter.Handle("/cluster_roles", httperror.LoggerHandler(h.getAllKubernetesClusterRoles)).Methods(http.MethodGet)
@@ -110,6 +111,7 @@ func NewHandler(bouncer security.BouncerService, authorizationService *authoriza
 	// to keep it simple, we've decided to leave it like this.
 	namespaceRouter := endpointRouter.PathPrefix("/namespaces/{namespace}").Subrouter()
 	namespaceRouter.Handle("/configmaps/{configmap}", httperror.LoggerHandler(h.getKubernetesConfigMap)).Methods(http.MethodGet)
+	namespaceRouter.Handle("/events", httperror.LoggerHandler(h.getKubernetesEventsForNamespace)).Methods(http.MethodGet)
 	namespaceRouter.Handle("/system", bouncer.RestrictedAccess(httperror.LoggerHandler(h.namespacesToggleSystem))).Methods(http.MethodPut)
 	namespaceRouter.Handle("/ingresscontrollers", httperror.LoggerHandler(h.getKubernetesIngressControllersByNamespace)).Methods(http.MethodGet)
 	namespaceRouter.Handle("/ingresscontrollers", httperror.LoggerHandler(h.updateKubernetesIngressControllersByNamespace)).Methods(http.MethodPut)
@@ -133,7 +135,7 @@ func NewHandler(bouncer security.BouncerService, authorizationService *authoriza
 // getProxyKubeClient gets a kubeclient for the user.  It's generally what you want as it retrieves the kubeclient
 // from the Authorization token of the currently logged in user.  The kubeclient that is not from the proxy is actually using
 // admin permissions.  If you're unsure which one to use, use this.
-func (h *Handler) getProxyKubeClient(r *http.Request) (*cli.KubeClient, *httperror.HandlerError) {
+func (h *Handler) getProxyKubeClient(r *http.Request) (portainer.KubeClient, *httperror.HandlerError) {
 	endpointID, err := request.RetrieveNumericRouteVariableValue(r, "id")
 	if err != nil {
 		return nil, httperror.BadRequest(fmt.Sprintf("an error occurred during the getProxyKubeClient operation, the environment identifier route variable is invalid for /api/kubernetes/%d. Error: ", endpointID), err)
@@ -253,7 +255,7 @@ func (handler *Handler) kubeClientMiddleware(next http.Handler) http.Handler {
 			return
 		}
 		serverURL.Scheme = "https"
-		serverURL.Host = "localhost" + handler.KubernetesClientFactory.AddrHTTPS
+		serverURL.Host = "localhost" + handler.KubernetesClientFactory.GetAddrHTTPS()
 		config.Clusters[0].Cluster.Server = serverURL.String()
 
 		yaml, err := cli.GenerateYAML(config)

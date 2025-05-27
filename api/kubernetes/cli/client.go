@@ -82,6 +82,10 @@ func (factory *ClientFactory) RemoveKubeClient(endpointID portainer.EndpointID) 
 	factory.endpointProxyClients.Delete(strconv.Itoa(int(endpointID)))
 }
 
+func (factory *ClientFactory) GetAddrHTTPS() string {
+	return factory.AddrHTTPS
+}
+
 // GetPrivilegedKubeClient checks if an existing client is already registered for the environment(endpoint) and returns it if one is found.
 // If no client is registered, it will create a new client, register it, and returns it.
 func (factory *ClientFactory) GetPrivilegedKubeClient(endpoint *portainer.Endpoint) (*KubeClient, error) {

@@ -30,8 +30,8 @@ func (handler *Handler) prepareKubeClient(r *http.Request) (*cli.KubeClient, *ht
 		log.Error().Err(err).Str("context", "prepareKubeClient").Msg("Unable to get a privileged Kubernetes client for the user.")
 		return nil, httperror.InternalServerError("Unable to get a privileged Kubernetes client for the user.", err)
 	}
-	pcli.IsKubeAdmin = cli.IsKubeAdmin
-	pcli.NonAdminNamespaces = cli.NonAdminNamespaces
+	pcli.SetIsKubeAdmin(cli.GetIsKubeAdmin())
+	pcli.SetClientNonAdminNamespaces(cli.GetClientNonAdminNamespaces())
 
 	return pcli, nil
 }

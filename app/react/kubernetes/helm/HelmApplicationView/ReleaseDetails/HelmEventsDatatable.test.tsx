@@ -1,7 +1,7 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import { HttpResponse } from 'msw';
-import { Event, EventList } from 'kubernetes-types/core/v1';
 
+import { Event } from '@/react/kubernetes/queries/types';
 import { server, http } from '@/setup-tests/server';
 import { withTestQueryProvider } from '@/react/test-utils/withTestQuery';
 import { withTestRouter } from '@/react/test-utils/withRouter';
@@ -56,136 +56,84 @@ const testResources: GenericResource[] = [
   },
 ];
 
-const mockEventsResponse: EventList = {
-  kind: 'EventList',
-  apiVersion: 'v1',
-  metadata: {
-    resourceVersion: '12345',
+const mockEventsResponse: Event[] = [
+  {
+    name: 'test-deployment-123456',
+    namespace: 'default',
+    reason: 'CreatedLoadBalancer',
+    eventTime: new Date('2023-01-01T00:00:00Z'),
+    uid: 'event-uid-1',
+    involvedObject: {
+      kind: 'Deployment',
+      name: 'test-deployment',
+      uid: 'test-deployment-uid',
+      namespace: 'default',
+    },
+    message: 'Scaled up replica set test-deployment-abc123 to 1',
+    firstTimestamp: new Date('2023-01-01T00:00:00Z'),
+    lastTimestamp: new Date('2023-01-01T00:00:00Z'),
+    count: 1,
+    type: 'Normal',
   },
-  items: [
-    {
-      metadata: {
-        name: 'test-deployment-123456',
-        namespace: 'default',
-        uid: 'event-uid-1',
-        resourceVersion: '1000',
-        creationTimestamp: '2023-01-01T00:00:00Z',
-      },
-      involvedObject: {
-        kind: 'Deployment',
-        namespace: 'default',
-        name: 'test-deployment',
-        uid: 'test-deployment-uid',
-        apiVersion: 'apps/v1',
-        resourceVersion: '2000',
-      },
-      reason: 'ScalingReplicaSet',
-      message: 'Scaled up replica set test-deployment-abc123 to 1',
-      source: {
-        component: 'deployment-controller',
-      },
-      firstTimestamp: '2023-01-01T00:00:00Z',
-      lastTimestamp: '2023-01-01T00:00:00Z',
-      count: 1,
-      type: 'Normal',
-      reportingComponent: 'deployment-controller',
-      reportingInstance: '',
+  {
+    name: 'test-service-123456',
+    namespace: 'default',
+    uid: 'event-uid-2',
+    eventTime: new Date('2023-01-01T00:00:00Z'),
+    involvedObject: {
+      kind: 'Service',
+      namespace: 'default',
+      name: 'test-service',
+      uid: 'test-service-uid',
     },
-    {
-      metadata: {
-        name: 'test-service-123456',
-        namespace: 'default',
-        uid: 'event-uid-2',
-        resourceVersion: '1001',
-        creationTimestamp: '2023-01-01T00:00:00Z',
-      },
-      involvedObject: {
-        kind: 'Service',
-        namespace: 'default',
-        name: 'test-service',
-        uid: 'test-service-uid',
-        apiVersion: 'v1',
-        resourceVersion: '2001',
-      },
-      reason: 'CreatedLoadBalancer',
-      message: 'Created load balancer',
-      source: {
-        component: 'service-controller',
-      },
-      firstTimestamp: '2023-01-01T00:00:00Z',
-      lastTimestamp: '2023-01-01T00:00:00Z',
-      count: 1,
-      type: 'Normal',
-      reportingComponent: 'service-controller',
-      reportingInstance: '',
-    },
-  ],
-};
+    reason: 'CreatedLoadBalancer',
+    message: 'Created load balancer',
+    firstTimestamp: new Date('2023-01-01T00:00:00Z'),
+    lastTimestamp: new Date('2023-01-01T00:00:00Z'),
+    count: 1,
+    type: 'Normal',
+  },
+];
 
-const mixedEventsResponse: EventList = {
-  kind: 'EventList',
-  apiVersion: 'v1',
-  metadata: {
-    resourceVersion: '12345',
+const mixedEventsResponse: Event[] = [
+  {
+    name: 'test-deployment-123456',
+    namespace: 'default',
+    uid: 'event-uid-1',
+    eventTime: new Date('2023-01-01T00:00:00Z'),
+    involvedObject: {
+      kind: 'Deployment',
+      namespace: 'default',
+      name: 'test-deployment',
+      uid: 'test-deployment-uid', // This matches a resource UID
+    },
+    reason: 'ScalingReplicaSet',
+    message: 'Scaled up replica set test-deployment-abc123 to 1',
+
+    firstTimestamp: new Date('2023-01-01T00:00:00Z'),
+    lastTimestamp: new Date('2023-01-01T00:00:00Z'),
+    count: 1,
+    type: 'Normal',
   },
-  items: [
-    {
-      metadata: {
-        name: 'test-deployment-123456',
-        namespace: 'default',
-        uid: 'event-uid-1',
-        resourceVersion: '1000',
-        creationTimestamp: '2023-01-01T00:00:00Z',
-      },
-      involvedObject: {
-        kind: 'Deployment',
-        namespace: 'default',
-        name: 'test-deployment',
-        uid: 'test-deployment-uid', // This matches a resource UID
-        apiVersion: 'apps/v1',
-        resourceVersion: '2000',
-      },
-      reason: 'ScalingReplicaSet',
-      message: 'Scaled up replica set test-deployment-abc123 to 1',
-      source: {
-        component: 'deployment-controller',
-      },
-      firstTimestamp: '2023-01-01T00:00:00Z',
-      lastTimestamp: '2023-01-01T00:00:00Z',
-      count: 1,
-      type: 'Normal',
-      reportingComponent: 'deployment-controller',
-      reportingInstance: '',
+  {
+    name: 'unrelated-pod-123456',
+    namespace: 'default',
+    uid: 'event-uid-3',
+    eventTime: new Date('2023-01-01T00:00:00Z'),
+    involvedObject: {
+      kind: 'Pod',
+      namespace: 'default',
+      name: 'unrelated-pod',
+      uid: 'unrelated-pod-uid', // This does NOT match any resource UIDs
     },
-    {
-      metadata: {
-        name: 'unrelated-pod-123456',
-        namespace: 'default',
-        uid: 'event-uid-3',
-        resourceVersion: '1002',
-        creationTimestamp: '2023-01-01T00:00:00Z',
-      },
-      involvedObject: {
-        kind: 'Pod',
-        namespace: 'default',
-        name: 'unrelated-pod',
-        uid: 'unrelated-pod-uid', // This does NOT match any resource UIDs
-        apiVersion: 'v1',
-        resourceVersion: '2002',
-      },
-      reason: 'Scheduled',
-      message: 'Successfully assigned unrelated-pod to node',
-      source: {
-        component: 'default-scheduler',
-      },
-      firstTimestamp: '2023-01-01T00:00:00Z',
-      lastTimestamp: '2023-01-01T00:00:00Z',
-      count: 1,
-      reportingComponent: 'scheduler',
-      reportingInstance: '',
-    },
-  ],
-};
+    reason: 'Scheduled',
+    message: 'Successfully assigned unrelated-pod to node',
+    type: 'Normal',
+    firstTimestamp: new Date('2023-01-01T00:00:00Z'),
+    lastTimestamp: new Date('2023-01-01T00:00:00Z'),
+    count: 1,
+  },
+];
 
 function renderComponent() {
   const user = new UserViewModel({ Username: 'user' });
@@ -229,7 +177,7 @@ describe('HelmEventsDatatable', () => {
 
   it('should correctly filter related events using the filterRelatedEvents function', () => {
     const filteredEvents = filterRelatedEvents(
-      mixedEventsResponse.items as Event[],
+      mixedEventsResponse as Event[],
       testResources
     );
 

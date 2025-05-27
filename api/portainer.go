@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net/http"
 	"time"
 
 	"github.com/docker/docker/api/types"
@@ -13,6 +14,7 @@ import (
 	gittypes "github.com/portainer/portainer/api/git/types"
 	models "github.com/portainer/portainer/api/http/models/kubernetes"
 	"github.com/portainer/portainer/pkg/featureflags"
+	httperror "github.com/portainer/portainer/pkg/libhttp/error"
 	"github.com/segmentio/encoding/json"
 
 	"golang.org/x/oauth2"
@@ -1531,56 +1533,127 @@ type (
 
 	// KubeClient represents a service used to query a Kubernetes environment(endpoint)
 	KubeClient interface {
-		ServerVersion() (*version.Info, error)
+		// Access
+		GetIsKubeAdmin() bool
+		SetIsKubeAdmin(isKubeAdmin bool)
+		GetClientNonAdminNamespaces() []string
+		SetClientNonAdminNamespaces([]string)
+		NamespaceAccessPoliciesDeleteNamespace(ns string) error
+		UpdateNamespaceAccessPolicies(accessPolicies map[string]K8sNamespaceAccessPolicy) error
+		GetNamespaceAccessPolicies() (map[string]K8sNamespaceAccessPolicy, error)
+		GetNonAdminNamespaces(userID int, teamIDs []int, isRestrictDefaultNamespace bool) ([]string, error)
 
-		SetupUserServiceAccount(userID int, teamIDs []int, restrictDefaultNamespace bool) error
-		IsRBACEnabled() (bool, error)
-		GetPortainerUserServiceAccount(tokendata *TokenData) (*corev1.ServiceAccount, error)
-		GetServiceAccounts(namespace string) ([]models.K8sServiceAccount, error)
-		DeleteServiceAccounts(reqs models.K8sServiceAccountDeleteRequests) error
-		GetServiceAccountBearerToken(userID int) (string, error)
-		CreateUserShellPod(ctx context.Context, serviceAccountName, shellPodImage string) (*KubernetesShellPod, error)
+		// Applications
+		GetApplications(namespace, nodeName string) ([]models.K8sApplication, error)
+		GetApplicationsResource(namespace, node string) (models.K8sApplicationResource, error)
+
+		// ClusterRole
+		GetClusterRoles() ([]models.K8sClusterRole, error)
+		DeleteClusterRoles(req models.K8sClusterRoleDeleteRequests) error
+
+		// ConfigMap
+		GetConfigMap(namespace, configMapName string) (models.K8sConfigMap, error)
+		CombineConfigMapWithApplications(configMap models.K8sConfigMap) (models.K8sConfigMap, error)
+
+		// CronJob
+		GetCronJobs(namespace string) ([]models.K8sCronJob, error)
+		DeleteCronJobs(payload models.K8sCronJobDeleteRequests) error
+
+		// Event
+		GetEvents(namespace string, resourceId string) ([]models.K8sEvent, error)
+
+		// Exec
 		StartExecProcess(token string, useAdminToken bool, namespace, podName, containerName string, command []string, stdin io.Reader, stdout io.Writer, errChan chan error)
 
+		// ClusterRoleBinding
+		GetClusterRoleBindings() ([]models.K8sClusterRoleBinding, error)
+		DeleteClusterRoleBindings(reqs models.K8sClusterRoleBindingDeleteRequests) error
+
+		// Dashboard
+		GetDashboard() (models.K8sDashboard, error)
+
+		// Deployment
 		HasStackName(namespace string, stackName string) (bool, error)
-		NamespaceAccessPoliciesDeleteNamespace(namespace string) error
-		CreateNamespace(info models.K8sNamespaceDetails) (*corev1.Namespace, error)
-		UpdateNamespace(info models.K8sNamespaceDetails) (*corev1.Namespace, error)
-		GetNamespaces() (map[string]K8sNamespaceInfo, error)
-		GetNamespace(string) (K8sNamespaceInfo, error)
-		DeleteNamespace(namespace string) (*corev1.Namespace, error)
-		GetConfigMaps(namespace string) ([]models.K8sConfigMap, error)
-		GetSecrets(namespace string) ([]models.K8sSecret, error)
+
+		// Ingress
 		GetIngressControllers() (models.K8sIngressControllers, error)
-		GetApplications(namespace, nodename string) ([]models.K8sApplication, error)
-		GetMetrics() (models.K8sMetrics, error)
-		GetStorage() ([]KubernetesStorageClassConfig, error)
-		CreateIngress(namespace string, info models.K8sIngressInfo, owner string) error
-		UpdateIngress(namespace string, info models.K8sIngressInfo) error
+		GetIngress(namespace, ingressName string) (models.K8sIngressInfo, error)
 		GetIngresses(namespace string) ([]models.K8sIngressInfo, error)
+		CreateIngress(namespace string, info models.K8sIngressInfo, owner string) error
 		DeleteIngresses(reqs models.K8sIngressDeleteRequests) error
-		CreateService(namespace string, service models.K8sServiceInfo) error
-		UpdateService(namespace string, service models.K8sServiceInfo) error
-		GetServices(namespace string) ([]models.K8sServiceInfo, error)
-		DeleteServices(reqs models.K8sServiceDeleteRequests) error
+		UpdateIngress(namespace string, info models.K8sIngressInfo) error
+		CombineIngressWithService(ingress models.K8sIngressInfo) (models.K8sIngressInfo, error)
+		CombineIngressesWithServices(ingresses []models.K8sIngressInfo) ([]models.K8sIngressInfo, error)
+
+		// Job
+		GetJobs(namespace string, includeCronJobChildren bool) ([]models.K8sJob, error)
+		DeleteJobs(payload models.K8sJobDeleteRequests) error
+
+		// Metrics
+		GetMetrics() (models.K8sMetrics, error)
+
+		// Namespace
+		ToggleSystemState(namespaceName string, isSystem bool) error
+		UpdateNamespace(info models.K8sNamespaceDetails) (*corev1.Namespace, error)
+		GetNamespace(name string) (K8sNamespaceInfo, error)
+		CreateNamespace(info models.K8sNamespaceDetails) (*corev1.Namespace, error)
+		GetNamespaces() (map[string]K8sNamespaceInfo, error)
+		CombineNamespaceWithResourceQuota(namespace K8sNamespaceInfo, w http.ResponseWriter) *httperror.HandlerError
+		DeleteNamespace(namespaceName string) (*corev1.Namespace, error)
+		CombineNamespacesWithResourceQuotas(namespaces map[string]K8sNamespaceInfo, w http.ResponseWriter) *httperror.HandlerError
+		ConvertNamespaceMapToSlice(namespaces map[string]K8sNamespaceInfo) []K8sNamespaceInfo
+
+		// NodeLimits
 		GetNodesLimits() (K8sNodesLimits, error)
-		GetMaxResourceLimits(name string, overCommitEnabled bool, resourceOverCommitPercent int) (K8sNodeLimits, error)
-		GetNamespaceAccessPolicies() (map[string]K8sNamespaceAccessPolicy, error)
-		UpdateNamespaceAccessPolicies(accessPolicies map[string]K8sNamespaceAccessPolicy) error
+		GetMaxResourceLimits(skipNamespace string, overCommitEnabled bool, resourceOverCommitPercent int) (K8sNodeLimits, error)
+
+		// Pod
+		CreateUserShellPod(ctx context.Context, serviceAccountName, shellPodImage string) (*KubernetesShellPod, error)
+
+		// RBAC
+		IsRBACEnabled() (bool, error)
+
+		// Registries
 		DeleteRegistrySecret(registry RegistryID, namespace string) error
 		CreateRegistrySecret(registry *Registry, namespace string) error
 		IsRegistrySecret(namespace, secretName string) (bool, error)
-		ToggleSystemState(namespace string, isSystem bool) error
 
-		GetClusterRoles() ([]models.K8sClusterRole, error)
-		DeleteClusterRoles(models.K8sClusterRoleDeleteRequests) error
-		GetClusterRoleBindings() ([]models.K8sClusterRoleBinding, error)
-		DeleteClusterRoleBindings(models.K8sClusterRoleBindingDeleteRequests) error
-
-		GetRoles(namespace string) ([]models.K8sRole, error)
-		DeleteRoles(models.K8sRoleDeleteRequests) error
+		// RoleBinding
 		GetRoleBindings(namespace string) ([]models.K8sRoleBinding, error)
-		DeleteRoleBindings(models.K8sRoleBindingDeleteRequests) error
+		DeleteRoleBindings(reqs models.K8sRoleBindingDeleteRequests) error
+
+		// Role
+		DeleteRoles(reqs models.K8sRoleDeleteRequests) error
+
+		// Secret
+		GetSecrets(namespace string) ([]models.K8sSecret, error)
+		GetSecret(namespace string, secretName string) (models.K8sSecret, error)
+		CombineSecretWithApplications(secret models.K8sSecret) (models.K8sSecret, error)
+
+		// ServiceAccount
+		GetServiceAccounts(namespace string) ([]models.K8sServiceAccount, error)
+		DeleteServiceAccounts(reqs models.K8sServiceAccountDeleteRequests) error
+		SetupUserServiceAccount(int, []int, bool) error
+		GetPortainerUserServiceAccount(tokendata *TokenData) (*corev1.ServiceAccount, error)
+		GetServiceAccountBearerToken(userID int) (string, error)
+
+		// Service
+		GetServices(namespace string) ([]models.K8sServiceInfo, error)
+		CombineServicesWithApplications(services []models.K8sServiceInfo) ([]models.K8sServiceInfo, error)
+		CreateService(namespace string, info models.K8sServiceInfo) error
+		DeleteServices(reqs models.K8sServiceDeleteRequests) error
+		UpdateService(namespace string, info models.K8sServiceInfo) error
+
+		// ServerVersion
+		ServerVersion() (*version.Info, error)
+
+		// Storage
+		GetStorage() ([]KubernetesStorageClassConfig, error)
+
+		// Volumes
+		GetVolumes(namespace string) ([]models.K8sVolumeInfo, error)
+		GetVolume(namespace, volumeName string) (*models.K8sVolumeInfo, error)
+		CombineVolumesWithApplications(volumes *[]models.K8sVolumeInfo) (*[]models.K8sVolumeInfo, error)
 	}
 
 	// KubernetesDeployer represents a service to deploy a manifest inside a Kubernetes environment(endpoint)

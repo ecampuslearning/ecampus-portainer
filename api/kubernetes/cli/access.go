@@ -143,3 +143,23 @@ func (kcl *KubeClient) GetNonAdminNamespaces(userID int, teamIDs []int, isRestri
 
 	return nonAdminNamespaces, nil
 }
+
+// GetIsKubeAdmin retrieves true if client is admin
+func (client *KubeClient) GetIsKubeAdmin() bool {
+	return client.IsKubeAdmin
+}
+
+// UpdateIsKubeAdmin sets whether the kube client is admin
+func (client *KubeClient) SetIsKubeAdmin(isKubeAdmin bool) {
+	client.IsKubeAdmin = isKubeAdmin
+}
+
+// GetClientNonAdminNamespaces retrieves non-admin namespaces
+func (client *KubeClient) GetClientNonAdminNamespaces() []string {
+	return client.NonAdminNamespaces
+}
+
+// UpdateClientNonAdminNamespaces sets the client non admin namespace list
+func (client *KubeClient) SetClientNonAdminNamespaces(nonAdminNamespaces []string) {
+	client.NonAdminNamespaces = nonAdminNamespaces
+}
