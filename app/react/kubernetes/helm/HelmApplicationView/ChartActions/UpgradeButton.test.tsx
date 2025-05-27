@@ -33,6 +33,8 @@ vi.mock('../queries/useHelmRepositories', () => ({
     ],
     isInitialLoading: false,
     isError: false,
+    isFetching: false,
+    refetch: vi.fn(() => Promise.resolve([])),
   })),
   useHelmRepositories: vi.fn(() => ({
     data: ['repo1', 'repo2'],
@@ -81,6 +83,8 @@ describe('UpgradeButton', () => {
       data,
       isInitialLoading: false,
       isError: false,
+      isFetching: false,
+      refetch: vi.fn(() => Promise.resolve([])),
     });
 
     renderButton();
@@ -94,6 +98,8 @@ describe('UpgradeButton', () => {
       data: [],
       isInitialLoading: true,
       isError: false,
+      isFetching: true,
+      refetch: vi.fn(() => Promise.resolve([])),
     });
 
     renderButton();
@@ -109,6 +115,8 @@ describe('UpgradeButton', () => {
       data,
       isInitialLoading: false,
       isError: false,
+      isFetching: false,
+      refetch: vi.fn(() => Promise.resolve([])),
     });
 
     renderButton();
@@ -139,6 +147,8 @@ describe('UpgradeButton', () => {
       ],
       isInitialLoading: false,
       isError: false,
+      isFetching: false,
+      refetch: vi.fn(() => Promise.resolve([])),
     });
 
     renderButton({ release: mockRelease });
