@@ -7,6 +7,21 @@ import (
 	"strings"
 )
 
+// Note that we discard any non-canonical headers by design
+var allowedHeaders = map[string]struct{}{
+	"Accept":                  {},
+	"Accept-Encoding":         {},
+	"Accept-Language":         {},
+	"Cache-Control":           {},
+	"Content-Length":          {},
+	"Content-Type":            {},
+	"Private-Token":           {},
+	"User-Agent":              {},
+	"X-Portaineragent-Target": {},
+	"X-Portainer-Volumename":  {},
+	"X-Registry-Auth":         {},
+}
+
 // newSingleHostReverseProxyWithHostHeader is based on NewSingleHostReverseProxy
 // from golang.org/src/net/http/httputil/reverseproxy.go and merely sets the Host
 // HTTP header, which NewSingleHostReverseProxy deliberately preserves.
@@ -15,7 +30,6 @@ func NewSingleHostReverseProxyWithHostHeader(target *url.URL) *httputil.ReverseP
 }
 
 func createDirector(target *url.URL) func(*http.Request) {
-	sensitiveHeaders := []string{"Cookie", "X-Csrf-Token"}
 	targetQuery := target.RawQuery
 	return func(req *http.Request) {
 		req.URL.Scheme = target.Scheme
@@ -32,8 +46,11 @@ func createDirector(target *url.URL) func(*http.Request) {
 			req.Header.Set("User-Agent", "")
 		}
 
-		for _, header := range sensitiveHeaders {
-			delete(req.Header, header)
+		for k := range req.Header {
+			if _, ok := allowedHeaders[k]; !ok {
+				// We use delete here instead of req.Header.Del because we want to delete non canonical headers.
+				delete(req.Header, k)
+			}
 		}
 	}
 }
