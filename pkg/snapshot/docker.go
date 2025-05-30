@@ -16,6 +16,7 @@ import (
 	"github.com/docker/docker/api/types"
 	dockercontainer "github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/image"
+	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/api/types/volume"
 	"github.com/docker/docker/client"
 	"github.com/docker/docker/pkg/stdcopy"
@@ -244,7 +245,7 @@ func dockerSnapshotVolumes(snapshot *portainer.DockerSnapshot, cli *client.Clien
 }
 
 func dockerSnapshotNetworks(snapshot *portainer.DockerSnapshot, cli *client.Client) error {
-	networks, err := cli.NetworkList(context.Background(), types.NetworkListOptions{})
+	networks, err := cli.NetworkList(context.Background(), network.ListOptions{})
 	if err != nil {
 		return err
 	}
