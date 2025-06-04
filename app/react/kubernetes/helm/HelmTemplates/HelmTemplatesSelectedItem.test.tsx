@@ -99,7 +99,7 @@ describe('HelmTemplatesSelectedItem', () => {
     expect(screen.getByText('test-chart')).toBeInTheDocument();
     expect(screen.getByText('Test Chart Description')).toBeInTheDocument();
     expect(screen.getByText('Clear selection')).toBeInTheDocument();
-    expect(screen.getByText('Helm')).toBeInTheDocument();
+    expect(screen.getByText('https://example.com')).toBeInTheDocument();
   });
 
   it('should toggle custom values editor', async () => {

@@ -10,7 +10,6 @@ import { useCanExit } from '@/react/hooks/useCanExit';
 import { Widget } from '@@/Widget';
 import { Button } from '@@/buttons/Button';
 import { FallbackImage } from '@@/FallbackImage';
-import Svg from '@@/Svg';
 import { Icon } from '@@/Icon';
 import { WebEditorForm } from '@@/WebEditorForm';
 import { confirmGenericDiscard } from '@@/modals/confirm';
@@ -100,22 +99,13 @@ export function HelmTemplatesSelectedItem({
                 className="h-16 w-16"
               />
               <div className="col-sm-12">
-                <div className="flex justify-between">
-                  <span>
-                    <span className="text-2xl font-bold">
-                      {selectedChart.name}
-                    </span>
-                    <span className="space-left pr-2 text-xs">
-                      <span className="vertical-center">
-                        <Svg icon="helm" className="icon icon-primary" />
-                      </span>{' '}
-                      <span>Helm</span>
-                    </span>
-                  </span>
+                <div>
+                  <div className="text-2xl font-bold">{selectedChart.name}</div>
+                  <div className="small text-muted mt-1">
+                    {selectedChart.repo}
+                  </div>
                 </div>
-                <div className="text-muted text-xs">
-                  {selectedChart.description}
-                </div>
+                <div className="text-xs mt-2">{selectedChart.description}</div>
               </div>
             </div>
           </div>

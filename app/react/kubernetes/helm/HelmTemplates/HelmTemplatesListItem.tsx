@@ -2,8 +2,6 @@ import React from 'react';
 
 import { FallbackImage } from '@/react/components/FallbackImage';
 
-import Svg from '@@/Svg';
-
 import { Chart } from '../types';
 
 import { HelmIcon } from './HelmIcon';
@@ -40,15 +38,10 @@ export function HelmTemplatesListItem(props: HelmTemplatesListItemProps) {
 
         <div className="col-sm-12 flex flex-wrap justify-between gap-2">
           <div className="blocklist-item-line">
-            <span>
-              <span className="blocklist-item-title">{model.name}</span>
-              <span className="space-left blocklist-item-subtitle">
-                <span className="vertical-center">
-                  <Svg icon="helm" className="icon icon-primary" />
-                </span>
-                <span> Helm </span>
-              </span>
-            </span>
+            <div>
+              <div className="blocklist-item-title">{model.name}</div>
+              <div className="small text-muted mt-1">{model.repo}</div>
+            </div>
           </div>
 
           <span className="blocklist-item-actions">{actions}</span>
