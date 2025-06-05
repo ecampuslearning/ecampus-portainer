@@ -6,7 +6,7 @@ import { withGlobalError } from '@/react-tools/react-query';
 import axios, { parseAxiosError } from '@/portainer/services/axios';
 import { useCurrentUser } from '@/react/hooks/useUser';
 
-import { getHelmRepositories } from '../../queries/useHelmChartList';
+import { getHelmRepositories } from './useHelmChartList';
 
 interface HelmSearch {
   entries: Entries;

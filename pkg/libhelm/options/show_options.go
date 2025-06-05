@@ -19,6 +19,7 @@ type ShowOptions struct {
 	OutputFormat ShowOutputFormat
 	Chart        string
 	Repo         string
+	Version      string
 
 	Env []string
 }

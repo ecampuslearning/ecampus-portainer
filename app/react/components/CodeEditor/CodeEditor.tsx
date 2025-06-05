@@ -33,6 +33,7 @@ interface Props extends AutomationTestingProps {
   schema?: JSONSchema7;
   fileName?: string;
   placeholder?: string;
+  showToolbar?: boolean;
 }
 
 export const theme = createTheme({
@@ -75,6 +76,7 @@ export function CodeEditor({
   'data-cy': dataCy,
   fileName,
   placeholder,
+  showToolbar = true,
 }: Props) {
   const [isRollback, setIsRollback] = useState(false);
 
@@ -94,38 +96,40 @@ export function CodeEditor({
 
   return (
     <>
-      <div className="mb-2 flex flex-col">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center">
-            {!!textTip && <TextTip color="blue">{textTip}</TextTip>}
+      {showToolbar && (
+        <div className="mb-2 flex flex-col">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center">
+              {!!textTip && <TextTip color="blue">{textTip}</TextTip>}
+            </div>
+            {/* the copy button is in the file name header, when fileName is provided */}
+            {!fileName && (
+              <div className="flex-2 ml-auto mr-2 flex items-center gap-x-2">
+                <CopyButton
+                  data-cy={`copy-code-button-${id}`}
+                  fadeDelay={2500}
+                  copyText={value}
+                  color="link"
+                  className="!pr-0 !text-sm !font-medium hover:no-underline focus:no-underline"
+                  indicatorPosition="left"
+                >
+                  Copy
+                </CopyButton>
+              </div>
+            )}
           </div>
-          {/* the copy button is in the file name header, when fileName is provided */}
-          {!fileName && (
-            <div className="flex-2 ml-auto mr-2 flex items-center gap-x-2">
-              <CopyButton
-                data-cy={`copy-code-button-${id}`}
-                fadeDelay={2500}
-                copyText={value}
-                color="link"
-                className="!pr-0 !text-sm !font-medium hover:no-underline focus:no-underline"
-                indicatorPosition="left"
-              >
-                Copy
-              </CopyButton>
+          {versions && (
+            <div className="mt-2 flex">
+              <div className="ml-auto mr-2">
+                <StackVersionSelector
+                  versions={versions}
+                  onChange={handleVersionChange}
+                />
+              </div>
             </div>
           )}
         </div>
-        {versions && (
-          <div className="mt-2 flex">
-            <div className="ml-auto mr-2">
-              <StackVersionSelector
-                versions={versions}
-                onChange={handleVersionChange}
-              />
-            </div>
-          </div>
-        )}
-      </div>
+      )}
       <div className="overflow-hidden rounded-lg border border-solid border-gray-5 th-dark:border-gray-7 th-highcontrast:border-gray-2">
         {fileName && (
           <FileNameHeaderRow>

@@ -10,6 +10,7 @@ import {
 
 import { HelmTemplatesList } from './HelmTemplatesList';
 import { HelmTemplatesSelectedItem } from './HelmTemplatesSelectedItem';
+import { HelmInstallForm } from './HelmInstallForm';
 
 interface Props {
   onSelectHelmChart: (chartName: string) => void;
@@ -37,12 +38,17 @@ export function HelmTemplates({ onSelectHelmChart, namespace, name }: Props) {
     <div className="row">
       <div className="col-sm-12 p-0">
         {selectedChart ? (
-          <HelmTemplatesSelectedItem
-            selectedChart={selectedChart}
-            clearHelmChart={clearHelmChart}
-            namespace={namespace}
-            name={name}
-          />
+          <>
+            <HelmTemplatesSelectedItem
+              selectedChart={selectedChart}
+              clearHelmChart={clearHelmChart}
+            />
+            <HelmInstallForm
+              selectedChart={selectedChart}
+              namespace={namespace}
+              name={name}
+            />
+          </>
         ) : (
           <HelmTemplatesList
             charts={chartListQuery.data}

@@ -3,26 +3,35 @@ import { ArrowUp } from 'lucide-react';
 
 import { withReactQuery } from '@/react-tools/withReactQuery';
 import { withCurrentUser } from '@/react-tools/withCurrentUser';
+import { ChartVersion } from '@/react/kubernetes/helm/queries/useHelmRepositories';
 
 import { Modal, OnSubmit, openModal } from '@@/modals';
 import { Button } from '@@/buttons';
-import { Option, PortainerSelect } from '@@/form-components/PortainerSelect';
 import { Input } from '@@/form-components/Input';
-import { CodeEditor } from '@@/CodeEditor';
 import { FormControl } from '@@/form-components/FormControl';
 import { WidgetTitle } from '@@/Widget';
 import { Checkbox } from '@@/form-components/Checkbox';
+import { Option, PortainerSelect } from '@@/form-components/PortainerSelect';
 
-import { UpdateHelmReleasePayload } from '../queries/useUpdateHelmReleaseMutation';
-import { ChartVersion } from '../queries/useHelmRepositories';
+import { UpdateHelmReleasePayload } from '../../types';
+import { HelmValuesInput } from '../../components/HelmValuesInput';
+import { useHelmChartValues } from '../../queries/useHelmChartValues';
 
 interface Props {
   onSubmit: OnSubmit<UpdateHelmReleasePayload>;
   values: UpdateHelmReleasePayload;
   versions: ChartVersion[];
+  chartName: string;
+  repo: string;
 }
 
-export function UpgradeHelmModal({ values, versions, onSubmit }: Props) {
+export function UpgradeHelmModal({
+  values,
+  versions,
+  onSubmit,
+  chartName,
+  repo,
+}: Props) {
   const versionOptions: Option<ChartVersion>[] = versions.map((version) => {
     const isCurrentVersion = version.Version === values.version;
     const label = `${version.Repo}@${version.Version}${
@@ -38,11 +47,18 @@ export function UpgradeHelmModal({ values, versions, onSubmit }: Props) {
     versionOptions[0]?.value;
   const [version, setVersion] = useState<ChartVersion>(defaultVersion);
   const [userValues, setUserValues] = useState<string>(values.values || '');
-  const [atomic, setAtomic] = useState<boolean>(false);
+  const [atomic, setAtomic] = useState<boolean>(true);
+
+  const chartValuesRefQuery = useHelmChartValues({
+    chart: chartName,
+    repo,
+    version: version.Version,
+  });
+
   return (
     <Modal
       onDismiss={() => onSubmit()}
-      size="lg"
+      size="xl"
       className="flex flex-col h-[80vh] px-0"
       aria-label="upgrade-helm"
     >
@@ -51,73 +67,65 @@ export function UpgradeHelmModal({ values, versions, onSubmit }: Props) {
       />
       <div className="flex-1 overflow-y-auto px-5">
         <Modal.Body>
-          <FormControl label="Version" inputId="version-input" size="vertical">
-            <PortainerSelect<ChartVersion>
-              value={version}
-              options={versionOptions}
-              onChange={(version) => {
-                if (version) {
-                  setVersion(version);
-                }
-              }}
-              data-cy="helm-version-input"
+          <div className="form-horizontal">
+            <FormControl
+              label="Release name"
+              inputId="release-name-input"
+              size="medium"
+            >
+              <Input
+                id="release-name-input"
+                value={values.name}
+                readOnly
+                disabled
+                data-cy="helm-release-name-input"
+              />
+            </FormControl>
+            <FormControl
+              label="Namespace"
+              inputId="namespace-input"
+              size="medium"
+            >
+              <Input
+                id="namespace-input"
+                value={values.namespace}
+                readOnly
+                disabled
+                data-cy="helm-namespace-input"
+              />
+            </FormControl>
+            <FormControl label="Version" inputId="version-input" size="medium">
+              <PortainerSelect<ChartVersion>
+                value={version}
+                options={versionOptions}
+                onChange={(version) => {
+                  if (version) {
+                    setVersion(version);
+                  }
+                }}
+                data-cy="helm-version-input"
+              />
+            </FormControl>
+            <FormControl
+              label="Rollback on failure"
+              tooltip="Enables automatic rollback on failure (equivalent to the helm --atomic flag). It may increase the time to upgrade."
+              inputId="atomic-input"
+              size="medium"
+            >
+              <Checkbox
+                id="atomic-input"
+                checked={atomic}
+                data-cy="atomic-checkbox"
+                onChange={(e) => setAtomic(e.target.checked)}
+              />
+            </FormControl>
+            <HelmValuesInput
+              values={userValues}
+              setValues={setUserValues}
+              valuesRef={chartValuesRefQuery.data?.values ?? ''}
+              isValuesRefLoading={chartValuesRefQuery.isInitialLoading}
             />
-          </FormControl>
-          <FormControl
-            label="Release name"
-            inputId="release-name-input"
-            size="vertical"
-          >
-            <Input
-              id="release-name-input"
-              value={values.name}
-              readOnly
-              disabled
-              data-cy="helm-release-name-input"
-            />
-          </FormControl>
-          <FormControl
-            label="Namespace"
-            inputId="namespace-input"
-            size="vertical"
-          >
-            <Input
-              id="namespace-input"
-              value={values.namespace}
-              readOnly
-              disabled
-              data-cy="helm-namespace-input"
-            />
-          </FormControl>
-          <FormControl
-            label="Rollback on failure"
-            tooltip="Enables automatic rollback on failure (equivalent to the helm --atomic flag). It may increase the time to upgrade."
-            inputId="atomic-input"
-            className="[&>label]:!pl-0"
-            size="medium"
-          >
-            <Checkbox
-              id="atomic-input"
-              checked={atomic}
-              data-cy="atomic-checkbox"
-              onChange={(e) => setAtomic(e.target.checked)}
-            />
-          </FormControl>
-          <FormControl
-            label="User-defined values"
-            inputId="user-values-editor"
-            size="vertical"
-          >
-            <CodeEditor
-              id="user-values-editor"
-              value={userValues}
-              onChange={(value) => setUserValues(value)}
-              height="50vh"
-              type="yaml"
-              data-cy="helm-user-values-editor"
-              placeholder="Define or paste the content of your values yaml file here"
-            />
-          </FormControl>
+          </div>
         </Modal.Body>
       </div>
       <div className="px-5 border-solid border-0 border-t border-gray-5 th-dark:border-gray-7 th-highcontrast:border-white">
@@ -163,5 +171,7 @@ export async function openUpgradeHelmModal(
   return openModal(withReactQuery(withCurrentUser(UpgradeHelmModal)), {
     values,
     versions,
+    chartName: values.chart,
+    repo: values.repo ?? '',
   });
 }

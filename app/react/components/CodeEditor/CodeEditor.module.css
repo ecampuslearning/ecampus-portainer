@@ -141,9 +141,11 @@
 }
 
 .root :global(.cm-content[aria-readonly='true']) {
-  @apply bg-gray-3;
-  @apply th-dark:bg-gray-iron-10;
-  @apply th-highcontrast:bg-black;
+  /* make sure the bg has transparency, so that the selected text is visible */
+  /* https://discuss.codemirror.net/t/how-do-i-get-selected-text-to-highlight/7115/2 */
+  @apply bg-gray-3/50;
+  @apply th-dark:bg-gray-iron-10/50;
+  @apply th-highcontrast:bg-black/50;
 }
 
 .root :global(.cm-textfield) {

@@ -105,7 +105,7 @@ func (hspm *HelmSDKPackageManager) Show(showOpts options.ShowOptions) ([]byte, e
 func initShowClient(actionConfig *action.Configuration, showOpts options.ShowOptions) (*action.Show, error) {
 	showClient := action.NewShowWithConfig(action.ShowAll, actionConfig)
 	showClient.ChartPathOptions.RepoURL = showOpts.Repo
-	showClient.ChartPathOptions.Version = "" // Latest version
+	showClient.ChartPathOptions.Version = showOpts.Version // If version is "", it will use the latest version
 
 	// Set output type based on ShowOptions
 	switch showOpts.OutputFormat {

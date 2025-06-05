@@ -5,17 +5,8 @@ import { withGlobalError, withInvalidate } from '@/react-tools/react-query';
 import { queryKeys as applicationsQueryKeys } from '@/react/kubernetes/applications/queries/query-keys';
 import { EnvironmentId } from '@/react/portainer/environments/types';
 
-import { HelmRelease } from '../../types';
+import { HelmRelease, UpdateHelmReleasePayload } from '../types';
 
-export interface UpdateHelmReleasePayload {
-  namespace: string;
-  values?: string;
-  repo?: string;
-  name: string;
-  chart: string;
-  version?: string;
-  atomic?: boolean;
-}
 export function useUpdateHelmReleaseMutation(environmentId: EnvironmentId) {
   const queryClient = useQueryClient();
   return useMutation({

@@ -6,21 +6,17 @@ import { EnvironmentId } from '@/react/portainer/environments/types';
 import { notifySuccess } from '@/portainer/services/notifications';
 import { semverCompare } from '@/react/common/semver-utils';
 
-import { LoadingButton } from '@@/buttons';
+import { Button, LoadingButton } from '@@/buttons';
 import { InlineLoader } from '@@/InlineLoader';
 import { Tooltip } from '@@/Tip/Tooltip';
 import { Link } from '@@/Link';
 
-import { HelmRelease } from '../../types';
+import { HelmRelease, UpdateHelmReleasePayload } from '../../types';
+import { useUpdateHelmReleaseMutation } from '../../queries/useUpdateHelmReleaseMutation';
 import {
-  useUpdateHelmReleaseMutation,
-  UpdateHelmReleasePayload,
-} from '../queries/useUpdateHelmReleaseMutation';
-import {
-  ChartVersion,
   useHelmRepoVersions,
   useHelmRepositories,
-} from '../queries/useHelmRepositories';
+} from '../../queries/useHelmRepositories';
 import { useHelmRelease } from '../queries/useHelmRelease';
 
 import { openUpgradeHelmModal } from './UpgradeHelmModal';
@@ -39,10 +35,10 @@ export function UpgradeButton({
   updateRelease: (release: HelmRelease) => void;
 }) {
   const router = useRouter();
+  const [useCache, setUseCache] = useState(true);
   const updateHelmReleaseMutation = useUpdateHelmReleaseMutation(environmentId);
 
   const repositoriesQuery = useHelmRepositories();
-  const [useCache, setUseCache] = useState(true);
   const helmRepoVersionsQuery = useHelmRepoVersions(
     release?.chart.metadata?.name || '',
     60 * 60 * 1000, // 1 hour
@@ -50,43 +46,42 @@ export function UpgradeButton({
     useCache
   );
   const versions = helmRepoVersionsQuery.data;
+  const repo = versions?.[0]?.Repo;
 
   // Combined loading state
   const isLoading =
-    repositoriesQuery.isInitialLoading || helmRepoVersionsQuery.isFetching;
+    repositoriesQuery.isInitialLoading || helmRepoVersionsQuery.isFetching; // use 'isFetching' for helmRepoVersionsQuery because we want to show when it's refetching
   const isError = repositoriesQuery.isError || helmRepoVersionsQuery.isError;
-
-  const latestVersion = useHelmRelease(environmentId, releaseName, namespace, {
-    select: (data) => data.chart.metadata?.version,
-  });
+  const latestVersionQuery = useHelmRelease(
+    environmentId,
+    releaseName,
+    namespace,
+    {
+      select: (data) => data.chart.metadata?.version,
+    }
+  );
   const latestVersionAvailable = versions[0]?.Version ?? '';
   const isNewVersionAvailable = Boolean(
-    latestVersion?.data &&
-      semverCompare(latestVersionAvailable, latestVersion?.data) === 1
+    latestVersionQuery?.data &&
+      semverCompare(latestVersionAvailable, latestVersionQuery?.data) === 1
   );
+  const currentVersion = release?.chart.metadata?.version;
 
   const editableHelmRelease: UpdateHelmReleasePayload = {
     name: releaseName,
     namespace: namespace || '',
     values: release?.values?.userSuppliedValues,
     chart: release?.chart.metadata?.name || '',
-    version: release?.chart.metadata?.version,
+    version: currentVersion,
+    repo,
   };
-
-  function handleRefreshVersions() {
-    if (!useCache) {
-      helmRepoVersionsQuery.refetch();
-    } else {
-      setUseCache(false);
-    }
-  }
 
   return (
     <div className="relative">
       <LoadingButton
         color="secondary"
         data-cy="k8sApp-upgradeHelmChartButton"
-        onClick={() => openUpgradeForm(versions, release)}
+        onClick={handleUpgrade}
         disabled={
           versions.length === 0 ||
           isLoading ||
@@ -133,68 +128,75 @@ export function UpgradeButton({
               }
             />
           )}
-          <button
+          <Button
+            data-cy="k8sApp-refreshHelmChartVersionsButton"
+            color="link"
+            size="xsmall"
             onClick={handleRefreshVersions}
-            className="text-primary hover:text-primary-light cursor-pointer bg-transparent border-0 pl-1 p-0"
             type="button"
           >
-            Refresh versions
-          </button>
+            Refresh
+          </Button>
         </span>
       )}
     </div>
   );
 
-  async function openUpgradeForm(
-    versions: ChartVersion[],
-    release?: HelmRelease
-  ) {
-    const result = await openUpgradeHelmModal(editableHelmRelease, versions);
-
-    if (result) {
-      handleUpgrade(result, release);
+  function handleRefreshVersions() {
+    if (useCache) {
+      // clicking 'refresh versions' should get the latest versions from the repo, not the cached versions
+      setUseCache(false);
     }
+    helmRepoVersionsQuery.refetch();
   }
 
-  function handleUpgrade(
-    payload: UpdateHelmReleasePayload,
-    release?: HelmRelease
-  ) {
-    if (release?.info) {
-      const updatedRelease = {
-        ...release,
-        info: {
-          ...release.info,
-          status: 'pending-upgrade',
-          description: 'Preparing upgrade',
+  async function handleUpgrade() {
+    const submittedUpgradeValues = await openUpgradeHelmModal(
+      editableHelmRelease,
+      versions
+    );
+
+    if (submittedUpgradeValues) {
+      upgrade(submittedUpgradeValues, release);
+    }
+
+    function upgrade(payload: UpdateHelmReleasePayload, release?: HelmRelease) {
+      if (release?.info) {
+        const updatedRelease = {
+          ...release,
+          info: {
+            ...release.info,
+            status: 'pending-upgrade',
+            description: 'Preparing upgrade',
+          },
+        };
+        updateRelease(updatedRelease);
+      }
+      updateHelmReleaseMutation.mutate(payload, {
+        onSuccess: () => {
+          notifySuccess('Success', 'Helm chart upgraded successfully');
+          // set the revision url param to undefined to refresh the page at the latest revision
+          router.stateService.go('kubernetes.helm', {
+            namespace,
+            name: releaseName,
+            revision: undefined,
+          });
         },
-      };
-      updateRelease(updatedRelease);
+      });
     }
-    updateHelmReleaseMutation.mutate(payload, {
-      onSuccess: () => {
-        notifySuccess('Success', 'Helm chart upgraded successfully');
-        // set the revision url param to undefined to refresh the page at the latest revision
-        router.stateService.go('kubernetes.helm', {
-          namespace,
-          name: releaseName,
-          revision: undefined,
-        });
-      },
-    });
   }
+}
 
-  function getStatusMessage(
-    hasNoAvailableVersions: boolean,
-    latestVersionAvailable: string,
-    isNewVersionAvailable: boolean
-  ): string {
-    if (hasNoAvailableVersions) {
-      return 'No versions available ';
-    }
-    if (isNewVersionAvailable) {
-      return `New version available (${latestVersionAvailable}) `;
-    }
-    return '';
+function getStatusMessage(
+  hasNoAvailableVersions: boolean,
+  latestVersionAvailable: string,
+  isNewVersionAvailable: boolean
+) {
+  if (hasNoAvailableVersions) {
+    return 'No versions available ';
   }
+  if (isNewVersionAvailable) {
+    return `New version available (${latestVersionAvailable}) `;
+  }
+  return 'Latest version installed';
 }

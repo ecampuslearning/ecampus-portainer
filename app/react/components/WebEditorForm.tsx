@@ -8,55 +8,14 @@ import {
 import { useTransitionHook } from '@uirouter/react';
 import { JSONSchema7 } from 'json-schema';
 
-import { BROWSER_OS_PLATFORM } from '@/react/constants';
-
 import { CodeEditor } from '@@/CodeEditor';
-import { Tooltip } from '@@/Tip/Tooltip';
 
 import { FormSectionTitle } from './form-components/FormSectionTitle';
 import { FormError } from './form-components/FormError';
 import { confirm } from './modals/confirm';
 import { ModalType } from './modals';
 import { buildConfirmButton } from './modals/utils';
-
-const otherEditorConfig = {
-  tooltip: (
-    <>
-      <div>Ctrl+F - Start searching</div>
-      <div>Ctrl+G - Find next</div>
-      <div>Ctrl+Shift+G - Find previous</div>
-      <div>Ctrl+Shift+F - Replace</div>
-      <div>Ctrl+Shift+R - Replace all</div>
-      <div>Alt+G - Jump to line</div>
-      <div>Persistent search:</div>
-      <div className="ml-5">Enter - Find next</div>
-      <div className="ml-5">Shift+Enter - Find previous</div>
-    </>
-  ),
-  searchCmdLabel: 'Ctrl+F for search',
-} as const;
-
-export const editorConfig = {
-  mac: {
-    tooltip: (
-      <>
-        <div>Cmd+F - Start searching</div>
-        <div>Cmd+G - Find next</div>
-        <div>Cmd+Shift+G - Find previous</div>
-        <div>Cmd+Option+F - Replace</div>
-        <div>Cmd+Option+R - Replace all</div>
-        <div>Option+G - Jump to line</div>
-        <div>Persistent search:</div>
-        <div className="ml-5">Enter - Find next</div>
-        <div className="ml-5">Shift+Enter - Find previous</div>
-      </>
-    ),
-    searchCmdLabel: 'Cmd+F for search',
-  },
-
-  lin: otherEditorConfig,
-  win: otherEditorConfig,
-} as const;
+import { ShortcutsTooltip } from './CodeEditor/ShortcutsTooltip';
 
 type CodeEditorProps = ComponentProps<typeof CodeEditor>;
 
@@ -69,7 +28,7 @@ interface Props extends CodeEditorProps {
 
 export function WebEditorForm({
   id,
-  titleContent = '',
+  titleContent = 'Web editor',
   hideTitle,
   children,
   error,
@@ -81,10 +40,7 @@ export function WebEditorForm({
     <div>
       <div className="web-editor overflow-x-hidden">
         {!hideTitle && (
-          <>
-            <DefaultTitle id={id} />
-            {titleContent ?? null}
-          </>
+          <DefaultTitle id={id}>{titleContent ?? null}</DefaultTitle>
         )}
         {children && (
           <div className="form-group text-muted small">
@@ -111,15 +67,11 @@ export function WebEditorForm({
   );
 }
 
-function DefaultTitle({ id }: { id: string }) {
+function DefaultTitle({ id, children }: { id: string; children?: ReactNode }) {
   return (
     <FormSectionTitle htmlFor={id}>
-      Web editor
-      <div className="text-muted small vertical-center ml-auto">
-        {editorConfig[BROWSER_OS_PLATFORM].searchCmdLabel}
-
-        <Tooltip message={editorConfig[BROWSER_OS_PLATFORM].tooltip} />
-      </div>
+      {children}
+      <ShortcutsTooltip />
     </FormSectionTitle>
   );
 }

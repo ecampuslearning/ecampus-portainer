@@ -4,11 +4,12 @@ import { vi } from 'vitest';
 
 import { withTestQueryProvider } from '@/react/test-utils/withTestQuery';
 import { withTestRouter } from '@/react/test-utils/withRouter';
+import { withUserProvider } from '@/react/test-utils/withUserProvider';
 
 import {
   useHelmRepoVersions,
   ChartVersion,
-} from '../queries/useHelmRepositories';
+} from '../../queries/useHelmRepositories';
 import { HelmRelease } from '../../types';
 
 import { openUpgradeHelmModal } from './UpgradeHelmModal';
@@ -25,21 +26,27 @@ vi.mock('@/portainer/services/notifications', () => ({
 }));
 
 // Mock the useHelmRepoVersions and useHelmRepositories hooks
-vi.mock('../queries/useHelmRepositories', () => ({
-  useHelmRepoVersions: vi.fn(() => ({
-    data: [
-      { Version: '1.0.0', Repo: 'stable' },
-      { Version: '1.1.0', Repo: 'stable' },
-    ],
-    isInitialLoading: false,
-    isError: false,
-    isFetching: false,
-    refetch: vi.fn(() => Promise.resolve([])),
-  })),
+vi.mock('../../queries/useHelmRepositories', () => ({
+  useHelmRepoVersions: vi.fn(),
   useHelmRepositories: vi.fn(() => ({
     data: ['repo1', 'repo2'],
     isInitialLoading: false,
     isError: false,
+  })),
+}));
+
+// Mock the useHelmRelease hook
+vi.mock('../queries/useHelmRelease', () => ({
+  useHelmRelease: vi.fn(() => ({
+    data: '1.0.0',
+  })),
+}));
+
+// Mock the useUpdateHelmReleaseMutation hook
+vi.mock('../../queries/useUpdateHelmReleaseMutation', () => ({
+  useUpdateHelmReleaseMutation: vi.fn(() => ({
+    mutate: vi.fn(),
+    isLoading: false,
   })),
 }));
 
@@ -65,11 +72,27 @@ function renderButton(props = {}) {
     ...props,
   };
 
-  const Wrapped = withTestQueryProvider(withTestRouter(UpgradeButton));
+  const Wrapped = withTestQueryProvider(
+    withUserProvider(withTestRouter(UpgradeButton))
+  );
   return render(<Wrapped {...defaultProps} />);
 }
 
 describe('UpgradeButton', () => {
+  beforeEach(() => {
+    // Set up default mock return values
+    vi.mocked(useHelmRepoVersions).mockReturnValue({
+      data: [
+        { Version: '1.0.0', Repo: 'stable' },
+        { Version: '1.1.0', Repo: 'stable' },
+      ],
+      isInitialLoading: false,
+      isError: false,
+      isFetching: false,
+      refetch: vi.fn(() => Promise.resolve([])),
+    });
+  });
+
   test('should display the upgrade button', () => {
     renderButton();
 

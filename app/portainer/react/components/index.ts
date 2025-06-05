@@ -235,6 +235,7 @@ export const ngModule = angular
       'schema',
       'fileName',
       'placeholder',
+      'showToolbar',
     ])
   )
   .component(

@@ -31,7 +31,7 @@
                     <portainer-tooltip message="'If you have defined namespaces in your deployment file turning this on will enforce the use of those only in the deployment'">
                     </portainer-tooltip>
                   </label>
-                  <div class="col-sm-8 vertical-center pt-1">
+                  <div class="col-sm-9 col-lg-10 vertical-center pt-1">
                     <label class="switch">
                       <input type="checkbox" name="toggle_logo" ng-model="ctrl.formValues.namespace_toggle" data-cy="use-namespce-from-menifest" />
                       <span class="slider round"></span>
@@ -41,7 +41,7 @@
 
                 <div class="form-group" ng-if="ctrl.formValues.Namespace">
                   <label for="target_node" class="col-lg-2 col-sm-3 control-label text-left">Namespace</label>
-                  <div class="col-sm-8">
+                  <div class="col-sm-9 col-lg-10">
                     <select
                       ng-if="!ctrl.formValues.namespace_toggle || ctrl.state.BuildMethod === ctrl.BuildMethods.HELM"
                       data-cy="namespace-select"
@@ -66,10 +66,10 @@
 
                 <div class="form-group">
                   <label for="name" class="col-lg-2 col-sm-3 control-label text-left" ng-class="{ required: ctrl.state.BuildMethod === ctrl.BuildMethods.HELM }">Name</label>
-                  <div class="col-sm-8 small text-muted pt-[7px]" ng-if="ctrl.state.BuildMethod !== ctrl.BuildMethods.HELM">
+                  <div class="col-sm-9 col-lg-10 small text-muted pt-[7px]" ng-if="ctrl.state.BuildMethod !== ctrl.BuildMethods.HELM">
                     Resource names specified in the manifest will be used
                   </div>
-                  <div class="col-sm-8" ng-if="ctrl.state.BuildMethod === ctrl.BuildMethods.HELM">
+                  <div class="col-sm-9 col-lg-10" ng-if="ctrl.state.BuildMethod === ctrl.BuildMethods.HELM">
                     <input
                       type="text"
                       data-cy="name-input"
@@ -170,7 +170,7 @@
                   </div>
                   <div class="form-group">
                     <label for="manifest_url" class="col-sm-3 col-lg-2 control-label required text-left">URL</label>
-                    <div class="col-sm-8">
+                    <div class="col-sm-9 col-lg-10">
                       <input
                         type="text"
                         data-cy="k8sAppDeploy-urlFileUrl"

@@ -112,4 +112,15 @@ export interface InstallChartPayload {
   Chart: string;
   Values: string;
   Namespace: string;
+  Version?: string;
+}
+
+export interface UpdateHelmReleasePayload {
+  namespace: string;
+  values?: string;
+  repo?: string;
+  name: string;
+  chart: string;
+  version?: string;
+  atomic?: boolean;
 }

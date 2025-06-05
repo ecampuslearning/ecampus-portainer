@@ -21,7 +21,7 @@ interface Props {
   onDismiss?(): void;
   'aria-label'?: string;
   'aria-labelledby'?: string;
-  size?: 'md' | 'lg';
+  size?: 'md' | 'lg' | 'xl';
   className?: string;
 }
 
@@ -53,6 +53,7 @@ export function Modal({
             {
               'w-[450px]': size === 'md',
               'w-[700px]': size === 'lg',
+              'w-[1000px]': size === 'xl',
             }
           )}
         >
