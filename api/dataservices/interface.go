@@ -12,6 +12,7 @@ type (
 		EdgeGroup() EdgeGroupService
 		EdgeJob() EdgeJobService
 		EdgeStack() EdgeStackService
+		EdgeStackStatus() EdgeStackStatusService
 		Endpoint() EndpointService
 		EndpointGroup() EndpointGroupService
 		EndpointRelation() EndpointRelationService
@@ -39,8 +40,8 @@ type (
 		Open() (newStore bool, err error)
 		Init() error
 		Close() error
-		UpdateTx(func(DataStoreTx) error) error
-		ViewTx(func(DataStoreTx) error) error
+		UpdateTx(func(tx DataStoreTx) error) error
+		ViewTx(func(tx DataStoreTx) error) error
 		MigrateData() error
 		Rollback(force bool) error
 		CheckCurrentEdition() error
@@ -87,6 +88,16 @@ type (
 		DeleteEdgeStack(ID portainer.EdgeStackID) error
 		GetNextIdentifier() int
 		BucketName() string
+	}
+
+	EdgeStackStatusService interface {
+		Create(edgeStackID portainer.EdgeStackID, endpointID portainer.EndpointID, status *portainer.EdgeStackStatusForEnv) error
+		Read(edgeStackID portainer.EdgeStackID, endpointID portainer.EndpointID) (*portainer.EdgeStackStatusForEnv, error)
+		ReadAll(edgeStackID portainer.EdgeStackID) ([]portainer.EdgeStackStatusForEnv, error)
+		Update(edgeStackID portainer.EdgeStackID, endpointID portainer.EndpointID, status *portainer.EdgeStackStatusForEnv) error
+		Delete(edgeStackID portainer.EdgeStackID, endpointID portainer.EndpointID) error
+		DeleteAll(edgeStackID portainer.EdgeStackID) error
+		Clear(edgeStackID portainer.EdgeStackID, relatedEnvironmentsIDs []portainer.EndpointID) error
 	}
 
 	// EndpointService represents a service for managing environment(endpoint) data

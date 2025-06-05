@@ -25,5 +25,11 @@ func (handler *Handler) edgeStackList(w http.ResponseWriter, r *http.Request) *h
 		return httperror.InternalServerError("Unable to retrieve edge stacks from the database", err)
 	}
 
+	for i := range edgeStacks {
+		if err := fillEdgeStackStatus(handler.DataStore, &edgeStacks[i]); err != nil {
+			return handlerDBErr(err, "Unable to retrieve edge stack status from the database")
+		}
+	}
+
 	return response.JSON(w, edgeStacks)
 }

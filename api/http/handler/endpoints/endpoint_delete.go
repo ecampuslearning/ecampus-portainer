@@ -214,14 +214,9 @@ func (handler *Handler) deleteEndpoint(tx dataservices.DataStoreTx, endpointID p
 		log.Warn().Err(err).Msg("Unable to retrieve edge stacks from the database")
 	}
 
-	for idx := range edgeStacks {
-		edgeStack := &edgeStacks[idx]
-		if _, ok := edgeStack.Status[endpoint.ID]; ok {
-			delete(edgeStack.Status, endpoint.ID)
-
-			if err := tx.EdgeStack().UpdateEdgeStack(edgeStack.ID, edgeStack); err != nil {
-				log.Warn().Err(err).Msg("Unable to update edge stack")
-			}
+	for _, edgeStack := range edgeStacks {
+		if err := tx.EdgeStackStatus().Delete(edgeStack.ID, endpoint.ID); err != nil {
+			log.Warn().Err(err).Msg("Unable to delete edge stack status")
 		}
 	}
 

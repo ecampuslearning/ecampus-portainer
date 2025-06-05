@@ -74,6 +74,10 @@ func (handler *Handler) edgeStackUpdate(w http.ResponseWriter, r *http.Request) 
 		return httperror.InternalServerError("Unexpected error", err)
 	}
 
+	if err := fillEdgeStackStatus(handler.DataStore, stack); err != nil {
+		return handlerDBErr(err, "Unable to retrieve edge stack status from the database")
+	}
+
 	return response.JSON(w, stack)
 }
 
@@ -120,7 +124,7 @@ func (handler *Handler) updateEdgeStack(tx dataservices.DataStoreTx, stackID por
 	stack.EdgeGroups = groupsIds
 
 	if payload.UpdateVersion {
-		if err := handler.updateStackVersion(stack, payload.DeploymentType, []byte(payload.StackFileContent), "", relatedEndpointIds); err != nil {
+		if err := handler.updateStackVersion(tx, stack, payload.DeploymentType, []byte(payload.StackFileContent), "", relatedEndpointIds); err != nil {
 			return nil, httperror.InternalServerError("Unable to update stack version", err)
 		}
 	}

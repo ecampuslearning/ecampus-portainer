@@ -247,19 +247,17 @@ func (handler *Handler) filterEndpointsByQuery(
 	return filteredEndpoints, totalAvailableEndpoints, nil
 }
 
-func endpointStatusInStackMatchesFilter(edgeStackStatus map[portainer.EndpointID]portainer.EdgeStackStatus, envId portainer.EndpointID, statusFilter portainer.EdgeStackStatusType) bool {
-	status, ok := edgeStackStatus[envId]
-
+func endpointStatusInStackMatchesFilter(stackStatus *portainer.EdgeStackStatusForEnv, envId portainer.EndpointID, statusFilter portainer.EdgeStackStatusType) bool {
 	// consider that if the env has no status in the stack it is in Pending state
 	if statusFilter == portainer.EdgeStackStatusPending {
-		return !ok || len(status.Status) == 0
+		return stackStatus == nil || len(stackStatus.Status) == 0
 	}
 
-	if !ok {
+	if stackStatus == nil {
 		return false
 	}
 
-	return slices.ContainsFunc(status.Status, func(s portainer.EdgeStackDeploymentStatus) bool {
+	return slices.ContainsFunc(stackStatus.Status, func(s portainer.EdgeStackDeploymentStatus) bool {
 		return s.Type == statusFilter
 	})
 }
@@ -291,7 +289,12 @@ func filterEndpointsByEdgeStack(endpoints []portainer.Endpoint, edgeStackId port
 	if statusFilter != nil {
 		n := 0
 		for _, envId := range envIds {
-			if endpointStatusInStackMatchesFilter(stack.Status, envId, *statusFilter) {
+			edgeStackStatus, err := datastore.EdgeStackStatus().Read(edgeStackId, envId)
+			if err != nil {
+				return nil, errors.WithMessagef(err, "Unable to retrieve edge stack status for environment %d", envId)
+			}
+
+			if endpointStatusInStackMatchesFilter(edgeStackStatus, envId, *statusFilter) {
 				envIds[n] = envId
 				n++
 			}

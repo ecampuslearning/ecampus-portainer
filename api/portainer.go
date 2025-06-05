@@ -336,6 +336,15 @@ type (
 		UseManifestNamespaces bool
 	}
 
+	EdgeStackStatusForEnv struct {
+		EndpointID EndpointID
+		Status     []EdgeStackDeploymentStatus
+		// EE only feature
+		DeploymentInfo StackDeploymentInfo
+		// ReadyRePullImage is a flag to indicate whether the auto update is trigger to re-pull image
+		ReadyRePullImage bool `json:"ReadyRePullImage,omitempty"`
+	}
+
 	EdgeStackDeploymentType int
 
 	// EdgeStackID represents an edge stack id

@@ -103,8 +103,7 @@ func (payload *edgeStackFromGitRepositoryPayload) Validate(r *http.Request) erro
 // @router /edge_stacks/create/repository [post]
 func (handler *Handler) createEdgeStackFromGitRepository(r *http.Request, tx dataservices.DataStoreTx, dryrun bool, userID portainer.UserID) (*portainer.EdgeStack, error) {
 	var payload edgeStackFromGitRepositoryPayload
-	err := request.DecodeAndValidateJSONPayload(r, &payload)
-	if err != nil {
+	if err := request.DecodeAndValidateJSONPayload(r, &payload); err != nil {
 		return nil, err
 	}
 
@@ -137,11 +136,9 @@ func (handler *Handler) createEdgeStackFromGitRepository(r *http.Request, tx dat
 }
 
 func (handler *Handler) storeManifestFromGitRepository(tx dataservices.DataStoreTx, stackFolder string, relatedEndpointIds []portainer.EndpointID, deploymentType portainer.EdgeStackDeploymentType, currentUserID portainer.UserID, repositoryConfig gittypes.RepoConfig) (composePath, manifestPath, projectPath string, err error) {
-	hasWrongType, err := hasWrongEnvironmentType(tx.Endpoint(), relatedEndpointIds, deploymentType)
-	if err != nil {
+	if hasWrongType, err := hasWrongEnvironmentType(tx.Endpoint(), relatedEndpointIds, deploymentType); err != nil {
 		return "", "", "", fmt.Errorf("unable to check for existence of non fitting environments: %w", err)
-	}
-	if hasWrongType {
+	} else if hasWrongType {
 		return "", "", "", errors.New("edge stack with config do not match the environment type")
 	}
 
@@ -153,8 +150,7 @@ func (handler *Handler) storeManifestFromGitRepository(tx dataservices.DataStore
 		repositoryPassword = repositoryConfig.Authentication.Password
 	}
 
-	err = handler.GitService.CloneRepository(projectPath, repositoryConfig.URL, repositoryConfig.ReferenceName, repositoryUsername, repositoryPassword, repositoryConfig.TLSSkipVerify)
-	if err != nil {
+	if err := handler.GitService.CloneRepository(projectPath, repositoryConfig.URL, repositoryConfig.ReferenceName, repositoryUsername, repositoryPassword, repositoryConfig.TLSSkipVerify); err != nil {
 		return "", "", "", err
 	}
 

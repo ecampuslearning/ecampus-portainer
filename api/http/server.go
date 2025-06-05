@@ -161,10 +161,7 @@ func (server *Server) Start() error {
 	edgeJobsHandler.FileService = server.FileService
 	edgeJobsHandler.ReverseTunnelService = server.ReverseTunnelService
 
-	edgeStackCoordinator := edgestacks.NewEdgeStackStatusUpdateCoordinator(server.DataStore)
-	go edgeStackCoordinator.Start()
-
-	var edgeStacksHandler = edgestacks.NewHandler(requestBouncer, server.DataStore, server.EdgeStacksService, edgeStackCoordinator)
+	var edgeStacksHandler = edgestacks.NewHandler(requestBouncer, server.DataStore, server.EdgeStacksService)
 	edgeStacksHandler.FileService = server.FileService
 	edgeStacksHandler.GitService = server.GitService
 	edgeStacksHandler.KubernetesDeployer = server.KubernetesDeployer
