@@ -24,6 +24,10 @@ fieldset[disabled] .btn {
   box-shadow: none;
 }
 
+.btn-icon {
+  @apply !border-none !bg-transparent p-0;
+}
+
 .btn.btn-primary {
   @apply border-blue-8 bg-blue-8 text-white;
   @apply hover:border-blue-9 hover:bg-blue-9 hover:text-white;
@@ -71,6 +75,9 @@ fieldset[disabled] .btn {
   @apply border-error-5 th-highcontrast:border-error-7 th-dark:border-error-7;
   @apply border border-solid;
 }
+.btn.btn-icon.btn-dangerlight {
+  @apply hover:text-error-11 th-dark:hover:text-error-7;
+}
 
 .btn.btn-success {
   background-color: var(--ui-success-7);
@@ -83,8 +90,8 @@ fieldset[disabled] .btn {
 /* secondary-grey */
 .btn.btn-default,
 .btn.btn-light {
-  @apply border-gray-5 bg-white text-gray-9;
-  @apply hover:border-gray-5 hover:bg-gray-3 hover:text-gray-10;
+  @apply border-gray-5 bg-white text-gray-7;
+  @apply hover:border-gray-5 hover:bg-gray-3 hover:text-gray-9;
 
   /* dark mode */
   @apply th-dark:border-gray-warm-7 th-dark:bg-gray-iron-10 th-dark:text-gray-warm-4;
@@ -136,6 +143,10 @@ fieldset[disabled] .btn {
 .btn.btn-dangerlight:focus {
   --btn-focus-color: var(--ui-blue-3);
   box-shadow: 0px 0px 0px 4px var(--btn-focus-color);
+}
+
+.btn.btn-icon:focus {
+  box-shadow: none !important;
 }
 
 [theme='dark'] .btn.btn-primary:focus,
