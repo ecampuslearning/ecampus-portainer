@@ -65,7 +65,7 @@ function getStatus(
     };
   }
 
-  if (envStatus.length < numDeployments) {
+  if (!envStatus.length) {
     return {
       label: 'Deploying',
       icon: Loader2,
@@ -81,6 +81,15 @@ function getStatus(
       label: 'Failed',
       icon: XCircle,
       mode: 'danger',
+    };
+  }
+
+  if (envStatus.length < numDeployments) {
+    return {
+      label: 'Deploying',
+      icon: Loader2,
+      spin: true,
+      mode: 'primary',
     };
   }
 
