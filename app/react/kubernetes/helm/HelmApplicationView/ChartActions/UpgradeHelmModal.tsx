@@ -3,7 +3,7 @@ import { ArrowUp } from 'lucide-react';
 
 import { withReactQuery } from '@/react-tools/withReactQuery';
 import { withCurrentUser } from '@/react-tools/withCurrentUser';
-import { ChartVersion } from '@/react/kubernetes/helm/queries/useHelmRepositories';
+import { ChartVersion } from '@/react/kubernetes/helm/queries/useHelmRepoVersions';
 
 import { Modal, OnSubmit, openModal } from '@@/modals';
 import { Button } from '@@/buttons';

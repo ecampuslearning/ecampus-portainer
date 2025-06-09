@@ -6,7 +6,6 @@ import { FormControl } from '@@/form-components/FormControl';
 import { Option, PortainerSelect } from '@@/form-components/PortainerSelect';
 import { FormSection } from '@@/form-components/FormSection';
 
-import { ChartVersion } from '../queries/useHelmRepositories';
 import { Chart } from '../types';
 import { useHelmChartValues } from '../queries/useHelmChartValues';
 import { HelmValuesInput } from '../components/HelmValuesInput';
@@ -17,8 +16,7 @@ type Props = {
   selectedChart: Chart;
   namespace?: string;
   name?: string;
-  versionOptions: Option<ChartVersion>[];
-  isLoadingVersions: boolean;
+  versionOptions: Option<string>[];
 };
 
 export function HelmInstallInnerForm({
@@ -26,7 +24,6 @@ export function HelmInstallInnerForm({
   namespace,
   name,
   versionOptions,
-  isLoadingVersions,
 }: Props) {
   const { values, setFieldValue, isSubmitting } =
     useFormikContext<HelmInstallFormValues>();
@@ -39,7 +36,7 @@ export function HelmInstallInnerForm({
 
   const selectedVersion = useMemo(
     () =>
-      versionOptions.find((v) => v.value.Version === values.version)?.value ??
+      versionOptions.find((v) => v.value === values.version)?.value ??
       versionOptions[0]?.value,
     [versionOptions, values.version]
   );
@@ -51,15 +48,14 @@ export function HelmInstallInnerForm({
           <FormControl
             label="Version"
             inputId="version-input"
-            isLoading={isLoadingVersions}
             loadingText="Loading versions..."
           >
-            <PortainerSelect<ChartVersion>
+            <PortainerSelect<string>
               value={selectedVersion}
               options={versionOptions}
               onChange={(version) => {
                 if (version) {
-                  setFieldValue('version', version.Version);
+                  setFieldValue('version', version);
                 }
               }}
               data-cy="helm-version-input"

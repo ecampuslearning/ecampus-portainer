@@ -9,7 +9,7 @@ import { withUserProvider } from '@/react/test-utils/withUserProvider';
 import {
   useHelmRepoVersions,
   ChartVersion,
-} from '../../queries/useHelmRepositories';
+} from '../../queries/useHelmRepoVersions';
 import { HelmRelease } from '../../types';
 
 import { openUpgradeHelmModal } from './UpgradeHelmModal';
@@ -25,14 +25,16 @@ vi.mock('@/portainer/services/notifications', () => ({
   notifySuccess: vi.fn(),
 }));
 
-// Mock the useHelmRepoVersions and useHelmRepositories hooks
-vi.mock('../../queries/useHelmRepositories', () => ({
-  useHelmRepoVersions: vi.fn(),
-  useHelmRepositories: vi.fn(() => ({
+vi.mock('../../queries/useHelmRegistries', () => ({
+  useHelmRegistries: vi.fn(() => ({
     data: ['repo1', 'repo2'],
     isInitialLoading: false,
     isError: false,
   })),
+}));
+
+vi.mock('../../queries/useHelmRepoVersions', () => ({
+  useHelmRepoVersions: vi.fn(),
 }));
 
 // Mock the useHelmRelease hook

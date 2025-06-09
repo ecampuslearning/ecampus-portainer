@@ -19,6 +19,8 @@ const mockCharts: Chart[] = [
     annotations: {
       category: 'database',
     },
+    version: '1.0.0',
+    versions: ['1.0.0', '1.0.1'],
   },
   {
     name: 'test-chart-2',
@@ -27,14 +29,18 @@ const mockCharts: Chart[] = [
     annotations: {
       category: 'database',
     },
+    version: '1.0.0',
+    versions: ['1.0.0', '1.0.1'],
   },
   {
     name: 'nginx-chart',
     description: 'Nginx Web Server',
-    repo: 'https://example.com',
+    repo: 'https://example.com/2',
     annotations: {
       category: 'web',
     },
+    version: '1.0.0',
+    versions: ['1.0.0', '1.0.1'],
   },
 ];
 
@@ -44,8 +50,11 @@ function renderComponent({
   loading = false,
   charts = mockCharts,
   selectAction = selectActionMock,
+  selectedRegistry = '',
 } = {}) {
   const user = new UserViewModel({ Username: 'user' });
+  const registries = ['https://example.com', 'https://example.com/2'];
+
   const Wrapped = withTestQueryProvider(
     withUserProvider(
       withTestRouter(() => (
@@ -53,6 +62,9 @@ function renderComponent({
           isLoading={loading}
           charts={charts}
           selectAction={selectAction}
+          registries={registries}
+          selectedRegistry={selectedRegistry}
+          setSelectedRegistry={() => {}}
         />
       )),
       user
@@ -77,6 +89,7 @@ describe('HelmTemplatesList', () => {
     expect(screen.getByText('Test Chart 1 Description')).toBeInTheDocument();
     expect(screen.getByText('nginx-chart')).toBeInTheDocument();
     expect(screen.getByText('Nginx Web Server')).toBeInTheDocument();
+    expect(screen.getByText('https://example.com/2')).toBeInTheDocument();
   });
 
   it('should call selectAction when a chart is clicked', async () => {
@@ -146,11 +159,24 @@ describe('HelmTemplatesList', () => {
     ).toBeInTheDocument();
   });
 
-  it('should show empty message when no charts are available', async () => {
-    renderComponent({ charts: [] });
+  it('should show empty message when no charts are available and a registry is selected', async () => {
+    renderComponent({ charts: [], selectedRegistry: 'https://example.com' });
 
     // Check for empty message
-    expect(screen.getByText('No helm charts available.')).toBeInTheDocument();
+    expect(
+      screen.getByText('No helm charts available in this registry.')
+    ).toBeInTheDocument();
+  });
+
+  it("should show 'select registry' message when no charts are available and no registry is selected", async () => {
+    renderComponent({ charts: [] });
+
+    // Check for message
+    expect(
+      screen.getByText(
+        'Please select a registry to view available Helm charts.'
+      )
+    ).toBeInTheDocument();
   });
 
   it('should show no results message when search has no matches', async () => {

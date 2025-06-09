@@ -87,6 +87,8 @@ export interface HelmChartResponse {
   annotations?: {
     category?: string;
   };
+  version: string;
+  versions: string[];
 }
 
 export interface HelmRepositoryResponse {
@@ -95,7 +97,7 @@ export interface HelmRepositoryResponse {
   URL: string;
 }
 
-export interface HelmRepositoriesResponse {
+export interface HelmRegistriesResponse {
   GlobalRepository: string;
   UserRepositories: HelmRepositoryResponse[];
 }

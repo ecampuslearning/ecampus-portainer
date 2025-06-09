@@ -43,7 +43,7 @@ vi.mock('../queries/useUpdateHelmReleaseMutation', () => ({
   })),
 }));
 
-vi.mock('../queries/useHelmRepositories', () => ({
+vi.mock('../queries/useHelmRepoVersions', () => ({
   useHelmRepoVersions: vi.fn(() => ({
     data: [
       { Version: '1.0.0', AppVersion: '1.0.0' },
@@ -75,6 +75,8 @@ const mockChart: Chart = {
   annotations: {
     category: 'database',
   },
+  version: '1.0.1',
+  versions: ['1.0.0', '1.0.1'],
 };
 
 const mockRouterStateService = {

@@ -1,12 +1,11 @@
 import { useState } from 'react';
+import { compact } from 'lodash';
 
 import { useCurrentUser } from '@/react/hooks/useUser';
 
 import { Chart } from '../types';
-import {
-  useHelmChartList,
-  useHelmRepositories,
-} from '../queries/useHelmChartList';
+import { useHelmChartList } from '../queries/useHelmChartList';
+import { useHelmRegistries } from '../queries/useHelmRegistries';
 
 import { HelmTemplatesList } from './HelmTemplatesList';
 import { HelmTemplatesSelectedItem } from './HelmTemplatesSelectedItem';
@@ -20,10 +19,11 @@ interface Props {
 
 export function HelmTemplates({ onSelectHelmChart, namespace, name }: Props) {
   const [selectedChart, setSelectedChart] = useState<Chart | null>(null);
+  const [selectedRegistry, setSelectedRegistry] = useState<string | null>(null);
 
   const { user } = useCurrentUser();
-  const helmReposQuery = useHelmRepositories(user.Id);
-  const chartListQuery = useHelmChartList(user.Id, helmReposQuery.data ?? []);
+  const helmReposQuery = useHelmRegistries();
+  const chartListQuery = useHelmChartList(user.Id, compact([selectedRegistry]));
   function clearHelmChart() {
     setSelectedChart(null);
     onSelectHelmChart('');
@@ -54,6 +54,9 @@ export function HelmTemplates({ onSelectHelmChart, namespace, name }: Props) {
             charts={chartListQuery.data}
             selectAction={handleChartSelection}
             isLoading={chartListQuery.isInitialLoading}
+            registries={helmReposQuery.data ?? []}
+            selectedRegistry={selectedRegistry}
+            setSelectedRegistry={setSelectedRegistry}
           />
         )}
       </div>

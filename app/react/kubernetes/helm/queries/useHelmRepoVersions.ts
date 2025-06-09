@@ -1,12 +1,9 @@
-import { useQuery, useQueries } from '@tanstack/react-query';
+import { useQueries } from '@tanstack/react-query';
 import { useMemo } from 'react';
 import { compact, flatMap } from 'lodash';
 
 import { withGlobalError } from '@/react-tools/react-query';
 import axios, { parseAxiosError } from '@/portainer/services/axios';
-import { useCurrentUser } from '@/react/hooks/useUser';
-
-import { getHelmRepositories } from './useHelmChartList';
 
 interface HelmSearch {
   entries: Entries;
@@ -22,25 +19,12 @@ export interface ChartVersion {
 }
 
 /**
- * Hook to fetch all Helm repositories for the current user
- */
-export function useHelmRepositories() {
-  const { user } = useCurrentUser();
-  return useQuery(
-    ['helm', 'repositories'],
-    async () => getHelmRepositories(user.Id),
-    {
-      enabled: !!user.Id,
-      ...withGlobalError('Unable to retrieve helm repositories'),
-    }
-  );
-}
-
-/**
  * React hook to get a list of available versions for a chart from specified repositories
  *
  * @param chart The chart name to get versions for
  * @param repositories Array of repository URLs to search in
+ * @param staleTime Stale time for the query
+ * @param useCache Whether to use the cache for the query
  */
 export function useHelmRepoVersions(
   chart: string,

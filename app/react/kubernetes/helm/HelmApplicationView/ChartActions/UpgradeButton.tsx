@@ -13,11 +13,9 @@ import { Link } from '@@/Link';
 
 import { HelmRelease, UpdateHelmReleasePayload } from '../../types';
 import { useUpdateHelmReleaseMutation } from '../../queries/useUpdateHelmReleaseMutation';
-import {
-  useHelmRepoVersions,
-  useHelmRepositories,
-} from '../../queries/useHelmRepositories';
+import { useHelmRepoVersions } from '../../queries/useHelmRepoVersions';
 import { useHelmRelease } from '../queries/useHelmRelease';
+import { useHelmRegistries } from '../../queries/useHelmRegistries';
 
 import { openUpgradeHelmModal } from './UpgradeHelmModal';
 
@@ -38,11 +36,11 @@ export function UpgradeButton({
   const [useCache, setUseCache] = useState(true);
   const updateHelmReleaseMutation = useUpdateHelmReleaseMutation(environmentId);
 
-  const repositoriesQuery = useHelmRepositories();
+  const registriesQuery = useHelmRegistries();
   const helmRepoVersionsQuery = useHelmRepoVersions(
     release?.chart.metadata?.name || '',
     60 * 60 * 1000, // 1 hour
-    repositoriesQuery.data,
+    registriesQuery.data,
     useCache
   );
   const versions = helmRepoVersionsQuery.data;
@@ -50,8 +48,8 @@ export function UpgradeButton({
 
   // Combined loading state
   const isLoading =
-    repositoriesQuery.isInitialLoading || helmRepoVersionsQuery.isFetching; // use 'isFetching' for helmRepoVersionsQuery because we want to show when it's refetching
-  const isError = repositoriesQuery.isError || helmRepoVersionsQuery.isError;
+    registriesQuery.isInitialLoading || helmRepoVersionsQuery.isFetching; // use 'isFetching' for helmRepoVersionsQuery because we want to show when it's refetching
+  const isError = registriesQuery.isError || helmRepoVersionsQuery.isError;
   const latestVersionQuery = useHelmRelease(
     environmentId,
     releaseName,

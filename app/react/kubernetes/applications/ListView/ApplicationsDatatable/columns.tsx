@@ -1,10 +1,11 @@
-import { CellContext } from '@tanstack/react-table';
+import { CellContext, Row } from '@tanstack/react-table';
 
 import { isoDate, truncate } from '@/portainer/filters/filters';
 import { useIsSystemNamespace } from '@/react/kubernetes/namespaces/queries/useIsSystemNamespace';
 
 import { Link } from '@@/Link';
 import { SystemBadge } from '@@/Badge/SystemBadge';
+import { filterHOC } from '@@/datatables/Filter';
 
 import { Application } from './types';
 import { helper } from './columns.helper';
@@ -49,7 +50,15 @@ export const image = helper.accessor('Image', {
 });
 
 export const appType = helper.accessor('ApplicationType', {
-  header: 'Application Type',
+  header: 'Application type',
+  meta: {
+    filter: filterHOC('Filter by application type'),
+  },
+  enableColumnFilter: true,
+  filterFn: (row: Row<Application>, _: string, filterValue: string[]) =>
+    filterValue.length === 0 ||
+    (!!row.original.ApplicationType &&
+      filterValue.includes(row.original.ApplicationType)),
 });
 
 export const published = helper.accessor('Services', {

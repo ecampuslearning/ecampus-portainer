@@ -11,10 +11,6 @@ import { confirmGenericDiscard } from '@@/modals/confirm';
 import { Option } from '@@/form-components/PortainerSelect';
 
 import { Chart } from '../types';
-import {
-  ChartVersion,
-  useHelmRepoVersions,
-} from '../queries/useHelmRepositories';
 import { useUpdateHelmReleaseMutation } from '../queries/useUpdateHelmReleaseMutation';
 
 import { HelmInstallInnerForm } from './HelmInstallInnerForm';
@@ -30,23 +26,16 @@ export function HelmInstallForm({ selectedChart, namespace, name }: Props) {
   const environmentId = useEnvironmentId();
   const router = useRouter();
   const analytics = useAnalytics();
-  const helmRepoVersionsQuery = useHelmRepoVersions(
-    selectedChart.name,
-    60 * 60 * 1000, // 1 hour
-    [selectedChart.repo],
-    false
-  );
-  const versions = helmRepoVersionsQuery.data;
-  const versionOptions: Option<ChartVersion>[] = versions.map(
+  const versionOptions: Option<string>[] = selectedChart.versions.map(
     (version, index) => ({
-      label: index === 0 ? `${version.Version} (latest)` : version.Version,
+      label: index === 0 ? `${version} (latest)` : version,
       value: version,
     })
   );
   const defaultVersion = versionOptions[0]?.value;
   const initialValues: HelmInstallFormValues = {
     values: '',
-    version: defaultVersion?.Version ?? '',
+    version: defaultVersion ?? '',
   };
 
   const installHelmChartMutation = useUpdateHelmReleaseMutation(environmentId);
@@ -66,7 +55,6 @@ export function HelmInstallForm({ selectedChart, namespace, name }: Props) {
         namespace={namespace}
         name={name}
         versionOptions={versionOptions}
-        isLoadingVersions={helmRepoVersionsQuery.isInitialLoading}
       />
     </Formik>
   );
