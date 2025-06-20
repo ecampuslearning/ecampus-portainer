@@ -112,13 +112,13 @@ func (service *Service) UpdateEndpointRelation(endpointID portainer.EndpointID, 
 }
 
 func (service *Service) AddEndpointRelationsForEdgeStack(endpointIDs []portainer.EndpointID, edgeStackID portainer.EdgeStackID) error {
-	return service.connection.ViewTx(func(tx portainer.Transaction) error {
+	return service.connection.UpdateTx(func(tx portainer.Transaction) error {
 		return service.Tx(tx).AddEndpointRelationsForEdgeStack(endpointIDs, edgeStackID)
 	})
 }
 
 func (service *Service) RemoveEndpointRelationsForEdgeStack(endpointIDs []portainer.EndpointID, edgeStackID portainer.EdgeStackID) error {
-	return service.connection.ViewTx(func(tx portainer.Transaction) error {
+	return service.connection.UpdateTx(func(tx portainer.Transaction) error {
 		return service.Tx(tx).RemoveEndpointRelationsForEdgeStack(endpointIDs, edgeStackID)
 	})
 }
