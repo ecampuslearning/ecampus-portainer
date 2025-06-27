@@ -8,9 +8,13 @@ import { PortainerNamespace } from '../types';
 
 import { queryKeys } from './queryKeys';
 
-export function useNamespacesQuery(
+export function useNamespacesQuery<T = PortainerNamespace[]>(
   environmentId: EnvironmentId,
-  options?: { autoRefreshRate?: number; withResourceQuota?: boolean }
+  options?: {
+    autoRefreshRate?: number;
+    withResourceQuota?: boolean;
+    select?: (namespaces: PortainerNamespace[]) => T;
+  }
 ) {
   return useQuery(
     queryKeys.list(environmentId, {
@@ -22,6 +26,7 @@ export function useNamespacesQuery(
       refetchInterval() {
         return options?.autoRefreshRate ?? false;
       },
+      select: options?.select,
     }
   );
 }
