@@ -95,12 +95,11 @@ func (handler *Handler) endpointList(w http.ResponseWriter, r *http.Request) *ht
 		return httperror.BadRequest("Invalid query parameters", err)
 	}
 
-	filteredEndpoints := security.FilterEndpoints(endpoints, endpointGroups, securityContext)
-
-	filteredEndpoints, totalAvailableEndpoints, err := handler.filterEndpointsByQuery(filteredEndpoints, query, endpointGroups, edgeGroups, settings)
+	filteredEndpoints, totalAvailableEndpoints, err := handler.filterEndpointsByQuery(endpoints, query, endpointGroups, edgeGroups, settings, securityContext)
 	if err != nil {
 		return httperror.InternalServerError("Unable to filter endpoints", err)
 	}
+	filteredEndpoints = security.FilterEndpoints(filteredEndpoints, endpointGroups, securityContext)
 
 	sortEnvironmentsByField(filteredEndpoints, endpointGroups, getSortKey(sortField), sortOrder == "desc")
 

@@ -6,6 +6,7 @@ import (
 
 	portainer "github.com/portainer/portainer/api"
 	"github.com/portainer/portainer/api/datastore"
+	"github.com/portainer/portainer/api/http/security"
 	"github.com/portainer/portainer/api/internal/testhelpers"
 	"github.com/portainer/portainer/api/slicesx"
 
@@ -263,6 +264,7 @@ func runTest(t *testing.T, test filterTest, handler *Handler, endpoints []portai
 		[]portainer.EndpointGroup{},
 		[]portainer.EdgeGroup{},
 		&portainer.Settings{},
+		&security.RestrictedRequestContext{IsAdmin: true},
 	)
 
 	is.NoError(err)
