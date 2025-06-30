@@ -297,7 +297,9 @@ func filterEndpointsByEdgeStack(endpoints []portainer.Endpoint, edgeStackId port
 		n := 0
 		for _, envId := range envIds {
 			edgeStackStatus, err := datastore.EdgeStackStatus().Read(edgeStackId, envId)
-			if err != nil {
+			if dataservices.IsErrObjectNotFound(err) {
+				continue
+			} else if err != nil {
 				return nil, errors.WithMessagef(err, "Unable to retrieve edge stack status for environment %d", envId)
 			}
 

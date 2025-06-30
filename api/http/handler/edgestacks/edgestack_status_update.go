@@ -133,7 +133,9 @@ func (handler *Handler) updateEdgeStackStatus(tx dataservices.DataStoreTx, stack
 	}
 
 	environmentStatus, err := tx.EdgeStackStatus().Read(stackID, payload.EndpointID)
-	if err != nil {
+	if err != nil && !tx.IsErrObjectNotFound(err) {
+		return err
+	} else if tx.IsErrObjectNotFound(err) {
 		environmentStatus = &portainer.EdgeStackStatusForEnv{
 			EndpointID: payload.EndpointID,
 			Status:     []portainer.EdgeStackDeploymentStatus{},
