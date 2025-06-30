@@ -264,9 +264,6 @@ func (handler *Handler) buildSchedules(tx dataservices.DataStoreTx, endpointID p
 func (handler *Handler) buildEdgeStacks(tx dataservices.DataStoreTx, endpointID portainer.EndpointID) ([]stackStatusResponse, *httperror.HandlerError) {
 	relation, err := tx.EndpointRelation().EndpointRelation(endpointID)
 	if err != nil {
-		if tx.IsErrObjectNotFound(err) {
-			return nil, nil
-		}
 		return nil, httperror.InternalServerError("Unable to retrieve relation object from the database", err)
 	}
 

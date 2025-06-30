@@ -129,9 +129,6 @@ func (service *Service) updateEndpointRelations(tx dataservices.DataStoreTx, edg
 	for _, endpointID := range relatedEndpointIds {
 		relation, err := endpointRelationService.EndpointRelation(endpointID)
 		if err != nil {
-			if tx.IsErrObjectNotFound(err) {
-				continue
-			}
 			return fmt.Errorf("unable to find endpoint relation in database: %w", err)
 		}
 

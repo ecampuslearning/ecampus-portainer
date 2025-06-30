@@ -8,6 +8,7 @@ import (
 	portainer "github.com/portainer/portainer/api"
 	"github.com/portainer/portainer/api/dataservices"
 	"github.com/portainer/portainer/api/internal/edge"
+	"github.com/portainer/portainer/api/internal/endpointutils"
 	httperror "github.com/portainer/portainer/pkg/libhttp/error"
 	"github.com/portainer/portainer/pkg/libhttp/request"
 	"github.com/portainer/portainer/pkg/libhttp/response"
@@ -104,9 +105,8 @@ func deleteTag(tx dataservices.DataStoreTx, tagID portainer.TagID) error {
 	}
 
 	for _, endpoint := range endpoints {
-		if (tag.Endpoints[endpoint.ID] || tag.EndpointGroups[endpoint.GroupID]) && (endpoint.Type == portainer.EdgeAgentOnDockerEnvironment || endpoint.Type == portainer.EdgeAgentOnKubernetesEnvironment) {
-			err = updateEndpointRelations(tx, endpoint, edgeGroups, edgeStacks)
-			if err != nil {
+		if (tag.Endpoints[endpoint.ID] || tag.EndpointGroups[endpoint.GroupID]) && endpointutils.IsEdgeEndpoint(&endpoint) {
+			if err := updateEndpointRelations(tx, endpoint, edgeGroups, edgeStacks); err != nil {
 				return httperror.InternalServerError("Unable to update environment relations in the database", err)
 			}
 		}
@@ -133,15 +133,8 @@ func deleteTag(tx dataservices.DataStoreTx, tagID portainer.TagID) error {
 
 func updateEndpointRelations(tx dataservices.DataStoreTx, endpoint portainer.Endpoint, edgeGroups []portainer.EdgeGroup, edgeStacks []portainer.EdgeStack) error {
 	endpointRelation, err := tx.EndpointRelation().EndpointRelation(endpoint.ID)
-	if err != nil && !tx.IsErrObjectNotFound(err) {
+	if err != nil {
 		return err
-	}
-
-	if endpointRelation == nil {
-		endpointRelation = &portainer.EndpointRelation{
-			EndpointID: endpoint.ID,
-			EdgeStacks: make(map[portainer.EdgeStackID]bool),
-		}
 	}
 
 	endpointGroup, err := tx.EndpointGroup().Read(endpoint.GroupID)

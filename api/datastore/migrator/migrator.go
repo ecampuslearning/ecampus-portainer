@@ -249,6 +249,8 @@ func (m *Migrator) initMigrations() {
 
 	m.addMigrations("2.31.0", m.migrateEdgeStacksStatuses_2_31_0)
 
+	m.addMigrations("2.32.0", m.addEndpointRelationForEdgeAgents_2_32_0)
+
 	// Add new migrations above...
 	// One function per migration, each versions migration funcs in the same file.
 }

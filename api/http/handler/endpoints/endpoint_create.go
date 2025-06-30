@@ -563,6 +563,10 @@ func (handler *Handler) saveEndpointAndUpdateAuthorizations(tx dataservices.Data
 		return err
 	}
 
+	if err := endpointutils.InitializeEdgeEndpointRelation(endpoint, tx); err != nil {
+		return err
+	}
+
 	for _, tagID := range endpoint.TagIDs {
 		if err := tx.Tag().UpdateTagFunc(tagID, func(tag *portainer.Tag) {
 			tag.Endpoints[endpoint.ID] = true
