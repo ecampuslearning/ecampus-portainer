@@ -35,7 +35,7 @@ type (
 func getUniqueElements(items string) []string {
 	xs := strings.Split(items, ",")
 	xs = slicesx.Map(xs, strings.TrimSpace)
-	xs = slicesx.Filter(xs, func(x string) bool { return len(x) > 0 })
+	xs = slicesx.FilterInPlace(xs, func(x string) bool { return len(x) > 0 })
 
 	return slicesx.Unique(xs)
 }

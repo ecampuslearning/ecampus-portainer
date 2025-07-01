@@ -20,7 +20,7 @@
     "dev": "webpack-dev-server",
     "start": "webpack -w",
     "build": "webpack",
-    "format": "prettier --log-level warn --write \"**/*.{js,css,html,jsx,tsx,ts,json}\"",
+    "format": "prettier --log-level warn --write \"**/*.{js,css,html,jsx,tsx,ts}\"",
     "lint": "eslint --cache --fix './**/*.{js,jsx,ts,tsx}'",
     "test": "vitest run",
     "sb": "yarn storybook",
