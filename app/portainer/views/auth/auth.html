@@ -4,7 +4,10 @@
     <div class="col-sm-4 col-sm-offset-4">
       <!-- login box logo -->
       <div class="row">
-        <img ng-if="!ctrl.logo" src="~@/assets/images/logo_alt.svg" class="simple-box-logo" alt="Portainer" />
+        <div ng-if="!ctrl.logo">
+          <img src="~@/assets/images/logo_alt.svg" class="simple-box-logo hidden th-dark:!block th-highcontrast:!block" alt="Portainer" />
+          <img src="~@/assets/images/logo_alt_black.svg" class="simple-box-logo block th-dark:hidden th-highcontrast:hidden" alt="Portainer" />
+        </div>
         <img ng-if="ctrl.logo" ng-src="{{ ctrl.logo }}" class="simple-box-logo" />
       </div>
       <!-- !login box logo -->

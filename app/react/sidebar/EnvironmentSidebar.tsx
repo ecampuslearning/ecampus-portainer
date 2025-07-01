@@ -36,7 +36,7 @@ export function EnvironmentSidebar() {
   }
 
   return (
-    <div className={clsx(styles.root, 'rounded border border-dotted py-2')}>
+    <div className={clsx(styles.root, 'rounded py-2')}>
       {environment ? (
         <Content environment={environment} onClear={clearEnvironment} />
       ) : (
@@ -151,7 +151,7 @@ function Title({ environment, onClear }: TitleProps) {
         onClick={onClear}
         className={clsx(
           styles.closeBtn,
-          'ml-auto mr-2 flex h-5 w-5 items-center justify-center rounded border-0 p-1 text-sm text-gray-5 transition-colors duration-200 hover:text-white be:text-gray-6 be:hover:text-white'
+          'ml-auto mr-2 flex h-5 w-5 items-center justify-center rounded border-0 p-1 text-sm text-white transition-colors duration-200'
         )}
       >
         <X />
