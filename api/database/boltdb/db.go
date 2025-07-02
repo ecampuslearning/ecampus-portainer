@@ -138,6 +138,8 @@ func (connection *DbConnection) Open() error {
 	db, err := bolt.Open(databasePath, 0600, &bolt.Options{
 		Timeout:         1 * time.Second,
 		InitialMmapSize: connection.InitialMmapSize,
+		FreelistType:    bolt.FreelistMapType,
+		NoFreelistSync:  true,
 	})
 	if err != nil {
 		return err
