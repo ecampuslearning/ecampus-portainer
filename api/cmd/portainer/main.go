@@ -383,7 +383,8 @@ func buildServer(flags *portainer.CLIFlags) portainer.Server {
 
 	gitService := git.NewService(shutdownCtx)
 
-	openAMTService := openamt.NewService()
+	// Setting insecureSkipVerify to true to preserve the old behaviour.
+	openAMTService := openamt.NewService(true)
 
 	cryptoService := &crypto.Service{}
 

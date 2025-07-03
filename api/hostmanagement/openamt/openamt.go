@@ -32,9 +32,9 @@ type Service struct {
 }
 
 // NewService initializes a new service.
-func NewService() *Service {
+func NewService(insecureSkipVerify bool) *Service {
 	tlsConfig := crypto.CreateTLSConfiguration()
-	tlsConfig.InsecureSkipVerify = true
+	tlsConfig.InsecureSkipVerify = insecureSkipVerify
 
 	return &Service{
 		httpsClient: &http.Client{
