@@ -84,11 +84,8 @@ beforeEach(() => {
   );
 });
 const mockUser = {
-  ...createMockUsers(1)[0],
-  PortainerAuthorizations: {
-    K8sAccessSystemNamespaces: true,
-    K8sServiceW: true,
-  },
+  // Admin user
+  ...createMockUsers(1, 1)[0],
 };
 
 function createTestComponent() {
