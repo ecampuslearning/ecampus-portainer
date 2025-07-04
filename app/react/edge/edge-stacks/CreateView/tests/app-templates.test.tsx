@@ -80,10 +80,7 @@ test('The form should submit the correct request body for a given app template',
   // fill in the name and select the docker edge group
   const user = userEvent.setup();
   await user.type(getByRole('textbox', { name: 'Name *' }), 'my-stack');
-  await user.type(
-    getByRole('textbox', { name: 'License key *' }),
-    'license-123'
-  );
+  await user.type(getByRole('textbox', { name: 'License key' }), 'license-123');
   const selectElement = getByLabelText('Edge groups');
   await selectEvent.select(selectElement, 'docker');
 

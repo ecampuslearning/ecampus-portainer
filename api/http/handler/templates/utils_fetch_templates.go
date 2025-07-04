@@ -40,11 +40,13 @@ func (handler *Handler) fetchTemplates() (*listResponse, *httperror.HandlerError
 	}
 	defer resp.Body.Close()
 
-	err = json.NewDecoder(resp.Body).Decode(&body)
-	if err != nil {
+	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
 		return nil, httperror.InternalServerError("Unable to parse template file", err)
 	}
 
+	for i := range body.Templates {
+		body.Templates[i].ID = portainer.TemplateID(i + 1)
+	}
 	return body, nil
 
 }
