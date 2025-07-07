@@ -7,6 +7,7 @@ import (
 	"github.com/portainer/portainer/api/database"
 	"github.com/portainer/portainer/api/dataservices"
 	"github.com/portainer/portainer/api/dataservices/errors"
+	"github.com/portainer/portainer/api/slicesx"
 )
 
 var _ dataservices.DataStore = &testDatastore{}
@@ -152,8 +153,17 @@ type stubUserService struct {
 	users []portainer.User
 }
 
-func (s *stubUserService) BucketName() string                 { return "users" }
-func (s *stubUserService) ReadAll() ([]portainer.User, error) { return s.users, nil }
+func (s *stubUserService) BucketName() string { return "users" }
+func (s *stubUserService) ReadAll(predicates ...func(portainer.User) bool) ([]portainer.User, error) {
+	filtered := s.users
+
+	for _, p := range predicates {
+		filtered = slicesx.Filter(filtered, p)
+	}
+
+	return filtered, nil
+}
+
 func (s *stubUserService) UsersByRole(role portainer.UserRole) ([]portainer.User, error) {
 	return s.users, nil
 }
@@ -171,8 +181,16 @@ type stubEdgeJobService struct {
 	jobs []portainer.EdgeJob
 }
 
-func (s *stubEdgeJobService) BucketName() string                    { return "edgejobs" }
-func (s *stubEdgeJobService) ReadAll() ([]portainer.EdgeJob, error) { return s.jobs, nil }
+func (s *stubEdgeJobService) BucketName() string { return "edgejobs" }
+func (s *stubEdgeJobService) ReadAll(predicates ...func(portainer.EdgeJob) bool) ([]portainer.EdgeJob, error) {
+	filtered := s.jobs
+
+	for _, p := range predicates {
+		filtered = slicesx.Filter(filtered, p)
+	}
+
+	return filtered, nil
+}
 
 // WithEdgeJobs option will instruct testDatastore to return provided jobs
 func WithEdgeJobs(js []portainer.EdgeJob) datastoreOption {
@@ -362,8 +380,14 @@ func (s *stubStacksService) Read(ID portainer.StackID) (*portainer.Stack, error)
 	return nil, errors.ErrObjectNotFound
 }
 
-func (s *stubStacksService) ReadAll() ([]portainer.Stack, error) {
-	return s.stacks, nil
+func (s *stubStacksService) ReadAll(predicates ...func(portainer.Stack) bool) ([]portainer.Stack, error) {
+	filtered := s.stacks
+
+	for _, p := range predicates {
+		filtered = slicesx.Filter(filtered, p)
+	}
+
+	return filtered, nil
 }
 
 func (s *stubStacksService) StacksByEndpointID(endpointID portainer.EndpointID) ([]portainer.Stack, error) {
