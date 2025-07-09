@@ -59,6 +59,9 @@ func deleteTag(tx dataservices.DataStoreTx, tagID portainer.TagID) error {
 
 	for endpointID := range tag.Endpoints {
 		endpoint, err := tx.Endpoint().Endpoint(endpointID)
+		if tx.IsErrObjectNotFound(err) {
+			continue
+		}
 		if err != nil {
 			return httperror.InternalServerError("Unable to retrieve environment from the database", err)
 		}

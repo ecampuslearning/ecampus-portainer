@@ -84,3 +84,28 @@ func TestTagDeleteEdgeGroupsConcurrently(t *testing.T) {
 		t.Fatal("the edge group is not consistent")
 	}
 }
+
+func TestDeleteTag(t *testing.T) {
+	_, store := datastore.MustNewTestStore(t, true, false)
+
+	// Test the tx.IsErrObjectNotFound logic when endpoint is not found during cleanup
+	t.Run("should continue gracefully when endpoint not found during cleanup", func(t *testing.T) {
+		// Create a tag with a reference to a non-existent endpoint
+		tag := &portainer.Tag{
+			ID:             1,
+			Name:           "test-tag",
+			Endpoints:      map[portainer.EndpointID]bool{999: true}, // Non-existent endpoint
+			EndpointGroups: make(map[portainer.EndpointGroupID]bool),
+		}
+
+		err := store.Tag().Create(tag)
+		if err != nil {
+			t.Fatal("could not create tag:", err)
+		}
+
+		err = deleteTag(store, 1)
+		if err != nil {
+			t.Fatal("could not delete tag:", err)
+		}
+	})
+}
