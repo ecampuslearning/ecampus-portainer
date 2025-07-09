@@ -1,6 +1,7 @@
 package tags
 
 import (
+	"github.com/portainer/portainer/api/dataservices"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -8,23 +9,18 @@ import (
 	"testing"
 
 	portainer "github.com/portainer/portainer/api"
+	portainerDsErrors "github.com/portainer/portainer/api/dataservices/errors"
 	"github.com/portainer/portainer/api/datastore"
 	"github.com/portainer/portainer/api/internal/testhelpers"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestTagDeleteEdgeGroupsConcurrently(t *testing.T) {
 	const tagsCount = 100
 
-	_, store := datastore.MustNewTestStore(t, true, false)
-
-	user := &portainer.User{ID: 2, Username: "admin", Role: portainer.AdministratorRole}
-	if err := store.User().Create(user); err != nil {
-		t.Fatal("could not create admin user:", err)
-	}
-
-	handler := NewHandler(testhelpers.NewTestRequestBouncer())
-	handler.DataStore = store
-
+	handler, store := setUpHandler(t)
 	// Create all the tags and add them to the same edge group
 
 	var tagIDs []portainer.TagID
@@ -85,11 +81,101 @@ func TestTagDeleteEdgeGroupsConcurrently(t *testing.T) {
 	}
 }
 
-func TestDeleteTag(t *testing.T) {
-	_, store := datastore.MustNewTestStore(t, true, false)
+func TestHandler_tagDelete(t *testing.T) {
+	t.Run("should delete tag and update related endpoints and edge groups", func(t *testing.T) {
+		handler, store := setUpHandler(t)
+
+		tag := &portainer.Tag{
+			ID:             1,
+			Name:           "tag-1",
+			Endpoints:      make(map[portainer.EndpointID]bool),
+			EndpointGroups: make(map[portainer.EndpointGroupID]bool),
+		}
+		require.NoError(t, store.Tag().Create(tag))
+
+		endpointGroup := &portainer.EndpointGroup{
+			ID:     2,
+			Name:   "endpoint-group-1",
+			TagIDs: []portainer.TagID{tag.ID},
+		}
+		require.NoError(t, store.EndpointGroup().Create(endpointGroup))
+
+		endpoint1 := &portainer.Endpoint{
+			ID:      1,
+			Name:    "endpoint-1",
+			GroupID: endpointGroup.ID,
+		}
+		require.NoError(t, store.Endpoint().Create(endpoint1))
+
+		endpoint2 := &portainer.Endpoint{
+			ID:     2,
+			Name:   "endpoint-2",
+			TagIDs: []portainer.TagID{tag.ID},
+		}
+		require.NoError(t, store.Endpoint().Create(endpoint2))
+
+		tag.Endpoints[endpoint2.ID] = true
+		tag.EndpointGroups[endpointGroup.ID] = true
+		require.NoError(t, store.Tag().Update(tag.ID, tag))
+
+		dynamicEdgeGroup := &portainer.EdgeGroup{
+			ID:      1,
+			Name:    "edgegroup-1",
+			TagIDs:  []portainer.TagID{tag.ID},
+			Dynamic: true,
+		}
+		require.NoError(t, store.EdgeGroup().Create(dynamicEdgeGroup))
+
+		staticEdgeGroup := &portainer.EdgeGroup{
+			ID:        2,
+			Name:      "edgegroup-2",
+			Endpoints: []portainer.EndpointID{endpoint2.ID},
+		}
+		require.NoError(t, store.EdgeGroup().Create(staticEdgeGroup))
+
+		req, err := http.NewRequest(http.MethodDelete, "/tags/"+strconv.Itoa(int(tag.ID)), nil)
+		if err != nil {
+			t.Fail()
+
+			return
+		}
+
+		rec := httptest.NewRecorder()
+		handler.ServeHTTP(rec, req)
+
+		require.Equal(t, http.StatusNoContent, rec.Code)
+
+		// Check that the tag is deleted
+		_, err = store.Tag().Read(tag.ID)
+		require.ErrorIs(t, err, portainerDsErrors.ErrObjectNotFound)
+
+		// Check that the endpoints are updated
+		endpoint1, err = store.Endpoint().Endpoint(endpoint1.ID)
+		require.NoError(t, err)
+		assert.Len(t, endpoint1.TagIDs, 0, "endpoint-1 should not have any tags")
+		assert.Equal(t, endpoint1.GroupID, endpointGroup.ID, "endpoint-1 should still belong to the endpoint group")
+
+		endpoint2, err = store.Endpoint().Endpoint(endpoint2.ID)
+		require.NoError(t, err)
+		assert.Len(t, endpoint2.TagIDs, 0, "endpoint-2 should not have any tags")
+
+		// Check that the dynamic edge group is updated
+		dynamicEdgeGroup, err = store.EdgeGroup().Read(dynamicEdgeGroup.ID)
+		require.NoError(t, err)
+		assert.Len(t, dynamicEdgeGroup.TagIDs, 0, "dynamic edge group should not have any tags")
+		assert.Len(t, dynamicEdgeGroup.Endpoints, 0, "dynamic edge group should not have any endpoints")
+
+		// Check that the static edge group is not updated
+		staticEdgeGroup, err = store.EdgeGroup().Read(staticEdgeGroup.ID)
+		require.NoError(t, err)
+		assert.Len(t, staticEdgeGroup.TagIDs, 0, "static edge group should not have any tags")
+		assert.Len(t, staticEdgeGroup.Endpoints, 1, "static edge group should have one endpoint")
+		assert.Equal(t, endpoint2.ID, staticEdgeGroup.Endpoints[0], "static edge group should have the endpoint-2")
+	})
 
 	// Test the tx.IsErrObjectNotFound logic when endpoint is not found during cleanup
 	t.Run("should continue gracefully when endpoint not found during cleanup", func(t *testing.T) {
+		_, store := setUpHandler(t)
 		// Create a tag with a reference to a non-existent endpoint
 		tag := &portainer.Tag{
 			ID:             1,
@@ -108,4 +194,18 @@ func TestDeleteTag(t *testing.T) {
 			t.Fatal("could not delete tag:", err)
 		}
 	})
+}
+
+func setUpHandler(t *testing.T) (*Handler, dataservices.DataStore) {
+	_, store := datastore.MustNewTestStore(t, true, false)
+
+	user := &portainer.User{ID: 2, Username: "admin", Role: portainer.AdministratorRole}
+	if err := store.User().Create(user); err != nil {
+		t.Fatal("could not create admin user:", err)
+	}
+
+	handler := NewHandler(testhelpers.NewTestRequestBouncer())
+	handler.DataStore = store
+
+	return handler, store
 }

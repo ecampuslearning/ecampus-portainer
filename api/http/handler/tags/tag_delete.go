@@ -107,14 +107,10 @@ func deleteTag(tx dataservices.DataStoreTx, tagID portainer.TagID) error {
 		return httperror.InternalServerError("Unable to retrieve edge stacks from the database", err)
 	}
 
-	for _, endpoint := range endpoints {
-		if (tag.Endpoints[endpoint.ID] || tag.EndpointGroups[endpoint.GroupID]) && endpointutils.IsEdgeEndpoint(&endpoint) {
-			if err := updateEndpointRelations(tx, endpoint, edgeGroups, edgeStacks); err != nil {
-				return httperror.InternalServerError("Unable to update environment relations in the database", err)
-			}
-		}
+	edgeJobs, err := tx.EdgeJob().ReadAll()
+	if err != nil {
+		return httperror.InternalServerError("Unable to retrieve edge job configurations from the database", err)
 	}
-
 	for _, edgeGroup := range edgeGroups {
 		edgeGroup.TagIDs = slices.DeleteFunc(edgeGroup.TagIDs, func(t portainer.TagID) bool {
 			return t == tagID
@@ -126,6 +122,16 @@ func deleteTag(tx dataservices.DataStoreTx, tagID portainer.TagID) error {
 		}
 	}
 
+	for _, endpoint := range endpoints {
+		if (!tag.Endpoints[endpoint.ID] && !tag.EndpointGroups[endpoint.GroupID]) || !endpointutils.IsEdgeEndpoint(&endpoint) {
+			continue
+		}
+
+		if err := updateEndpointRelations(tx, endpoint, edgeGroups, edgeStacks, edgeJobs); err != nil {
+			return httperror.InternalServerError("Unable to update environment relations in the database", err)
+		}
+	}
+
 	err = tx.Tag().Delete(tagID)
 	if err != nil {
 		return httperror.InternalServerError("Unable to remove the tag from the database", err)
@@ -134,7 +140,7 @@ func deleteTag(tx dataservices.DataStoreTx, tagID portainer.TagID) error {
 	return nil
 }
 
-func updateEndpointRelations(tx dataservices.DataStoreTx, endpoint portainer.Endpoint, edgeGroups []portainer.EdgeGroup, edgeStacks []portainer.EdgeStack) error {
+func updateEndpointRelations(tx dataservices.DataStoreTx, endpoint portainer.Endpoint, edgeGroups []portainer.EdgeGroup, edgeStacks []portainer.EdgeStack, edgeJobs []portainer.EdgeJob) error {
 	endpointRelation, err := tx.EndpointRelation().EndpointRelation(endpoint.ID)
 	if err != nil {
 		return err
@@ -153,5 +159,25 @@ func updateEndpointRelations(tx dataservices.DataStoreTx, endpoint portainer.End
 
 	endpointRelation.EdgeStacks = stacksSet
 
-	return tx.EndpointRelation().UpdateEndpointRelation(endpoint.ID, endpointRelation)
+	if err := tx.EndpointRelation().UpdateEndpointRelation(endpoint.ID, endpointRelation); err != nil {
+		return err
+	}
+
+	for _, edgeJob := range edgeJobs {
+		endpoints, err := edge.GetEndpointsFromEdgeGroups(edgeJob.EdgeGroups, tx)
+		if err != nil {
+			return err
+		}
+		if slices.Contains(endpoints, endpoint.ID) {
+			continue
+		}
+
+		delete(edgeJob.GroupLogsCollection, endpoint.ID)
+
+		if err := tx.EdgeJob().Update(edgeJob.ID, &edgeJob); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
