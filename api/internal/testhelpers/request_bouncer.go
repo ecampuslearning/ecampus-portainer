@@ -60,6 +60,8 @@ func (testRequestBouncer) JWTAuthLookup(r *http.Request) (*portainer.TokenData, 
 
 func (testRequestBouncer) RevokeJWT(jti string) {}
 
+func (testRequestBouncer) DisableCSP() {}
+
 // AddTestSecurityCookie adds a security cookie to the request
 func AddTestSecurityCookie(r *http.Request, jwt string) {
 	r.AddCookie(&http.Cookie{

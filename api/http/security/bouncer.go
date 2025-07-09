@@ -35,6 +35,7 @@ type (
 		JWTAuthLookup(*http.Request) (*portainer.TokenData, error)
 		TrustedEdgeEnvironmentAccess(dataservices.DataStoreTx, *portainer.Endpoint) error
 		RevokeJWT(string)
+		DisableCSP()
 	}
 
 	// RequestBouncer represents an entity that manages API request accesses
@@ -72,12 +73,17 @@ func NewRequestBouncer(dataStore dataservices.DataStore, jwtService portainer.JW
 		jwtService:    jwtService,
 		apiKeyService: apiKeyService,
 		hsts:          featureflags.IsEnabled("hsts"),
-		csp:           featureflags.IsEnabled("csp"),
+		csp:           true,
 	}
 
 	go b.cleanUpExpiredJWT()
 
 	return b
+}
+
+// DisableCSP disables Content Security Policy
+func (bouncer *RequestBouncer) DisableCSP() {
+	bouncer.csp = false
 }
 
 // PublicAccess defines a security check for public API endpoints.
@@ -528,7 +534,7 @@ func MWSecureHeaders(next http.Handler, hsts, csp bool) http.Handler {
 		}
 
 		if csp {
-			w.Header().Set("Content-Security-Policy", "script-src 'self' cdn.matomo.cloud")
+			w.Header().Set("Content-Security-Policy", "script-src 'self' cdn.matomo.cloud; frame-ancestors 'none';")
 		}
 
 		w.Header().Set("X-Content-Type-Options", "nosniff")

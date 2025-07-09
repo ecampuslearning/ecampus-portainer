@@ -110,6 +110,7 @@ type (
 		AdminPassword             *string
 		AdminPasswordFile         *string
 		Assets                    *string
+		CSP                       *bool
 		Data                      *string
 		FeatureFlags              *[]string
 		EnableEdgeComputeFeatures *bool
@@ -1791,6 +1792,8 @@ const (
 	LicenseCheckInURL = LicenseServerBaseURL + "/licenses/checkin"
 	// TrustedOriginsEnvVar is the environment variable used to set the trusted origins for CSRF protection
 	TrustedOriginsEnvVar = "TRUSTED_ORIGINS"
+	// CSPEnvVar is the environment variable used to enable/disable the Content Security Policy
+	CSPEnvVar = "CSP"
 )
 
 // List of supported features

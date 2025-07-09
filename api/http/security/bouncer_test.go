@@ -530,3 +530,34 @@ func TestJWTRevocation(t *testing.T) {
 
 	require.Equal(t, 1, revokeLen())
 }
+
+func TestCSPHeaderDefault(t *testing.T) {
+	b := NewRequestBouncer(nil, nil, nil)
+
+	srv := httptest.NewServer(
+		b.PublicAccess(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {})),
+	)
+	defer srv.Close()
+
+	resp, err := http.Get(srv.URL + "/")
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	require.Contains(t, resp.Header, "Content-Security-Policy")
+}
+
+func TestCSPHeaderDisabled(t *testing.T) {
+	b := NewRequestBouncer(nil, nil, nil)
+	b.DisableCSP()
+
+	srv := httptest.NewServer(
+		b.PublicAccess(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {})),
+	)
+	defer srv.Close()
+
+	resp, err := http.Get(srv.URL + "/")
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	require.NotContains(t, resp.Header, "Content-Security-Policy")
+}
