@@ -776,6 +776,7 @@
         "ImageCount": 9,
         "IsPodman": false,
         "NodeCount": 0,
+        "PerformanceMetrics": null,
         "RunningContainerCount": 5,
         "ServiceCount": 0,
         "StackCount": 2,

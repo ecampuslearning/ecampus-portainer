@@ -5,7 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"os"
+	"reflect"
 	"strings"
 	"time"
 
@@ -19,11 +21,11 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
+	statsapi "k8s.io/kubelet/pkg/apis/stats/v1alpha1"
 )
 
 func CreateKubernetesSnapshot(cli *kubernetes.Clientset) (*portainer.KubernetesSnapshot, error) {
 	kubernetesSnapshot := &portainer.KubernetesSnapshot{}
-
 	err := kubernetesSnapshotVersion(kubernetesSnapshot, cli)
 	if err != nil {
 		log.Warn().Err(err).Msg("unable to snapshot cluster version")
@@ -54,10 +56,28 @@ func kubernetesSnapshotNodes(snapshot *portainer.KubernetesSnapshot, cli *kubern
 		return err
 	}
 
+	if len(nodeList.Items) == 0 {
+		return nil
+	}
+
 	var totalCPUs, totalMemory int64
+	performanceMetrics := &portainer.PerformanceMetrics{
+		CPUUsage:     0,
+		MemoryUsage:  0,
+		NetworkUsage: 0,
+	}
+
 	for _, node := range nodeList.Items {
 		totalCPUs += node.Status.Capacity.Cpu().Value()
 		totalMemory += node.Status.Capacity.Memory().Value()
+
+		performanceMetrics, err = kubernetesSnapshotNodePerformanceMetrics(cli, node, performanceMetrics)
+		if err != nil {
+			return fmt.Errorf("failed to get node performance metrics: %w", err)
+		}
+		if performanceMetrics != nil {
+			snapshot.PerformanceMetrics = performanceMetrics
+		}
 	}
 
 	snapshot.TotalCPU = totalCPUs
@@ -121,6 +141,40 @@ func kubernetesSnapshotPodErrorLogs(snapshot *portainer.KubernetesSnapshot, cli 
 	snapshot.DiagnosticsData.Log = string(jsonLogs)
 
 	return nil
+}
+
+func kubernetesSnapshotNodePerformanceMetrics(cli *kubernetes.Clientset, node corev1.Node, performanceMetrics *portainer.PerformanceMetrics) (*portainer.PerformanceMetrics, error) {
+	result := cli.RESTClient().Get().AbsPath(fmt.Sprintf("/api/v1/nodes/%s/proxy/stats/summary", node.Name)).Do(context.TODO())
+	if result.Error() != nil {
+		return nil, fmt.Errorf("failed to get node performance metrics: %w", result.Error())
+	}
+
+	raw, err := result.Raw()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get node performance metrics: %w", err)
+	}
+
+	stats := statsapi.Summary{}
+	err = json.Unmarshal(raw, &stats)
+	if err != nil {
+		return nil, fmt.Errorf("failed to unmarshal node performance metrics: %w", err)
+	}
+
+	nodeStats := stats.Node
+	if reflect.DeepEqual(nodeStats, statsapi.NodeStats{}) {
+		return nil, nil
+	}
+
+	if nodeStats.CPU != nil && nodeStats.CPU.UsageNanoCores != nil {
+		performanceMetrics.CPUUsage += math.Round(float64(*nodeStats.CPU.UsageNanoCores) / float64(node.Status.Capacity.Cpu().Value()*1000000000) * 100)
+	}
+	if nodeStats.Memory != nil && nodeStats.Memory.WorkingSetBytes != nil {
+		performanceMetrics.MemoryUsage += math.Round(float64(*nodeStats.Memory.WorkingSetBytes) / float64(node.Status.Capacity.Memory().Value()) * 100)
+	}
+	if nodeStats.Network != nil && nodeStats.Network.RxBytes != nil && nodeStats.Network.TxBytes != nil {
+		performanceMetrics.NetworkUsage += math.Round((float64(*nodeStats.Network.RxBytes) + float64(*nodeStats.Network.TxBytes)) / 1024 / 1024) // MB
+	}
+	return performanceMetrics, nil
 }
 
 // filterLogsByPattern filters the logs by the given patterns and returns a list of logs that match the patterns

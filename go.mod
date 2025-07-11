@@ -61,6 +61,7 @@ require (
 	k8s.io/cli-runtime v0.33.2
 	k8s.io/client-go v0.33.2
 	k8s.io/kubectl v0.33.2
+	k8s.io/kubelet v0.33.2
 	k8s.io/metrics v0.33.2
 	software.sslmate.com/src/go-pkcs12 v0.0.0-20210415151418-c5206de65a78
 )

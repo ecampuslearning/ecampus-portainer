@@ -215,26 +215,34 @@ type (
 
 	// DockerSnapshot represents a snapshot of a specific Docker environment(endpoint) at a specific time
 	DockerSnapshot struct {
-		Time                    int64             `json:"Time"`
-		DockerVersion           string            `json:"DockerVersion"`
-		Swarm                   bool              `json:"Swarm"`
-		TotalCPU                int               `json:"TotalCPU"`
-		TotalMemory             int64             `json:"TotalMemory"`
-		ContainerCount          int               `json:"ContainerCount"`
-		RunningContainerCount   int               `json:"RunningContainerCount"`
-		StoppedContainerCount   int               `json:"StoppedContainerCount"`
-		HealthyContainerCount   int               `json:"HealthyContainerCount"`
-		UnhealthyContainerCount int               `json:"UnhealthyContainerCount"`
-		VolumeCount             int               `json:"VolumeCount"`
-		ImageCount              int               `json:"ImageCount"`
-		ServiceCount            int               `json:"ServiceCount"`
-		StackCount              int               `json:"StackCount"`
-		SnapshotRaw             DockerSnapshotRaw `json:"DockerSnapshotRaw"`
-		NodeCount               int               `json:"NodeCount"`
-		GpuUseAll               bool              `json:"GpuUseAll"`
-		GpuUseList              []string          `json:"GpuUseList"`
-		IsPodman                bool              `json:"IsPodman"`
-		DiagnosticsData         *DiagnosticsData  `json:"DiagnosticsData"`
+		Time                    int64               `json:"Time"`
+		DockerVersion           string              `json:"DockerVersion"`
+		Swarm                   bool                `json:"Swarm"`
+		TotalCPU                int                 `json:"TotalCPU"`
+		TotalMemory             int64               `json:"TotalMemory"`
+		ContainerCount          int                 `json:"ContainerCount"`
+		RunningContainerCount   int                 `json:"RunningContainerCount"`
+		StoppedContainerCount   int                 `json:"StoppedContainerCount"`
+		HealthyContainerCount   int                 `json:"HealthyContainerCount"`
+		UnhealthyContainerCount int                 `json:"UnhealthyContainerCount"`
+		VolumeCount             int                 `json:"VolumeCount"`
+		ImageCount              int                 `json:"ImageCount"`
+		ServiceCount            int                 `json:"ServiceCount"`
+		StackCount              int                 `json:"StackCount"`
+		SnapshotRaw             DockerSnapshotRaw   `json:"DockerSnapshotRaw"`
+		NodeCount               int                 `json:"NodeCount"`
+		GpuUseAll               bool                `json:"GpuUseAll"`
+		GpuUseList              []string            `json:"GpuUseList"`
+		IsPodman                bool                `json:"IsPodman"`
+		DiagnosticsData         *DiagnosticsData    `json:"DiagnosticsData"`
+		PerformanceMetrics      *PerformanceMetrics `json:"PerformanceMetrics"`
+	}
+
+	// PerformanceMetrics represents the performance metrics of a Docker, Swarm, Podman, and Kubernetes environments
+	PerformanceMetrics struct {
+		CPUUsage     float64 `json:"CPUUsage,omitempty"`
+		MemoryUsage  float64 `json:"MemoryUsage,omitempty"`
+		NetworkUsage float64 `json:"NetworkUsage,omitempty"`
 	}
 
 	// DockerContainerSnapshot is an extent of Docker's Container struct
@@ -663,12 +671,13 @@ type (
 
 	// KubernetesSnapshot represents a snapshot of a specific Kubernetes environment(endpoint) at a specific time
 	KubernetesSnapshot struct {
-		Time              int64            `json:"Time"`
-		KubernetesVersion string           `json:"KubernetesVersion"`
-		NodeCount         int              `json:"NodeCount"`
-		TotalCPU          int64            `json:"TotalCPU"`
-		TotalMemory       int64            `json:"TotalMemory"`
-		DiagnosticsData   *DiagnosticsData `json:"DiagnosticsData"`
+		Time               int64               `json:"Time"`
+		KubernetesVersion  string              `json:"KubernetesVersion"`
+		NodeCount          int                 `json:"NodeCount"`
+		TotalCPU           int64               `json:"TotalCPU"`
+		TotalMemory        int64               `json:"TotalMemory"`
+		DiagnosticsData    *DiagnosticsData    `json:"DiagnosticsData"`
+		PerformanceMetrics *PerformanceMetrics `json:"PerformanceMetrics"`
 	}
 
 	// KubernetesConfiguration represents the configuration of a Kubernetes environment(endpoint)

@@ -100,7 +100,10 @@ func dockerSnapshotNodes(snapshot *portainer.DockerSnapshot, cli *client.Client)
 
 	snapshot.TotalCPU = int(nanoCpus / 1e9)
 	snapshot.TotalMemory = totalMem
-	snapshot.NodeCount = len(nodes)
+	snapshot.NodeCount = 1
+	if snapshot.Swarm {
+		snapshot.NodeCount = len(nodes)
+	}
 
 	return nil
 }
