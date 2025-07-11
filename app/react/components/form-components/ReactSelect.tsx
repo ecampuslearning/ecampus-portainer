@@ -5,12 +5,14 @@ import ReactSelectAsync, {
   AsyncProps as ReactSelectAsyncProps,
 } from 'react-select/async';
 import ReactSelect, {
+  components,
   GroupBase,
+  InputProps,
   OptionsOrGroups,
   Props as ReactSelectProps,
 } from 'react-select';
 import clsx from 'clsx';
-import { RefAttributes, useMemo } from 'react';
+import { RefAttributes, useMemo, useCallback } from 'react';
 import ReactSelectType from 'react-select/dist/declarations/src/Select';
 
 import './ReactSelect.css';
@@ -52,6 +54,9 @@ type Props<
   | CreatableProps<Option, IsMulti, Group>
   | RegularProps<Option, IsMulti, Group>;
 
+/**
+ * DO NOT use this component directly, use PortainerSelect instead.
+ */
 export function Select<
   Option = DefaultOption,
   IsMulti extends boolean = false,
@@ -68,24 +73,37 @@ export function Select<
     id: string;
   }) {
   const Component = isCreatable ? ReactSelectCreatable : ReactSelect;
-  const { options } = props;
+  const {
+    options,
+    'data-cy': dataCy,
+    components: componentsProp,
+    ...rest
+  } = props;
+
+  const memoizedComponents = useMemoizedSelectComponents<
+    Option,
+    IsMulti,
+    Group
+  >(dataCy, componentsProp);
 
   if ((options?.length || 0) > 1000) {
     return (
       <TooManyResultsSelector
+        size={size}
         // eslint-disable-next-line react/jsx-props-no-spreading
         {...props}
-        size={size}
       />
     );
   }
 
   return (
     <Component
+      options={options}
       className={clsx(className, 'portainer-selector-root', size)}
       classNamePrefix="portainer-selector"
+      components={memoizedComponents}
       // eslint-disable-next-line react/jsx-props-no-spreading
-      {...props}
+      {...rest}
     />
   );
 }
@@ -94,13 +112,25 @@ export function Creatable<
   Option = DefaultOption,
   IsMulti extends boolean = false,
   Group extends GroupBase<Option> = GroupBase<Option>,
->({ className, ...props }: ReactSelectCreatableProps<Option, IsMulti, Group>) {
+>({
+  className,
+  ...props
+}: ReactSelectCreatableProps<Option, IsMulti, Group> & AutomationTestingProps) {
+  const { 'data-cy': dataCy, components: componentsProp, ...rest } = props;
+
+  const memoizedComponents = useMemoizedSelectComponents<
+    Option,
+    IsMulti,
+    Group
+  >(dataCy, componentsProp);
+
   return (
     <ReactSelectCreatable
       className={clsx(className, 'portainer-selector-root')}
       classNamePrefix="portainer-selector"
+      components={memoizedComponents}
       // eslint-disable-next-line react/jsx-props-no-spreading
-      {...props}
+      {...rest}
     />
   );
 }
@@ -113,13 +143,24 @@ export function Async<
   className,
   size,
   ...props
-}: ReactSelectAsyncProps<Option, IsMulti, Group> & { size?: 'sm' | 'md' }) {
+}: ReactSelectAsyncProps<Option, IsMulti, Group> & {
+  size?: 'sm' | 'md';
+} & AutomationTestingProps) {
+  const { 'data-cy': dataCy, components: componentsProp, ...rest } = props;
+
+  const memoizedComponents = useMemoizedSelectComponents<
+    Option,
+    IsMulti,
+    Group
+  >(dataCy, componentsProp);
+
   return (
     <ReactSelectAsync
       className={clsx(className, 'portainer-selector-root', size)}
       classNamePrefix="portainer-selector"
+      components={memoizedComponents}
       // eslint-disable-next-line react/jsx-props-no-spreading
-      {...props}
+      {...rest}
     />
   );
 }
@@ -186,4 +227,34 @@ function isGroup<
   }
 
   return 'options' in option;
+}
+
+/**
+ * Memoize components to prevent unnecessary re-renders.
+ */
+function useMemoizedSelectComponents<
+  Option = DefaultOption,
+  IsMulti extends boolean = false,
+  Group extends GroupBase<Option> = GroupBase<Option>,
+>(
+  dataCy: string | undefined,
+  componentsProp: Partial<
+    ReactSelectProps<Option, IsMulti, Group>['components']
+  >
+) {
+  const customInput = useCallback(
+    (inputProps: InputProps<Option, IsMulti, Group>) =>
+      components.Input({ ...inputProps, 'data-cy': dataCy }),
+    [dataCy]
+  );
+
+  const memoizedComponents = useMemo(
+    () => ({
+      Input: customInput,
+      ...componentsProp,
+    }),
+    [customInput, componentsProp]
+  );
+
+  return memoizedComponents;
 }
