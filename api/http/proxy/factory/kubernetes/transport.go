@@ -58,6 +58,7 @@ func (transport *baseTransport) proxyKubernetesRequest(request *http.Request) (*
 
 	switch {
 	case strings.EqualFold(requestPath, "/namespaces/portainer/configmaps/portainer-config") && (request.Method == "PUT" || request.Method == "POST"):
+		transport.k8sClientFactory.ClearClientCache()
 		defer transport.tokenManager.UpdateUserServiceAccountsForEndpoint(portainer.EndpointID(endpointID))
 		return transport.executeKubernetesRequest(request)
 	case strings.EqualFold(requestPath, "/namespaces"):

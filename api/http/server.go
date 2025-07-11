@@ -131,7 +131,7 @@ func (server *Server) Start() error {
 
 	passwordStrengthChecker := security.NewPasswordStrengthChecker(server.DataStore.Settings())
 
-	var authHandler = auth.NewHandler(requestBouncer, rateLimiter, passwordStrengthChecker)
+	var authHandler = auth.NewHandler(requestBouncer, rateLimiter, passwordStrengthChecker, server.KubernetesClientFactory)
 	authHandler.DataStore = server.DataStore
 	authHandler.CryptoService = server.CryptoService
 	authHandler.JWTService = server.JWTService
