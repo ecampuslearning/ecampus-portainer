@@ -11,9 +11,9 @@ import (
 	"helm.sh/helm/v3/pkg/action"
 )
 
-// GetHelmValuesFromFile reads the values file and parses it into a map[string]any
+// getHelmValuesFromFile reads the values file and parses it into a map[string]any
 // and returns the map.
-func (hspm *HelmSDKPackageManager) GetHelmValuesFromFile(valuesFile string) (map[string]any, error) {
+func (hspm *HelmSDKPackageManager) getHelmValuesFromFile(valuesFile string) (map[string]any, error) {
 	var vals map[string]any
 	if valuesFile != "" {
 		log.Debug().

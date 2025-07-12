@@ -21,6 +21,10 @@ export interface ChartVersion {
   AppVersion?: string;
 }
 
+type RepoSource = {
+  repo?: string;
+};
+
 /**
  * React hook to get a list of available versions for a chart from specified repositories
  *
@@ -32,21 +36,21 @@ export interface ChartVersion {
 export function useHelmRepoVersions(
   chart: string,
   staleTime: number,
-  repositories: string[] = [],
+  repoSources: RepoSource[] = [],
   useCache: boolean = true
 ) {
   // Fetch versions from each repository in parallel as separate queries
   const versionQueries = useQueries({
     queries: useMemo(
       () =>
-        repositories.map((repo) => ({
+        repoSources.map(({ repo }) => ({
           queryKey: ['helm', 'repositories', chart, repo, useCache],
-          queryFn: () => getSearchHelmRepo(repo, chart, useCache),
-          enabled: !!chart && repositories.length > 0,
+          queryFn: () => getSearchHelmRepo({ repo, chart, useCache }),
+          enabled: !!chart && repoSources.length > 0,
           staleTime,
           ...withGlobalError(`Unable to retrieve versions from ${repo}`),
         })),
-      [repositories, chart, staleTime, useCache]
+      [repoSources, chart, staleTime, useCache]
     ),
   });
 
@@ -58,30 +62,35 @@ export function useHelmRepoVersions(
 
   return {
     data: allVersions,
-    isInitialLoading: versionQueries.some((q) => q.isLoading),
+    isInitialLoading: versionQueries.some((q) => q.isInitialLoading),
     isError: versionQueries.some((q) => q.isError),
     isFetching: versionQueries.some((q) => q.isFetching),
     refetch: () => Promise.all(versionQueries.map((q) => q.refetch())),
   };
 }
 
+type SearchRepoParams = {
+  repo?: string;
+  chart: string;
+  useCache?: boolean;
+};
+
 /**
  * Get Helm repositories for user
  */
 async function getSearchHelmRepo(
-  repo: string,
-  chart: string,
-  useCache: boolean = true
+  params: SearchRepoParams
 ): Promise<ChartVersion[]> {
   try {
     const { data } = await axios.get<HelmSearch>(`templates/helm`, {
-      params: { repo, chart, useCache },
+      params,
     });
-    const versions = data.entries[chart];
+    // if separated by '/', take the last part
+    const chartKey = params.chart.split('/').pop() || params.chart;
+    const versions = data.entries[chartKey];
     return (
       versions?.map((v) => ({
-        Chart: chart,
-        Repo: repo,
+        Repo: params.repo ?? '',
         Version: v.version,
         AppVersion: v.appVersion,
       })) ?? []

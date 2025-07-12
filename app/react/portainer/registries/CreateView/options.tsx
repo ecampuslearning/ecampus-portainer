@@ -1,62 +1,56 @@
-import { Edit } from 'lucide-react';
-
-import Docker from '@/assets/ico/vendor/docker.svg?c';
-import Ecr from '@/assets/ico/vendor/ecr.svg?c';
-import Quay from '@/assets/ico/vendor/quay.svg?c';
-import Proget from '@/assets/ico/vendor/proget.svg?c';
-import Azure from '@/assets/ico/vendor/azure.svg?c';
-import Gitlab from '@/assets/ico/vendor/gitlab.svg?c';
-
 import { BadgeIcon } from '@@/BadgeIcon';
+
+import { RegistryTypes } from '../types/registry';
+import { registryIconMap, registryLabelMap } from '../utils/constants';
 
 export const options = [
   {
     id: 'registry_dockerhub',
-    icon: Docker,
-    label: 'DockerHub',
+    icon: registryIconMap[RegistryTypes.DOCKERHUB],
+    label: registryLabelMap[RegistryTypes.DOCKERHUB],
     description: 'DockerHub authenticated account',
-    value: '6',
+    value: String(RegistryTypes.DOCKERHUB),
   },
   {
     id: 'registry_aws_ecr',
-    icon: Ecr,
-    label: 'AWS ECR',
+    icon: registryIconMap[RegistryTypes.ECR],
+    label: registryLabelMap[RegistryTypes.ECR],
     description: 'Amazon elastic container registry',
-    value: '7',
+    value: String(RegistryTypes.ECR),
   },
   {
     id: 'registry_quay',
-    icon: Quay,
-    label: 'Quay.io',
+    icon: registryIconMap[RegistryTypes.QUAY],
+    label: registryLabelMap[RegistryTypes.QUAY],
     description: 'Quay container registry',
-    value: '1',
+    value: String(RegistryTypes.QUAY),
   },
   {
     id: 'registry_proget',
-    icon: Proget,
-    label: 'ProGet',
+    icon: registryIconMap[RegistryTypes.PROGET],
+    label: registryLabelMap[RegistryTypes.PROGET],
     description: 'ProGet container registry',
-    value: '5',
+    value: String(RegistryTypes.PROGET),
   },
   {
     id: 'registry_azure',
-    icon: Azure,
-    label: 'Azure',
+    icon: registryIconMap[RegistryTypes.AZURE],
+    label: registryLabelMap[RegistryTypes.AZURE],
     description: 'Azure container registry',
-    value: '2',
+    value: String(RegistryTypes.AZURE),
   },
   {
     id: 'registry_gitlab',
-    icon: Gitlab,
-    label: 'GitLab',
+    icon: registryIconMap[RegistryTypes.GITLAB],
+    label: registryLabelMap[RegistryTypes.GITLAB],
     description: 'GitLab container registry',
-    value: '4',
+    value: String(RegistryTypes.GITLAB),
   },
   {
     id: 'registry_custom',
-    icon: <BadgeIcon icon={Edit} />,
-    label: 'Custom registry',
+    icon: <BadgeIcon icon={registryIconMap[RegistryTypes.CUSTOM]} />,
+    label: registryLabelMap[RegistryTypes.CUSTOM],
     description: 'Define your own registry',
-    value: '3',
+    value: String(RegistryTypes.CUSTOM),
   },
 ];

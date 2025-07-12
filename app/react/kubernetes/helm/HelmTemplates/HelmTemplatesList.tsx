@@ -1,59 +1,47 @@
 import { useState, useMemo } from 'react';
-import { components, OptionProps } from 'react-select';
 
-import {
-  PortainerSelect,
-  Option,
-} from '@/react/components/form-components/PortainerSelect';
-import { Link } from '@/react/components/Link';
+import { PortainerSelect } from '@/react/components/form-components/PortainerSelect';
 
-import { InsightsBox } from '@@/InsightsBox';
 import { SearchBar } from '@@/datatables/SearchBar';
 import { InlineLoader } from '@@/InlineLoader';
 
 import { Chart } from '../types';
+import { RepoValue } from '../components/HelmRegistrySelect';
 
 import { HelmTemplatesListItem } from './HelmTemplatesListItem';
 
 interface Props {
-  isLoading: boolean;
+  isLoadingCharts: boolean;
   charts?: Chart[];
   selectAction: (chart: Chart) => void;
-  registries: string[];
-  selectedRegistry: string | null;
-  setSelectedRegistry: (registry: string | null) => void;
+  selectedRegistry: RepoValue | null;
 }
 
 export function HelmTemplatesList({
-  isLoading,
+  isLoadingCharts,
   charts = [],
   selectAction,
-  registries,
   selectedRegistry,
-  setSelectedRegistry,
 }: Props) {
   const [textFilter, setTextFilter] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
 
   const categories = useMemo(() => getCategories(charts), [charts]);
-  const registryOptions = useMemo(
-    () =>
-      registries.map((registry) => ({
-        label: registry,
-        value: registry,
-      })),
-    [registries]
-  );
 
   const filteredCharts = useMemo(
     () => getFilteredCharts(charts, textFilter, selectedCategory),
     [charts, textFilter, selectedCategory]
   );
 
+  const isSelectedRegistryEmpty =
+    !isLoadingCharts && charts.length === 0 && selectedRegistry;
+
   return (
     <section className="datatable" aria-label="Helm charts">
-      <div className="toolBar vertical-center relative w-full flex-wrap !gap-x-5 !gap-y-1 !px-0 !overflow-visible">
-        <div className="toolBarTitle vertical-center">Helm chart</div>
+      <div className="toolBar vertical-center relative w-full !gap-x-5 !gap-y-1 !px-0 overflow-auto">
+        <div className="toolBarTitle vertical-center whitespace-nowrap">
+          Select a helm chart from {selectedRegistry?.name}
+        </div>
 
         <SearchBar
           value={textFilter}
@@ -63,20 +51,7 @@ export function HelmTemplatesList({
           className="!mr-0 h-9"
         />
 
-        <div className="w-full sm:w-1/4">
-          <PortainerSelect
-            placeholder="Select a registry"
-            value={selectedRegistry ?? ''}
-            options={registryOptions}
-            onChange={setSelectedRegistry}
-            isClearable
-            bindToBody
-            components={{ Option: RegistryOption }}
-            data-cy="helm-registry-select"
-          />
-        </div>
-
-        <div className="w-full sm:w-1/4">
+        <div className="w-full sm:w-1/4 flex-none">
           <PortainerSelect
             placeholder="Select a category"
             value={selectedCategory}
@@ -87,42 +62,6 @@ export function HelmTemplatesList({
             data-cy="helm-category-select"
           />
         </div>
-      </div>
-      <div className="w-fit">
-        <div className="small text-muted mb-2">
-          Select the Helm chart to use. Bring further Helm charts into your
-          selection list via{' '}
-          <Link
-            to="portainer.account"
-            params={{ '#': 'helm-repositories' }}
-            data-cy="helm-repositories-link"
-          >
-            User settings - Helm repositories
-          </Link>
-          .
-        </div>
-
-        <InsightsBox
-          header="Disclaimer"
-          type="slim"
-          content={
-            <>
-              At present Portainer does not support OCI format Helm charts.
-              Support for OCI charts will be available in a future release.
-              <br />
-              If you would like to provide feedback on OCI support or get access
-              to early releases to test this functionality,{' '}
-              <a
-                href="https://bit.ly/3WVkayl"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                please get in touch
-              </a>
-              .
-            </>
-          }
-        />
       </div>
 
       <div className="blocklist !px-0" role="list">
@@ -138,7 +77,7 @@ export function HelmTemplatesList({
           <div className="text-muted small mt-4">No Helm charts found</div>
         )}
 
-        {isLoading && (
+        {isLoadingCharts && (
           <div className="flex flex-col">
             <InlineLoader className="justify-center">
               Loading helm charts...
@@ -151,33 +90,19 @@ export function HelmTemplatesList({
           </div>
         )}
 
-        {!isLoading && charts.length === 0 && selectedRegistry && (
+        {isSelectedRegistryEmpty && (
           <div className="text-muted text-center">
-            No helm charts available in this registry.
+            No helm charts available in this repository.
           </div>
         )}
 
         {!selectedRegistry && (
           <div className="text-muted text-center">
-            Please select a registry to view available Helm charts.
+            Please select a repository to view available Helm charts.
           </div>
         )}
       </div>
     </section>
-  );
-}
-
-// truncate the registry text, because some registry names are urls, which are too long
-function RegistryOption(props: OptionProps<Option<string>>) {
-  const { data: registry } = props;
-
-  return (
-    <div title={registry.value}>
-      {/* eslint-disable-next-line react/jsx-props-no-spreading */}
-      <components.Option {...props} className="whitespace-nowrap truncate">
-        {registry.value}
-      </components.Option>
-    </div>
   );
 }
 

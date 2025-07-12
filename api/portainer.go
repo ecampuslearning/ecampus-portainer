@@ -603,6 +603,12 @@ type (
 		ProjectPath string `json:"ProjectPath"`
 	}
 
+	// GithubRegistryData represents data required for Github registry to work
+	GithubRegistryData struct {
+		UseOrganisation  bool   `json:"UseOrganisation"`
+		OrganisationName string `json:"OrganisationName"`
+	}
+
 	HelmUserRepositoryID int
 
 	// HelmUserRepositories stores a Helm repository URL for the given user
@@ -823,6 +829,7 @@ type (
 		Password                string                           `json:"Password,omitempty" example:"registry_password"`
 		ManagementConfiguration *RegistryManagementConfiguration `json:"ManagementConfiguration"`
 		Gitlab                  GitlabRegistryData               `json:"Gitlab"`
+		Github                  GithubRegistryData               `json:"Github"`
 		Quay                    QuayRegistryData                 `json:"Quay"`
 		Ecr                     EcrData                          `json:"Ecr"`
 		RegistryAccesses        RegistryAccesses                 `json:"RegistryAccesses"`
@@ -1972,6 +1979,8 @@ const (
 	DockerHubRegistry
 	// EcrRegistry represents an ECR registry
 	EcrRegistry
+	// Github container registry
+	GithubRegistry
 )
 
 const (

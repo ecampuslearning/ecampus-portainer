@@ -28,7 +28,7 @@ func Test_Show(t *testing.T) {
 		})
 	}
 
-	t.Run("show requires chart, repo and output format", func(t *testing.T) {
+	t.Run("show requires chart, output format and repo or registry", func(t *testing.T) {
 		showOpts := options.ShowOptions{
 			Chart:        "",
 			Repo:         "",
@@ -36,7 +36,7 @@ func Test_Show(t *testing.T) {
 		}
 		_, err := hspm.Show(showOpts)
 		is.Error(err, "should return error when required options are missing")
-		is.Contains(err.Error(), "chart, repo and output format are required", "error message should indicate required options")
+		is.Contains(err.Error(), "chart, output format and either repo or registry are required", "error message should indicate required options")
 	})
 
 	t.Run("show chart values", func(t *testing.T) {

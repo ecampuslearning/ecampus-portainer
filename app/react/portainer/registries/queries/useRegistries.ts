@@ -24,6 +24,8 @@ export type GenericRegistriesQueryOptions<T> = {
   onSuccess?: (data: T) => void;
   /** is used to hide the default registry from the list of registries, regardless of the user's settings. Kubernetes views use this. */
   hideDefault?: boolean;
+  /** is used to filter the registries by namespace. Kubernetes views use this. */
+  namespace?: string;
 };
 
 export function useGenericRegistriesQuery<T = Registry[]>(

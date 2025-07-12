@@ -12,6 +12,10 @@ import { Option } from '@@/form-components/PortainerSelect';
 
 import { Chart } from '../types';
 import { useUpdateHelmReleaseMutation } from '../queries/useUpdateHelmReleaseMutation';
+import {
+  ChartVersion,
+  useHelmRepoVersions,
+} from '../queries/useHelmRepoVersions';
 
 import { HelmInstallInnerForm } from './HelmInstallInnerForm';
 import { HelmInstallFormValues } from './types';
@@ -20,22 +24,39 @@ type Props = {
   selectedChart: Chart;
   namespace?: string;
   name?: string;
+  isRepoAvailable: boolean;
 };
 
-export function HelmInstallForm({ selectedChart, namespace, name }: Props) {
+export function HelmInstallForm({
+  selectedChart,
+  namespace,
+  name,
+  isRepoAvailable,
+}: Props) {
   const environmentId = useEnvironmentId();
   const router = useRouter();
   const analytics = useAnalytics();
-  const versionOptions: Option<string>[] = selectedChart.versions.map(
+  const helmRepoVersionsQuery = useHelmRepoVersions(
+    selectedChart.name,
+    60 * 60 * 1000, // 1 hour
+    [
+      {
+        repo: selectedChart.repo,
+      },
+    ]
+  );
+  const versions = helmRepoVersionsQuery.data;
+  const versionOptions: Option<ChartVersion>[] = versions.map(
     (version, index) => ({
-      label: index === 0 ? `${version} (latest)` : version,
+      label: index === 0 ? `${version.Version} (latest)` : version.Version,
       value: version,
     })
   );
   const defaultVersion = versionOptions[0]?.value;
   const initialValues: HelmInstallFormValues = {
     values: '',
-    version: defaultVersion ?? '',
+    version: defaultVersion?.Version ?? '',
+    repo: defaultVersion?.Repo ?? selectedChart.repo ?? '',
   };
 
   const installHelmChartMutation = useUpdateHelmReleaseMutation(environmentId);
@@ -55,6 +76,8 @@ export function HelmInstallForm({ selectedChart, namespace, name }: Props) {
         namespace={namespace}
         name={name}
         versionOptions={versionOptions}
+        isVersionsLoading={helmRepoVersionsQuery.isInitialLoading}
+        isRepoAvailable={isRepoAvailable}
       />
     </Formik>
   );

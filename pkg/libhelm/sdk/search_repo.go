@@ -1,24 +1,30 @@
 package sdk
 
 import (
-	"net/url"
-	"os"
+	"context"
+	"fmt"
+	"io"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
+	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/pkg/errors"
+	portainer "github.com/portainer/portainer/api"
 	"github.com/portainer/portainer/pkg/libhelm/options"
+	"github.com/portainer/portainer/pkg/liboras"
 	"github.com/rs/zerolog/log"
 	"github.com/segmentio/encoding/json"
+	"helm.sh/helm/v3/pkg/chart"
 	"helm.sh/helm/v3/pkg/cli"
 	"helm.sh/helm/v3/pkg/getter"
 	"helm.sh/helm/v3/pkg/repo"
+	"oras.land/oras-go/v2/registry"
 )
 
 var (
 	errRequiredSearchOptions = errors.New("repo is required")
-	errInvalidRepoURL        = errors.New("the request failed since either the Helm repository was not found or the index.yaml is not valid")
 )
 
 type RepoIndex struct {
@@ -40,7 +46,6 @@ var (
 
 // SearchRepo downloads the `index.yaml` file for specified repo, parses it and returns JSON to caller.
 func (hspm *HelmSDKPackageManager) SearchRepo(searchRepoOpts options.SearchRepoOptions) ([]byte, error) {
-	// Validate input options
 	if err := validateSearchRepoOptions(searchRepoOpts); err != nil {
 		log.Error().
 			Str("context", "HelmClient").
@@ -55,33 +60,8 @@ func (hspm *HelmSDKPackageManager) SearchRepo(searchRepoOpts options.SearchRepoO
 		Str("repo", searchRepoOpts.Repo).
 		Msg("Searching repository")
 
-	// Parse and validate the repository URL
-	repoURL, err := parseRepoURL(searchRepoOpts.Repo)
-	if err != nil {
-		log.Error().
-			Str("context", "HelmClient").
-			Str("repo", searchRepoOpts.Repo).
-			Err(err).
-			Msg("Invalid repository URL")
-		return nil, err
-	}
-
-	// Check cache first
-	if searchRepoOpts.UseCache {
-		cacheMutex.RLock()
-		if cached, exists := indexCache[repoURL.String()]; exists {
-			if time.Since(cached.Timestamp) < cacheDuration {
-				cacheMutex.RUnlock()
-				return convertAndMarshalIndex(cached.Index, searchRepoOpts.Chart)
-			}
-		}
-		cacheMutex.RUnlock()
-	}
-
 	// Set up Helm CLI environment
 	repoSettings := cli.New()
-
-	// Ensure all required Helm directories exist
 	if err := ensureHelmDirectoriesExist(repoSettings); err != nil {
 		log.Error().
 			Str("context", "HelmClient").
@@ -90,7 +70,88 @@ func (hspm *HelmSDKPackageManager) SearchRepo(searchRepoOpts options.SearchRepoO
 		return nil, errors.Wrap(err, "failed to ensure Helm directories exist")
 	}
 
-	repoName, err := getRepoNameFromURL(repoURL.String())
+	// Try cache first for HTTP repos
+	if IsHTTPRepository(searchRepoOpts.Registry) && searchRepoOpts.UseCache {
+		if cachedResult := hspm.tryGetFromCache(searchRepoOpts.Repo, searchRepoOpts.Chart); cachedResult != nil {
+			return cachedResult, nil
+		}
+	}
+
+	// Download index based on source type
+	indexFile, err := hspm.downloadRepoIndex(searchRepoOpts, repoSettings)
+	if err != nil {
+		return nil, err
+	}
+
+	// Update cache for HTTP repos
+	if IsHTTPRepository(searchRepoOpts.Registry) {
+		hspm.updateCache(searchRepoOpts.Repo, indexFile)
+	}
+
+	return convertAndMarshalIndex(indexFile, searchRepoOpts.Chart)
+}
+
+// tryGetFromCache attempts to retrieve a cached index file and convert it to the response format
+func (hspm *HelmSDKPackageManager) tryGetFromCache(repoURL, chartName string) []byte {
+	cacheMutex.RLock()
+	defer cacheMutex.RUnlock()
+
+	if cached, exists := indexCache[repoURL]; exists {
+		if time.Since(cached.Timestamp) < cacheDuration {
+			result, err := convertAndMarshalIndex(cached.Index, chartName)
+			if err != nil {
+				log.Debug().
+					Str("context", "HelmClient").
+					Str("repo", repoURL).
+					Err(err).
+					Msg("Failed to convert cached index")
+				return nil
+			}
+			return result
+		}
+	}
+	return nil
+}
+
+// updateCache updates the cache with the provided index file and cleans up expired entries
+func (hspm *HelmSDKPackageManager) updateCache(repoURL string, indexFile *repo.IndexFile) {
+	cacheMutex.Lock()
+	defer cacheMutex.Unlock()
+
+	indexCache[repoURL] = RepoIndexCache{
+		Index:     indexFile,
+		Timestamp: time.Now(),
+	}
+
+	// Clean up expired entries
+	for key, index := range indexCache {
+		if time.Since(index.Timestamp) > cacheDuration {
+			delete(indexCache, key)
+		}
+	}
+}
+
+// downloadRepoIndex downloads the repository index based on the source type (HTTP or OCI)
+func (hspm *HelmSDKPackageManager) downloadRepoIndex(opts options.SearchRepoOptions, repoSettings *cli.EnvSettings) (*repo.IndexFile, error) {
+	if IsOCIRegistry(opts.Registry) {
+		return hspm.downloadOCIRepoIndex(opts.Registry, repoSettings, opts.Chart)
+	}
+	return hspm.downloadHTTPRepoIndex(opts.Repo, repoSettings)
+}
+
+// downloadHTTPRepoIndex downloads and loads an index file from an HTTP repository
+func (hspm *HelmSDKPackageManager) downloadHTTPRepoIndex(repoURL string, repoSettings *cli.EnvSettings) (*repo.IndexFile, error) {
+	parsedURL, err := parseRepoURL(repoURL)
+	if err != nil {
+		log.Error().
+			Str("context", "HelmClient").
+			Str("repo", repoURL).
+			Err(err).
+			Msg("Invalid repository URL")
+		return nil, err
+	}
+
+	repoName, err := getRepoNameFromURL(parsedURL.String())
 	if err != nil {
 		log.Error().
 			Str("context", "HelmClient").
@@ -99,70 +160,55 @@ func (hspm *HelmSDKPackageManager) SearchRepo(searchRepoOpts options.SearchRepoO
 		return nil, err
 	}
 
-	// Download the index file and update repository configuration
-	indexPath, err := downloadRepoIndex(repoURL.String(), repoSettings, repoName)
+	indexPath, err := downloadRepoIndexFromHttpRepo(parsedURL.String(), repoSettings, repoName)
 	if err != nil {
 		log.Error().
 			Str("context", "HelmClient").
-			Str("repo_url", repoURL.String()).
+			Str("repo_url", parsedURL.String()).
 			Err(err).
 			Msg("Failed to download repository index")
 		return nil, err
 	}
 
-	// Load and parse the index file
-	log.Debug().
-		Str("context", "HelmClient").
-		Str("index_path", indexPath).
-		Msg("Loading index file")
+	return loadIndexFile(indexPath)
+}
 
-	indexFile, err := loadIndexFile(indexPath)
+// downloadOCIRepoIndex downloads and loads an index file from an OCI registry
+func (hspm *HelmSDKPackageManager) downloadOCIRepoIndex(registry *portainer.Registry, repoSettings *cli.EnvSettings, chartPath string) (*repo.IndexFile, error) {
+	// Validate registry credentials first
+	if err := validateRegistryCredentials(registry); err != nil {
+		log.Error().
+			Str("context", "HelmClient").
+			Str("repo", registry.URL).
+			Err(err).
+			Msg("Registry credential validation failed for OCI search")
+		return nil, fmt.Errorf("registry credential validation failed: %w", err)
+	}
+
+	indexPath, err := downloadRepoIndexFromOciRegistry(registry, repoSettings, chartPath)
 	if err != nil {
 		log.Error().
 			Str("context", "HelmClient").
-			Str("index_path", indexPath).
+			Str("repo", registry.URL).
 			Err(err).
-			Msg("Failed to load index file")
+			Msg("Failed to download repository index")
 		return nil, err
 	}
 
-	// Update cache and remove old entries
-	cacheMutex.Lock()
-	indexCache[searchRepoOpts.Repo] = RepoIndexCache{
-		Index:     indexFile,
-		Timestamp: time.Now(),
-	}
-	for key, index := range indexCache {
-		if time.Since(index.Timestamp) > cacheDuration {
-			delete(indexCache, key)
-		}
-	}
-
-	cacheMutex.Unlock()
-
-	return convertAndMarshalIndex(indexFile, searchRepoOpts.Chart)
+	return loadIndexFile(indexPath)
 }
 
 // validateSearchRepoOptions validates the required search repository options.
 func validateSearchRepoOptions(opts options.SearchRepoOptions) error {
-	if opts.Repo == "" {
+	if opts.Repo == "" && IsHTTPRepository(opts.Registry) {
 		return errRequiredSearchOptions
 	}
 	return nil
 }
 
-// parseRepoURL parses and validates the repository URL.
-func parseRepoURL(repoURL string) (*url.URL, error) {
-	parsedURL, err := url.ParseRequestURI(repoURL)
-	if err != nil {
-		return nil, errors.Wrap(err, "invalid helm chart URL: "+repoURL)
-	}
-	return parsedURL, nil
-}
-
-// downloadRepoIndex downloads the index.yaml file from the repository and updates
+// downloadRepoIndexFromHttpRepo downloads the index.yaml file from the repository and updates
 // the repository configuration.
-func downloadRepoIndex(repoURLString string, repoSettings *cli.EnvSettings, repoName string) (string, error) {
+func downloadRepoIndexFromHttpRepo(repoURLString string, repoSettings *cli.EnvSettings, repoName string) (string, error) {
 	log.Debug().
 		Str("context", "helm_sdk_repo_index").
 		Str("repo_url", repoURLString).
@@ -183,7 +229,7 @@ func downloadRepoIndex(repoURLString string, repoSettings *cli.EnvSettings, repo
 			Str("repo_url", repoURLString).
 			Err(err).
 			Msg("Failed to create chart repository object")
-		return "", errInvalidRepoURL
+		return "", errors.New("the request failed since either the Helm repository was not found or the index.yaml is not valid")
 	}
 
 	// Load repository configuration file
@@ -239,13 +285,168 @@ func downloadRepoIndex(repoURLString string, repoSettings *cli.EnvSettings, repo
 	return indexPath, nil
 }
 
-// loadIndexFile loads the index file from the given path.
-func loadIndexFile(indexPath string) (*repo.IndexFile, error) {
-	indexFile, err := repo.LoadIndexFile(indexPath)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to load downloaded index file: %s", indexPath)
+func downloadRepoIndexFromOciRegistry(registry *portainer.Registry, repoSettings *cli.EnvSettings, chartPath string) (string, error) {
+	if IsHTTPRepository(registry) {
+		return "", errors.New("registry information is required for OCI search")
 	}
-	return indexFile, nil
+
+	if chartPath == "" {
+		return "", errors.New("chart path is required for OCI search")
+	}
+
+	ctx := context.Background()
+
+	registryClient, err := liboras.CreateClient(*registry)
+	if err != nil {
+		log.Error().
+			Str("context", "helm_sdk_repo_index_oci").
+			Str("registry_url", registry.URL).
+			Err(err).
+			Msg("Failed to create ORAS registry client")
+		return "", errors.Wrap(err, "failed to create ORAS registry client")
+	}
+
+	// Obtain repository handle for the specific chart path (relative to registry host)
+	repository, err := registryClient.Repository(ctx, chartPath)
+	if err != nil {
+		log.Error().
+			Str("context", "helm_sdk_repo_index_oci").
+			Str("repository", chartPath).
+			Err(err).
+			Msg("Failed to obtain repository handle")
+		return "", errors.Wrap(err, "failed to obtain repository handle")
+	}
+
+	// List all tags for this chart repository
+	var tags []string
+	err = repository.Tags(ctx, "", func(t []string) error {
+		tags = append(tags, t...)
+		return nil
+	})
+	if err != nil {
+		log.Error().
+			Str("context", "helm_sdk_repo_index_oci").
+			Str("repository", chartPath).
+			Err(err).
+			Msg("Failed to list tags")
+		return "", errors.Wrap(err, "failed to list tags for repository")
+	}
+
+	if len(tags) == 0 {
+		return "", errors.Errorf("no tags found for repository %s", chartPath)
+	}
+
+	// Build Helm index file in memory
+	indexFile := repo.NewIndexFile()
+
+	const helmConfigMediaType = "application/vnd.cncf.helm.config.v1+json"
+
+	for _, tag := range tags {
+		chartVersion, err := processOCITag(ctx, repository, registry, chartPath, tag, helmConfigMediaType)
+		if err != nil {
+			log.Debug().
+				Str("context", "helm_sdk_repo_index_oci").
+				Str("repository", chartPath).
+				Str("tag", tag).
+				Err(err).
+				Msg("Failed to process tag; skipping")
+			continue
+		}
+
+		if chartVersion != nil {
+			indexFile.Entries[chartVersion.Name] = append(indexFile.Entries[chartVersion.Name], chartVersion)
+		}
+	}
+
+	if len(indexFile.Entries) == 0 {
+		return "", errors.Errorf("no helm chart versions found for repository %s", chartPath)
+	}
+
+	indexFile.SortEntries()
+
+	fileNameSafe := strings.ReplaceAll(chartPath, "/", "-")
+	destPath := filepath.Join(repoSettings.RepositoryCache, fmt.Sprintf("%s-%d-index.yaml", fileNameSafe, time.Now().UnixNano()))
+
+	if err := indexFile.WriteFile(destPath, 0644); err != nil {
+		return "", errors.Wrap(err, "failed to write OCI index file")
+	}
+
+	log.Debug().
+		Str("context", "helm_sdk_repo_index_oci").
+		Str("dest_path", destPath).
+		Int("entries", len(indexFile.Entries)).
+		Msg("Successfully generated OCI index file")
+
+	return destPath, nil
+}
+
+// processOCITag processes a single OCI tag and returns a Helm chart version.
+func processOCITag(ctx context.Context, repository registry.Repository, registry *portainer.Registry, chartPath string, tag string, helmConfigMediaType string) (*repo.ChartVersion, error) {
+	// Resolve tag to get descriptor
+	descriptor, err := repository.Resolve(ctx, tag)
+	if err != nil {
+		log.Debug().
+			Str("context", "helm_sdk_repo_index_oci").
+			Str("repository", chartPath).
+			Str("tag", tag).
+			Err(err).
+			Msg("Failed to resolve tag; skipping")
+		return nil, nil
+	}
+
+	// Fetch manifest to validate media type and obtain config descriptor
+	manifestReader, err := repository.Manifests().Fetch(ctx, descriptor)
+	if err != nil {
+		log.Debug().
+			Str("context", "helm_sdk_repo_index_oci").
+			Str("repository", chartPath).
+			Str("tag", tag).
+			Err(err).
+			Msg("Failed to fetch manifest; skipping")
+		return nil, nil
+	}
+
+	manifestContent, err := io.ReadAll(manifestReader)
+	manifestReader.Close()
+	if err != nil {
+		return nil, nil
+	}
+
+	var manifest ocispec.Manifest
+	if err := json.Unmarshal(manifestContent, &manifest); err != nil {
+		return nil, nil
+	}
+
+	// Ensure manifest config is Helm chart metadata
+	if manifest.Config.MediaType != helmConfigMediaType {
+		return nil, nil
+	}
+
+	// Fetch config blob (chart metadata)
+	cfgReader, err := repository.Blobs().Fetch(ctx, manifest.Config)
+	if err != nil {
+		return nil, nil
+	}
+	cfgBytes, err := io.ReadAll(cfgReader)
+	cfgReader.Close()
+	if err != nil {
+		return nil, nil
+	}
+
+	var metadata chart.Metadata
+	if err := json.Unmarshal(cfgBytes, &metadata); err != nil {
+		return nil, nil
+	}
+
+	// Build chart version entry
+	chartVersion := &repo.ChartVersion{
+		Metadata: &metadata,
+		URLs:     []string{fmt.Sprintf("oci://%s/%s:%s", registry.URL, chartPath, tag)},
+		Created:  time.Now(),
+		Digest:   descriptor.Digest.String(),
+	}
+
+	return chartVersion, nil
 }
 
 // convertIndexToResponse converts the Helm index file to our response format.
@@ -258,7 +459,7 @@ func convertIndexToResponse(indexFile *repo.IndexFile, chartName string) (RepoIn
 
 	// Convert Helm SDK types to our response types
 	for name, charts := range indexFile.Entries {
-		if chartName == "" || name == chartName {
+		if chartName == "" || strings.Contains(strings.ToLower(chartName), strings.ToLower(name)) {
 			result.Entries[name] = convertChartsToChartInfo(charts)
 		}
 	}
@@ -302,87 +503,6 @@ type ChartInfo struct {
 	URLs        []string `json:"urls"`
 	Icon        string   `json:"icon,omitempty"`
 	Annotations any      `json:"annotations,omitempty"`
-}
-
-// ensureHelmDirectoriesExist checks and creates required Helm directories if they don't exist
-func ensureHelmDirectoriesExist(settings *cli.EnvSettings) error {
-	log.Debug().
-		Str("context", "helm_sdk_dirs").
-		Msg("Ensuring Helm directories exist")
-
-	// List of directories to ensure exist
-	directories := []string{
-		filepath.Dir(settings.RepositoryConfig), // Repository config directory
-		settings.RepositoryCache,                // Repository cache directory
-		filepath.Dir(settings.RegistryConfig),   // Registry config directory
-		settings.PluginsDirectory,               // Plugins directory
-	}
-
-	// Create each directory if it doesn't exist
-	for _, dir := range directories {
-		if dir == "" {
-			continue // Skip empty paths
-		}
-
-		if _, err := os.Stat(dir); os.IsNotExist(err) {
-			if err := os.MkdirAll(dir, 0700); err != nil {
-				log.Error().
-					Str("context", "helm_sdk_dirs").
-					Str("directory", dir).
-					Err(err).
-					Msg("Failed to create directory")
-				return errors.Wrapf(err, "failed to create directory: %s", dir)
-			}
-		}
-	}
-
-	// Ensure registry config file exists
-	if settings.RegistryConfig != "" {
-		if _, err := os.Stat(settings.RegistryConfig); os.IsNotExist(err) {
-			// Create the directory if it doesn't exist
-			dir := filepath.Dir(settings.RegistryConfig)
-			if err := os.MkdirAll(dir, 0700); err != nil {
-				log.Error().
-					Str("context", "helm_sdk_dirs").
-					Str("directory", dir).
-					Err(err).
-					Msg("Failed to create directory")
-				return errors.Wrapf(err, "failed to create directory: %s", dir)
-			}
-
-			// Create an empty registry config file
-			if _, err := os.Create(settings.RegistryConfig); err != nil {
-				log.Error().
-					Str("context", "helm_sdk_dirs").
-					Str("file", settings.RegistryConfig).
-					Err(err).
-					Msg("Failed to create registry config file")
-				return errors.Wrapf(err, "failed to create registry config file: %s", settings.RegistryConfig)
-			}
-		}
-	}
-
-	// Ensure repository config file exists
-	if settings.RepositoryConfig != "" {
-		if _, err := os.Stat(settings.RepositoryConfig); os.IsNotExist(err) {
-			// Create an empty repository config file with default yaml structure
-			f := repo.NewFile()
-			if err := f.WriteFile(settings.RepositoryConfig, 0644); err != nil {
-				log.Error().
-					Str("context", "helm_sdk_dirs").
-					Str("file", settings.RepositoryConfig).
-					Err(err).
-					Msg("Failed to create repository config file")
-				return errors.Wrapf(err, "failed to create repository config file: %s", settings.RepositoryConfig)
-			}
-		}
-	}
-
-	log.Debug().
-		Str("context", "helm_sdk_dirs").
-		Msg("Successfully ensured all Helm directories exist")
-
-	return nil
 }
 
 func convertAndMarshalIndex(indexFile *repo.IndexFile, chartName string) ([]byte, error) {

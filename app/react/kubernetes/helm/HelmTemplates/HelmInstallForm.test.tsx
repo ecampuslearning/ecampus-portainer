@@ -98,6 +98,7 @@ function renderComponent({
           selectedChart={selectedChart}
           namespace={namespace}
           name={name}
+          isRepoAvailable
         />
       )),
       user

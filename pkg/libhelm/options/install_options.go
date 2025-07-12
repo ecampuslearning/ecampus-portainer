@@ -1,6 +1,10 @@
 package options
 
-import "time"
+import (
+	"time"
+
+	portainer "github.com/portainer/portainer/api"
+)
 
 type InstallOptions struct {
 	Name                    string
@@ -8,6 +12,7 @@ type InstallOptions struct {
 	Version                 string
 	Namespace               string
 	Repo                    string
+	Registry                *portainer.Registry
 	Wait                    bool
 	ValuesFile              string
 	PostRenderer            string

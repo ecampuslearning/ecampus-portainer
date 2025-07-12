@@ -1,20 +1,20 @@
-import { ExternalLink as ExternalLinkIcon } from 'lucide-react';
+import { ArrowUpRight } from 'lucide-react';
 import { PropsWithChildren } from 'react';
 import clsx from 'clsx';
 
 import { AutomationTestingProps } from '@/types';
 
-import { Icon } from '@@/Icon';
-
 interface Props {
   to: string;
   className?: string;
+  showIcon?: boolean;
 }
 
 export function ExternalLink({
   to,
   className,
   children,
+  showIcon = true,
   'data-cy': dataCy,
 }: PropsWithChildren<Props & AutomationTestingProps>) {
   return (
@@ -23,10 +23,10 @@ export function ExternalLink({
       target="_blank"
       rel="noreferrer"
       data-cy={dataCy}
-      className={clsx('inline-flex items-center gap-1', className)}
+      className={clsx('inline-flex align-baseline', className)}
     >
-      <Icon icon={ExternalLinkIcon} />
-      <span>{children}</span>
+      {children}
+      {showIcon && <ArrowUpRight className="align-top" />}
     </a>
   );
 }

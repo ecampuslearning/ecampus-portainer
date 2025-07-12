@@ -81,21 +81,25 @@ export function HelmRepositoryDatatable() {
 function HelmDatatableDescription({ isAdmin }: { isAdmin: boolean }) {
   return (
     <TextTip color="blue" className="mb-3">
-      Adding a Helm repo here only makes it available in your own user
-      account&apos;s Portainer UI. Helm charts are pulled down from these repos
-      (plus the{' '}
-      {isAdmin ? (
-        <Link
-          to="portainer.settings"
-          params={{ '#': 'kubernetes-settings' }}
-          data-cy="k8s-globally-select-repo-link"
-        >
-          <span>globally-set Helm repo</span>
-        </Link>
-      ) : (
-        <span>globally-set Helm repo</span>
+      <p>
+        Adding a Helm repository here makes it available only in your Portainer
+        user account. The Helm charts from these repositories (along with the
+        globally set Helm repository) are shown in the &apos;Create from
+        Code&apos; screen.
+      </p>
+      {isAdmin && (
+        <>
+          To manage your helm repositories globally, navigate to{' '}
+          <Link
+            to="portainer.settings"
+            params={{ '#': 'kubernetes-settings' }}
+            data-cy="helm-settings-link"
+          >
+            Settings &gt; General
+          </Link>
+          .
+        </>
       )}
-      ) and shown in the Create from code screen&apos;s Helm charts list.
     </TextTip>
   );
 }

@@ -2,21 +2,20 @@ package sdk
 
 import (
 	"fmt"
-	"net/url"
-	"strings"
 
 	"github.com/pkg/errors"
+	"github.com/portainer/portainer/pkg/libhelm/cache"
 	"github.com/portainer/portainer/pkg/libhelm/options"
 	"github.com/rs/zerolog/log"
 	"helm.sh/helm/v3/pkg/action"
 )
 
-var errRequiredShowOptions = errors.New("chart, repo and output format are required")
+var errRequiredShowOptions = errors.New("chart, output format and either repo or registry are required")
 
 // Show implements the HelmPackageManager interface by using the Helm SDK to show chart information.
 // It supports showing chart values, readme, and chart details based on the provided ShowOptions.
 func (hspm *HelmSDKPackageManager) Show(showOpts options.ShowOptions) ([]byte, error) {
-	if showOpts.Chart == "" || showOpts.Repo == "" || showOpts.OutputFormat == "" {
+	if showOpts.Chart == "" || (showOpts.Repo == "" && IsHTTPRepository(showOpts.Registry)) || showOpts.OutputFormat == "" {
 		log.Error().
 			Str("context", "HelmClient").
 			Str("chart", showOpts.Chart).
@@ -33,31 +32,10 @@ func (hspm *HelmSDKPackageManager) Show(showOpts options.ShowOptions) ([]byte, e
 		Str("output_format", string(showOpts.OutputFormat)).
 		Msg("Showing chart information")
 
-	repoURL, err := parseRepoURL(showOpts.Repo)
-	if err != nil {
-		log.Error().
-			Str("context", "HelmClient").
-			Str("repo", showOpts.Repo).
-			Err(err).
-			Msg("Invalid repository URL")
-		return nil, err
-	}
-
-	repoName, err := getRepoNameFromURL(repoURL.String())
-	if err != nil {
-		log.Error().
-			Str("context", "HelmClient").
-			Err(err).
-			Msg("Failed to get hostname from URL")
-		return nil, err
-	}
-
-	// Initialize action configuration (no namespace or cluster access needed)
 	actionConfig := new(action.Configuration)
-	err = hspm.initActionConfig(actionConfig, "", nil)
+	err := authenticateChartSource(actionConfig, showOpts.Registry)
 	if err != nil {
-		// error is already logged in initActionConfig
-		return nil, fmt.Errorf("failed to initialize helm configuration: %w", err)
+		return nil, fmt.Errorf("failed to setup chart source: %w", err)
 	}
 
 	// Create showClient action
@@ -70,22 +48,28 @@ func (hspm *HelmSDKPackageManager) Show(showOpts options.ShowOptions) ([]byte, e
 		return nil, fmt.Errorf("failed to initialize helm show client: %w", err)
 	}
 
-	// Locate and load the chart
-	log.Debug().
-		Str("context", "HelmClient").
-		Str("chart", showOpts.Chart).
-		Str("repo", showOpts.Repo).
-		Msg("Locating chart")
-
-	fullChartPath := fmt.Sprintf("%s/%s", repoName, showOpts.Chart)
-	chartPath, err := showClient.ChartPathOptions.LocateChart(fullChartPath, hspm.settings)
+	chartRef, _, err := parseChartRef(showOpts.Chart, showOpts.Repo, showOpts.Registry)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse chart reference: %w", err)
+	}
+	chartPath, err := showClient.ChartPathOptions.LocateChart(chartRef, hspm.settings)
 	if err != nil {
 		log.Error().
 			Str("context", "HelmClient").
-			Str("chart", fullChartPath).
+			Str("chart", chartRef).
 			Str("repo", showOpts.Repo).
 			Err(err).
 			Msg("Failed to locate chart")
+
+		// Check if this is an authentication error and flush cache if needed
+		if showOpts.Registry != nil && shouldFlushCacheOnError(err, showOpts.Registry.ID) {
+			cache.FlushRegistryByID(showOpts.Registry.ID)
+			log.Info().
+				Int("registry_id", int(showOpts.Registry.ID)).
+				Str("context", "HelmClient").
+				Msg("Flushed registry cache due to chart registry authentication error")
+		}
+
 		return nil, fmt.Errorf("failed to locate chart: %w", err)
 	}
 
@@ -98,6 +82,16 @@ func (hspm *HelmSDKPackageManager) Show(showOpts options.ShowOptions) ([]byte, e
 			Str("output_format", string(showOpts.OutputFormat)).
 			Err(err).
 			Msg("Failed to show chart info")
+
+		// Check if this is an authentication error and flush cache if needed
+		if showOpts.Registry != nil && shouldFlushCacheOnError(err, showOpts.Registry.ID) {
+			cache.FlushRegistryByID(showOpts.Registry.ID)
+			log.Info().
+				Int("registry_id", int(showOpts.Registry.ID)).
+				Str("context", "HelmClient").
+				Msg("Flushed registry cache due to chart show authentication error")
+		}
+
 		return nil, fmt.Errorf("failed to show chart info: %w", err)
 	}
 
@@ -114,7 +108,10 @@ func (hspm *HelmSDKPackageManager) Show(showOpts options.ShowOptions) ([]byte, e
 // and return the show client.
 func initShowClient(actionConfig *action.Configuration, showOpts options.ShowOptions) (*action.Show, error) {
 	showClient := action.NewShowWithConfig(action.ShowAll, actionConfig)
-	showClient.ChartPathOptions.Version = showOpts.Version
+	err := configureChartPathOptions(&showClient.ChartPathOptions, showOpts.Version, showOpts.Repo, showOpts.Registry)
+	if err != nil {
+		return nil, fmt.Errorf("failed to configure chart path options: %w", err)
+	}
 
 	// Set output type based on ShowOptions
 	switch showOpts.OutputFormat {
@@ -133,27 +130,4 @@ func initShowClient(actionConfig *action.Configuration, showOpts options.ShowOpt
 	}
 
 	return showClient, nil
-}
-
-// getRepoNameFromURL extracts a unique repository identifier from a URL string.
-// It combines hostname and path to ensure uniqueness across different repositories on the same host.
-// Examples:
-// - https://portainer.github.io/test-public-repo/ -> portainer.github.io-test-public-repo
-// - https://portainer.github.io/another-repo/ -> portainer.github.io-another-repo
-// - https://charts.helm.sh/stable -> charts.helm.sh-stable
-func getRepoNameFromURL(urlStr string) (string, error) {
-	parsedURL, err := url.Parse(urlStr)
-	if err != nil {
-		return "", fmt.Errorf("failed to parse URL: %w", err)
-	}
-
-	hostname := parsedURL.Hostname()
-	path := parsedURL.Path
-	path = strings.Trim(path, "/")
-	path = strings.ReplaceAll(path, "/", "-")
-
-	if path == "" {
-		return hostname, nil
-	}
-	return fmt.Sprintf("%s-%s", hostname, path), nil
 }

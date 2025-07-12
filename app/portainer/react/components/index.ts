@@ -9,6 +9,7 @@ import { withFormValidation } from '@/react-tools/withFormValidation';
 import { GroupAssociationTable } from '@/react/portainer/environments/environment-groups/components/GroupAssociationTable';
 import { AssociatedEnvironmentsSelector } from '@/react/portainer/environments/environment-groups/components/AssociatedEnvironmentsSelector';
 import { withControlledInput } from '@/react-tools/withControlledInput';
+import { NamespacePortainerSelect } from '@/react/kubernetes/applications/components/NamespaceSelector/NamespaceSelector';
 
 import {
   EnvironmentVariablesFieldset,
@@ -199,11 +200,22 @@ export const ngModule = angular
       'onChange',
       'options',
       'isMulti',
+      'filterOption',
       'isClearable',
       'components',
       'isLoading',
       'noOptionsMessage',
       'aria-label',
+      'loadingMessage',
+    ])
+  )
+  .component(
+    'namespacePortainerSelect',
+    r2a(NamespacePortainerSelect, [
+      'value',
+      'onChange',
+      'isDisabled',
+      'options',
     ])
   )
   .component(

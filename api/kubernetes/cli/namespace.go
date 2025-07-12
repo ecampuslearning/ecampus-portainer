@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"sort"
 	"strconv"
 	"time"
 
@@ -436,6 +437,11 @@ func (kcl *KubeClient) ConvertNamespaceMapToSlice(namespaces map[string]portaine
 	for _, namespace := range namespaces {
 		namespaceSlice = append(namespaceSlice, namespace)
 	}
+
+	// Sort namespaces by name
+	sort.Slice(namespaceSlice, func(i, j int) bool {
+		return namespaceSlice[i].Name < namespaceSlice[j].Name
+	})
 
 	return namespaceSlice
 }

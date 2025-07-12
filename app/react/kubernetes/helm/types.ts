@@ -91,7 +91,7 @@ export interface HelmChartResponse {
   versions: string[];
 }
 
-export interface HelmRepositoryResponse {
+export interface HelmRegistryResponse {
   Id: number;
   UserId: number;
   URL: string;
@@ -99,22 +99,13 @@ export interface HelmRepositoryResponse {
 
 export interface HelmRegistriesResponse {
   GlobalRepository: string;
-  UserRepositories: HelmRepositoryResponse[];
+  UserRepositories: HelmRegistryResponse[];
 }
 
 export interface HelmChartsResponse {
   entries: Record<string, HelmChartResponse[]>;
   apiVersion: string;
   generated: string;
-}
-
-export interface InstallChartPayload {
-  Name: string;
-  Repo: string;
-  Chart: string;
-  Values: string;
-  Namespace: string;
-  Version?: string;
 }
 
 export interface UpdateHelmReleasePayload {

@@ -39,11 +39,6 @@ export function ChartActions({
         release={release}
         updateRelease={updateRelease}
       />
-      <UninstallButton
-        environmentId={environmentId}
-        releaseName={releaseName}
-        namespace={namespace}
-      />
       {showRollbackButton && (
         <RollbackButton
           latestRevision={latestRevision}
@@ -53,6 +48,11 @@ export function ChartActions({
           namespace={namespace}
         />
       )}
+      <UninstallButton
+        environmentId={environmentId}
+        releaseName={releaseName}
+        namespace={namespace}
+      />
     </div>
   );
 }

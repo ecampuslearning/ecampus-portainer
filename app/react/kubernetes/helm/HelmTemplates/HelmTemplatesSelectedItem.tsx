@@ -26,7 +26,7 @@ export function HelmTemplatesSelectedItem({
             <FallbackImage
               src={selectedChart.icon}
               fallbackIcon={HelmIcon}
-              className="h-16 w-16"
+              className="h-16 w-16 flex-none"
             />
             <div className="col-sm-12">
               <div>

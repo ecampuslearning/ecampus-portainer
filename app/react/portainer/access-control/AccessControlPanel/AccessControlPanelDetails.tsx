@@ -201,8 +201,10 @@ function InheritanceMessage({
   return (
     <tr>
       <td colSpan={2} aria-label="inheritance-message">
-        <Icon icon={Info} mode="primary" className="mr-1" />
-        {children}
+        <div className="inline-flex items-center gap-1">
+          <Icon icon={Info} mode="primary" />
+          {children}
+        </div>
         <Tooltip message={tooltip} />
       </td>
     </tr>

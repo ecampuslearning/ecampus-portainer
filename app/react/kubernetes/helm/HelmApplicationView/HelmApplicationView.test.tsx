@@ -137,6 +137,47 @@ const helmReleaseHistory = [
   },
 ];
 
+// Common MSW handlers for all tests
+function createCommonHandlers() {
+  return [
+    http.get('/api/users/undefined/helm/repositories', () =>
+      HttpResponse.json({
+        GlobalRepository: 'https://charts.helm.sh/stable',
+        UserRepositories: [{ Id: '1', URL: 'https://charts.helm.sh/stable' }],
+      })
+    ),
+    http.get('/api/templates/helm', () =>
+      HttpResponse.json({
+        entries: {
+          'test-chart': [{ version: '1.0.0' }],
+        },
+      })
+    ),
+    http.get('/api/endpoints/3/kubernetes/helm/test-release/history', () =>
+      HttpResponse.json(helmReleaseHistory)
+    ),
+    http.get('/api/kubernetes/3/namespaces/default/events', () =>
+      HttpResponse.json([])
+    ),
+    http.get('/api/kubernetes/3/namespaces/default', () =>
+      HttpResponse.json({
+        Id: 'default',
+        Name: 'default',
+        Status: { phase: 'Active' },
+        Annotations: {},
+        CreationDate: '2021-01-01T00:00:00Z',
+        NamespaceOwner: '',
+        IsSystem: false,
+        IsDefault: true,
+      })
+    ),
+  ];
+}
+
+function setupMockHandlers(helmReleaseHandler: ReturnType<typeof http.get>) {
+  server.use(helmReleaseHandler, ...createCommonHandlers());
+}
+
 function renderComponent() {
   const user = new UserViewModel({ Username: 'user' });
   const Wrapped = withTestQueryProvider(
@@ -162,30 +203,9 @@ describe(
     it('should display helm release details for minimal release when data is loaded', async () => {
       vi.spyOn(console, 'error').mockImplementation(() => {});
 
-      server.use(
+      setupMockHandlers(
         http.get('/api/endpoints/3/kubernetes/helm/test-release', () =>
           HttpResponse.json(minimalHelmRelease)
-        ),
-        http.get('/api/users/undefined/helm/repositories', () =>
-          HttpResponse.json({
-            GlobalRepository: 'https://charts.helm.sh/stable',
-            UserRepositories: [
-              { Id: '1', URL: 'https://charts.helm.sh/stable' },
-            ],
-          })
-        ),
-        http.get('/api/templates/helm', () =>
-          HttpResponse.json({
-            entries: {
-              'test-chart': [{ version: '1.0.0' }],
-            },
-          })
-        ),
-        http.get('/api/endpoints/3/kubernetes/helm/test-release/history', () =>
-          HttpResponse.json(helmReleaseHistory)
-        ),
-        http.get('/api/kubernetes/3/namespaces/default/events', () =>
-          HttpResponse.json([])
         )
       );
 
@@ -224,13 +244,9 @@ describe(
 
     it('should display error message when API request fails', async () => {
       // Mock API failure
-      server.use(
+      setupMockHandlers(
         http.get('/api/endpoints/3/kubernetes/helm/test-release', () =>
           HttpResponse.error()
-        ),
-        // Add mock for events endpoint
-        http.get('/api/kubernetes/3/namespaces/default/events', () =>
-          HttpResponse.json([])
         )
       );
 
@@ -253,15 +269,9 @@ describe(
     });
 
     it('should display additional details when available in helm release', async () => {
-      server.use(
+      setupMockHandlers(
         http.get('/api/endpoints/3/kubernetes/helm/test-release', () =>
           HttpResponse.json(completeHelmRelease)
-        ),
-        http.get('/api/endpoints/3/kubernetes/helm/test-release/history', () =>
-          HttpResponse.json(helmReleaseHistory)
-        ),
-        http.get('/api/kubernetes/3/namespaces/default/events', () =>
-          HttpResponse.json([])
         )
       );
 

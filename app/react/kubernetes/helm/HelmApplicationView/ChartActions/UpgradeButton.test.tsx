@@ -25,8 +25,8 @@ vi.mock('@/portainer/services/notifications', () => ({
   notifySuccess: vi.fn(),
 }));
 
-vi.mock('../../queries/useHelmRegistries', () => ({
-  useHelmRegistries: vi.fn(() => ({
+vi.mock('../../queries/useHelmRepositories', () => ({
+  useUserHelmRepositories: vi.fn(() => ({
     data: ['repo1', 'repo2'],
     isInitialLoading: false,
     isError: false,
@@ -146,7 +146,7 @@ describe('UpgradeButton', () => {
 
     renderButton();
 
-    expect(screen.getByText('No versions available')).toBeInTheDocument();
+    expect(screen.getByText(/No versions available/)).toBeInTheDocument();
   });
 
   test('should open upgrade modal when clicked', async () => {

@@ -45,6 +45,8 @@ type Release struct {
 	// Labels of the release.
 	// Disabled encoding into Json cause labels are stored in storage driver metadata field.
 	Labels map[string]string `json:"-"`
+	// ChartReference are the labels that are used to identify the chart source.
+	ChartReference ChartReference `json:"chartReference,omitempty"`
 	// Values are the values used to deploy the chart.
 	Values Values `json:"values,omitempty"`
 }
@@ -52,6 +54,12 @@ type Release struct {
 type Values struct {
 	UserSuppliedValues string `json:"userSuppliedValues,omitempty"`
 	ComputedValues     string `json:"computedValues,omitempty"`
+}
+
+type ChartReference struct {
+	ChartPath  string `json:"chartPath,omitempty"`
+	RepoURL    string `json:"repoURL,omitempty"`
+	RegistryID int64  `json:"registryID,omitempty"`
 }
 
 // Chart is a helm package that contains metadata, a default config, zero or more

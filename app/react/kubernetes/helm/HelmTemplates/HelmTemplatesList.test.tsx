@@ -46,25 +46,63 @@ const mockCharts: Chart[] = [
 
 const selectActionMock = vi.fn();
 
+const mockUseEnvironmentId = vi.fn(() => 1);
+
+vi.mock('@/react/hooks/useEnvironmentId', () => ({
+  useEnvironmentId: () => mockUseEnvironmentId(),
+}));
+
+// Mock the helm registries query
+vi.mock('../queries/useHelmRegistries', () => ({
+  useHelmRegistries: vi.fn(() => ({
+    data: ['https://example.com', 'https://example.com/2'],
+    isInitialLoading: false,
+    isError: false,
+  })),
+}));
+
+// Mock the environment registries query
+vi.mock(
+  '@/react/portainer/environments/queries/useEnvironmentRegistries',
+  () => ({
+    useEnvironmentRegistries: vi.fn(() => ({
+      data: [
+        { Id: 1, URL: 'https://registry.example.com' },
+        { Id: 2, URL: 'https://registry2.example.com' },
+      ],
+      isInitialLoading: false,
+      isError: false,
+    })),
+  })
+);
+
 function renderComponent({
   loading = false,
   charts = mockCharts,
   selectAction = selectActionMock,
-  selectedRegistry = '',
+  selectedRegistry = {
+    repoUrl: 'https://example.com',
+    name: 'Test Registry',
+  },
+}: {
+  loading?: boolean;
+  charts?: Chart[];
+  selectAction?: (chart: Chart) => void;
+  selectedRegistry?: {
+    repoUrl?: string;
+    name?: string;
+  } | null;
 } = {}) {
   const user = new UserViewModel({ Username: 'user' });
-  const registries = ['https://example.com', 'https://example.com/2'];
 
   const Wrapped = withTestQueryProvider(
     withUserProvider(
       withTestRouter(() => (
         <HelmTemplatesList
-          isLoading={loading}
+          isLoadingCharts={loading}
           charts={charts}
           selectAction={selectAction}
-          registries={registries}
           selectedRegistry={selectedRegistry}
-          setSelectedRegistry={() => {}}
         />
       )),
       user
@@ -81,8 +119,10 @@ describe('HelmTemplatesList', () => {
   it('should display title and charts list', async () => {
     renderComponent();
 
-    // Check for the title
-    expect(screen.getByText('Helm chart')).toBeInTheDocument();
+    // Check for the title with registry name
+    expect(
+      screen.getByText('Select a helm chart from Test Registry')
+    ).toBeInTheDocument();
 
     // Check for charts
     expect(screen.getByText('test-chart-1')).toBeInTheDocument();
@@ -160,21 +200,27 @@ describe('HelmTemplatesList', () => {
   });
 
   it('should show empty message when no charts are available and a registry is selected', async () => {
-    renderComponent({ charts: [], selectedRegistry: 'https://example.com' });
+    renderComponent({
+      charts: [],
+      selectedRegistry: {
+        repoUrl: 'https://example.com',
+        name: 'Test Registry',
+      },
+    });
 
     // Check for empty message
     expect(
-      screen.getByText('No helm charts available in this registry.')
+      screen.getByText('No helm charts available in this repository.')
     ).toBeInTheDocument();
   });
 
   it("should show 'select registry' message when no charts are available and no registry is selected", async () => {
-    renderComponent({ charts: [] });
+    renderComponent({ charts: [], selectedRegistry: null });
 
     // Check for message
     expect(
       screen.getByText(
-        'Please select a registry to view available Helm charts.'
+        'Please select a repository to view available Helm charts.'
       )
     ).toBeInTheDocument();
   });

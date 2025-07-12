@@ -1,14 +1,15 @@
 import { Form, useFormikContext } from 'formik';
 import { useMemo } from 'react';
 
-import { FormActions } from '@@/form-components/FormActions';
 import { FormControl } from '@@/form-components/FormControl';
 import { Option, PortainerSelect } from '@@/form-components/PortainerSelect';
 import { FormSection } from '@@/form-components/FormSection';
+import { LoadingButton } from '@@/buttons';
 
 import { Chart } from '../types';
 import { useHelmChartValues } from '../queries/useHelmChartValues';
 import { HelmValuesInput } from '../components/HelmValuesInput';
+import { ChartVersion } from '../queries/useHelmRepoVersions';
 
 import { HelmInstallFormValues } from './types';
 
@@ -16,7 +17,9 @@ type Props = {
   selectedChart: Chart;
   namespace?: string;
   name?: string;
-  versionOptions: Option<string>[];
+  versionOptions: Option<ChartVersion>[];
+  isVersionsLoading: boolean;
+  isRepoAvailable: boolean;
 };
 
 export function HelmInstallInnerForm({
@@ -24,21 +27,39 @@ export function HelmInstallInnerForm({
   namespace,
   name,
   versionOptions,
+  isVersionsLoading,
+  isRepoAvailable,
 }: Props) {
   const { values, setFieldValue, isSubmitting } =
     useFormikContext<HelmInstallFormValues>();
 
-  const chartValuesRefQuery = useHelmChartValues({
-    chart: selectedChart.name,
-    repo: selectedChart.repo,
-    version: values?.version,
-  });
-
-  const selectedVersion = useMemo(
+  const selectedVersion: ChartVersion | undefined = useMemo(
     () =>
-      versionOptions.find((v) => v.value === values.version)?.value ??
-      versionOptions[0]?.value,
-    [versionOptions, values.version]
+      versionOptions.find(
+        (v) =>
+          v.value.Version === values.version &&
+          v.value.Repo === selectedChart.repo
+      )?.value ?? versionOptions[0]?.value,
+    [versionOptions, values.version, selectedChart.repo]
+  );
+
+  const repoParams = {
+    repo: selectedChart.repo,
+  };
+  // use isLatestVersionFetched to cache the latest version, to avoid duplicate fetches
+  const isLatestVersionFetched =
+    // if no version is selected, the latest version gets fetched
+    !versionOptions.length ||
+    // otherwise check if the selected version is the latest version
+    (selectedVersion?.Version === versionOptions[0]?.value.Version &&
+      selectedVersion?.Repo === versionOptions[0]?.value.Repo);
+  const chartValuesRefQuery = useHelmChartValues(
+    {
+      chart: selectedChart.name,
+      version: values?.version,
+      ...repoParams,
+    },
+    isLatestVersionFetched
   );
 
   return (
@@ -48,14 +69,18 @@ export function HelmInstallInnerForm({
           <FormControl
             label="Version"
             inputId="version-input"
+            isLoading={isVersionsLoading}
             loadingText="Loading versions..."
           >
-            <PortainerSelect<string>
+            <PortainerSelect<ChartVersion>
               value={selectedVersion}
               options={versionOptions}
+              noOptionsMessage={() => 'No versions found'}
+              placeholder="Select a version"
               onChange={(version) => {
                 if (version) {
-                  setFieldValue('version', version);
+                  setFieldValue('version', version.Version);
+                  setFieldValue('repo', version.Repo);
                 }
               }}
               data-cy="helm-version-input"
@@ -70,13 +95,15 @@ export function HelmInstallInnerForm({
         </FormSection>
       </div>
 
-      <FormActions
-        submitLabel="Install"
+      <LoadingButton
+        className="!ml-0"
         loadingText="Installing Helm chart"
         isLoading={isSubmitting}
-        isValid={!!namespace && !!name}
+        disabled={!namespace || !name || !isRepoAvailable}
         data-cy="helm-install"
-      />
+      >
+        Install
+      </LoadingButton>
     </Form>
   );
 }

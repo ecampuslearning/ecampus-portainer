@@ -92,6 +92,7 @@ export const ngModule = angular
       'onChange',
       'placeholder',
       'value',
+      'allowSelectAll',
     ])
   )
   .component(

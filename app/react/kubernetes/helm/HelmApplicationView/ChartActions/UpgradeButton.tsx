@@ -15,7 +15,7 @@ import { HelmRelease, UpdateHelmReleasePayload } from '../../types';
 import { useUpdateHelmReleaseMutation } from '../../queries/useUpdateHelmReleaseMutation';
 import { useHelmRepoVersions } from '../../queries/useHelmRepoVersions';
 import { useHelmRelease } from '../queries/useHelmRelease';
-import { useHelmRegistries } from '../../queries/useHelmRegistries';
+import { useUserHelmRepositories } from '../../queries/useHelmRepositories';
 
 import { openUpgradeHelmModal } from './UpgradeHelmModal';
 
@@ -36,19 +36,22 @@ export function UpgradeButton({
   const [useCache, setUseCache] = useState(true);
   const updateHelmReleaseMutation = useUpdateHelmReleaseMutation(environmentId);
 
-  const registriesQuery = useHelmRegistries();
+  const userRepositoriesQuery = useUserHelmRepositories();
   const helmRepoVersionsQuery = useHelmRepoVersions(
     release?.chart.metadata?.name || '',
     60 * 60 * 1000, // 1 hour
-    registriesQuery.data,
+    userRepositoriesQuery.data?.map((repo) => ({
+      repo,
+    })),
     useCache
   );
   const versions = helmRepoVersionsQuery.data;
 
   // Combined loading state
   const isLoading =
-    registriesQuery.isInitialLoading || helmRepoVersionsQuery.isFetching; // use 'isFetching' for helmRepoVersionsQuery because we want to show when it's refetching
-  const isError = registriesQuery.isError || helmRepoVersionsQuery.isError;
+    userRepositoriesQuery.isInitialLoading || helmRepoVersionsQuery.isFetching; // use 'isFetching' for helmRepoVersionsQuery because we want to show when it's refetching
+  const isError =
+    userRepositoriesQuery.isError || helmRepoVersionsQuery.isError;
   const latestVersionQuery = useHelmRelease(
     environmentId,
     releaseName,
@@ -101,7 +104,7 @@ export function UpgradeButton({
         icon={ArrowUp}
         size="medium"
       >
-        Upgrade
+        Edit/Upgrade
       </LoadingButton>
       {isLoading && (
         <InlineLoader

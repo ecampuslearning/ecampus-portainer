@@ -97,6 +97,7 @@ func convert(sdkRelease *sdkrelease.Release, values release.Values) *release.Rel
 				AppVersion: sdkRelease.Chart.Metadata.AppVersion,
 			},
 		},
-		Values: values,
+		Values:         values,
+		ChartReference: extractChartReferenceAnnotations(sdkRelease.Chart.Metadata.Annotations),
 	}
 }
