@@ -3,7 +3,7 @@ package scheduler
 import (
 	"context"
 	"errors"
-	"fmt"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -49,7 +49,7 @@ func Test_JobCanBeStopped(t *testing.T) {
 	assert.False(t, workDone, "job shouldn't had a chance to run")
 }
 
-func Test_JobShouldStop_UponError(t *testing.T) {
+func Test_JobShouldStop_UponPermError(t *testing.T) {
 	s := NewScheduler(context.Background())
 	defer s.Shutdown()
 
@@ -58,12 +58,32 @@ func Test_JobShouldStop_UponError(t *testing.T) {
 	s.StartJobEvery(jobInterval, func() error {
 		acc++
 		close(ch)
-		return fmt.Errorf("failed")
+		return NewPermanentError(errors.New("failed"))
 	})
 
 	<-time.After(3 * jobInterval)
 	<-ch
 	assert.Equal(t, 1, acc, "job stop after the first run because it returns an error")
+}
+
+func Test_JobShouldNotStop_UponError(t *testing.T) {
+	s := NewScheduler(context.Background())
+	defer s.Shutdown()
+
+	var acc atomic.Int64
+	ch := make(chan struct{})
+	s.StartJobEvery(jobInterval, func() error {
+		if acc.Add(1) == 2 {
+			close(ch)
+			return NewPermanentError(errors.New("failed"))
+		}
+
+		return errors.New("non-permanent error")
+	})
+
+	<-time.After(3 * jobInterval)
+	<-ch
+	assert.Equal(t, int64(2), acc.Load())
 }
 
 func Test_CanTerminateAllJobs_ByShuttingDownScheduler(t *testing.T) {

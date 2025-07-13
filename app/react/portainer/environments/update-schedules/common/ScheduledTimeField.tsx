@@ -1,8 +1,6 @@
-import DateTimePicker from 'react-datetime-picker';
-import { Calendar, X } from 'lucide-react';
+import { useField } from 'formik';
 import { useMemo } from 'react';
 import { string } from 'yup';
-import { useField } from 'formik';
 
 import {
   isoDate,
@@ -10,8 +8,8 @@ import {
   TIME_FORMAT,
 } from '@/portainer/filters/filters';
 
-import { FormControl } from '@@/form-components/FormControl';
-import { Input } from '@@/form-components/Input';
+import { DateTimeField, FORMAT } from '@@/DateTimeField';
+import { TextTip } from '@@/Tip/TextTip';
 
 import { FormValues } from './types';
 
@@ -22,27 +20,33 @@ interface Props {
 export function ScheduledTimeField({ disabled }: Props) {
   const [{ name, value }, { error }, { setValue }] =
     useField<FormValues['scheduledTime']>('scheduledTime');
+  const dateValue = useMemo(() => parseIsoDate(value, FORMAT), [value]);
 
-  const dateValue = useMemo(() => parseIsoDate(value), [value]);
+  if (!value) {
+    return null;
+  }
 
   return (
-    <FormControl label="Schedule date & time" errors={error}>
-      {!disabled ? (
-        <DateTimePicker
-          format="y-MM-dd HH:mm:ss"
-          className="form-control [&>div]:border-0"
-          onChange={(date) => setValue(isoDate(date.valueOf()))}
-          name={name}
-          value={dateValue}
-          calendarIcon={<Calendar className="lucide" />}
-          clearIcon={<X className="lucide" />}
-          disableClock
-          minDate={new Date(Date.now() - 24 * 60 * 60 * 1000)}
-        />
-      ) : (
-        <Input defaultValue={value} disabled />
+    <>
+      <DateTimeField
+        label="Schedule date & time"
+        minDate={new Date(Date.now() - 24 * 60 * 60 * 1000)}
+        onChange={(date) => {
+          const dateToSave = date || new Date(Date.now() + 24 * 60 * 60 * 1000);
+          setValue(isoDate(dateToSave.valueOf(), FORMAT));
+        }}
+        error={error}
+        disabled={disabled}
+        name={name}
+        value={dateValue}
+        data-cy="update-schedules-time-input"
+      />
+      {!disabled && value && (
+        <TextTip color="blue">
+          If time zone is not set on edge agent then UTC+0 will be used.
+        </TextTip>
       )}
-    </FormControl>
+    </>
   );
 }
 
@@ -56,12 +60,16 @@ export function timeValidation() {
     )
     .test(
       'validDate',
-      `Scheduled time must be bigger then ${isoDate(
-        Date.now() - 24 * 60 * 60 * 1000
-      )}`,
+      `Scheduled time must be bigger then ${
+        (isoDate(Date.now() - 24 * 60 * 60 * 1000), FORMAT)
+      }`,
       (value) =>
         parseIsoDate(value).valueOf() > Date.now() - 24 * 60 * 60 * 1000
     );
+}
+
+export function defaultValue() {
+  return isoDate(Date.now(), FORMAT);
 }
 
 function isValidDate(date: Date) {

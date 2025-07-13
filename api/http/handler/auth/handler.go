@@ -3,12 +3,13 @@ package auth
 import (
 	"net/http"
 
-	httperror "github.com/portainer/libhttp/error"
 	portainer "github.com/portainer/portainer/api"
 	"github.com/portainer/portainer/api/dataservices"
 	"github.com/portainer/portainer/api/http/proxy"
 	"github.com/portainer/portainer/api/http/proxy/factory/kubernetes"
 	"github.com/portainer/portainer/api/http/security"
+	"github.com/portainer/portainer/api/kubernetes/cli"
+	httperror "github.com/portainer/portainer/pkg/libhttp/error"
 
 	"github.com/gorilla/mux"
 )
@@ -18,19 +19,23 @@ type Handler struct {
 	*mux.Router
 	DataStore                   dataservices.DataStore
 	CryptoService               portainer.CryptoService
-	JWTService                  dataservices.JWTService
+	JWTService                  portainer.JWTService
 	LDAPService                 portainer.LDAPService
 	OAuthService                portainer.OAuthService
 	ProxyManager                *proxy.Manager
 	KubernetesTokenCacheManager *kubernetes.TokenCacheManager
+	KubernetesClientFactory     *cli.ClientFactory
 	passwordStrengthChecker     security.PasswordStrengthChecker
+	bouncer                     security.BouncerService
 }
 
 // NewHandler creates a handler to manage authentication operations.
-func NewHandler(bouncer *security.RequestBouncer, rateLimiter *security.RateLimiter, passwordStrengthChecker security.PasswordStrengthChecker) *Handler {
+func NewHandler(bouncer security.BouncerService, rateLimiter *security.RateLimiter, passwordStrengthChecker security.PasswordStrengthChecker, kubernetesClientFactory *cli.ClientFactory) *Handler {
 	h := &Handler{
 		Router:                  mux.NewRouter(),
 		passwordStrengthChecker: passwordStrengthChecker,
+		bouncer:                 bouncer,
+		KubernetesClientFactory: kubernetesClientFactory,
 	}
 
 	h.Handle("/auth/oauth/validate",
@@ -38,7 +43,7 @@ func NewHandler(bouncer *security.RequestBouncer, rateLimiter *security.RateLimi
 	h.Handle("/auth",
 		rateLimiter.LimitAccess(bouncer.PublicAccess(httperror.LoggerHandler(h.authenticate)))).Methods(http.MethodPost)
 	h.Handle("/auth/logout",
-		bouncer.AuthenticatedAccess(httperror.LoggerHandler(h.logout))).Methods(http.MethodPost)
+		bouncer.PublicAccess(httperror.LoggerHandler(h.logout))).Methods(http.MethodPost)
 
 	return h
 }

@@ -1,6 +1,6 @@
+import _ from 'lodash-es';
 import angular from 'angular';
 
-import { configureFDO } from '@/portainer/hostmanagement/fdo/fdo.service';
 import { configureAMT } from 'Portainer/hostmanagement/open-amt/open-amt.service';
 
 angular.module('portainer.app').controller('SettingsEdgeComputeController', SettingsEdgeComputeController);
@@ -30,20 +30,25 @@ export default function SettingsEdgeComputeController($q, $async, $state, Notifi
     }
   };
 
-  this.onSubmitFDO = async function (formValues) {
-    try {
-      await configureFDO(formValues);
-      Notifications.success('Success', `FDO successfully ${formValues.enabled ? 'enabled' : 'disabled'}`);
-      $state.reload();
-    } catch (err) {
-      Notifications.error('Failure', err, 'Failed applying changes');
-    }
-  };
-
   function initView() {
     $async(async () => {
       try {
-        ctrl.settings = await SettingsService.settings();
+        const settings = await SettingsService.settings();
+
+        const defaultMTLS = {
+          ..._.get(settings, 'Edge.MTLS', {}),
+          UseSeparateCert: _.get(settings, 'Edge.MTLS.UseSeparateCert', false),
+        };
+
+        ctrl.settings = {
+          ...settings,
+          EnableEdgeComputeFeatures: !!settings.EnableEdgeComputeFeatures,
+          EnforceEdgeID: !!settings.EnforceEdgeID,
+          Edge: {
+            ...settings.Edge,
+            MTLS: defaultMTLS,
+          },
+        };
       } catch (err) {
         Notifications.error('Failure', err, 'Unable to retrieve application settings');
       }

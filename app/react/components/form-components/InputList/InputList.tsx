@@ -1,28 +1,44 @@
-import { ComponentType } from 'react';
-import clsx from 'clsx';
+import { ComponentType, useRef } from 'react';
 import { FormikErrors } from 'formik';
-import { ArrowDown, ArrowUp, Trash2 } from 'lucide-react';
+import { ArrowDown, ArrowUp, Plus, RotateCw, Trash2 } from 'lucide-react';
+import clsx from 'clsx';
 
-import { AddButton, Button } from '@@/buttons';
+import { AutomationTestingProps } from '@/types';
+
+import { Button } from '@@/buttons';
 import { Tooltip } from '@@/Tip/Tooltip';
 import { TextTip } from '@@/Tip/TextTip';
 
 import { Input } from '../Input';
 import { FormError } from '../FormError';
 
-import styles from './InputList.module.css';
-import { arrayMove } from './utils';
+import { arrayMove, hasKey } from './utils';
+
+type ArrElement<ArrType> = ArrType extends readonly (infer ElementType)[]
+  ? ElementType
+  : never;
+
+export type ArrayError<TArray> =
+  | Array<FormikErrors<ArrElement<TArray> | undefined>>
+  | string
+  | string[]
+  | undefined;
+export type ItemError<T> = FormikErrors<T> | string | undefined;
 
 export interface ItemProps<T> {
   item: T;
   onChange(value: T): void;
-  error?: string | FormikErrors<T>;
+  error?: ItemError<T>;
   disabled?: boolean;
   readOnly?: boolean;
+  // eslint-disable-next-line react/no-unused-prop-types
+  index: number;
+  needsDeletion?: boolean;
 }
 type Key = string | number;
 type ChangeType = 'delete' | 'create' | 'update';
-export type DefaultType = { value: string };
+export type DefaultType = { value: string; needsDeletion?: boolean };
+type CanUndoDeleteItem<T> = T & { needsDeletion: boolean };
 
 type OnChangeEvent<T> =
   | {
@@ -38,11 +54,13 @@ type OnChangeEvent<T> =
 type RenderItemFunction<T> = (
   item: T,
   onChange: (value: T) => void,
-  error?: string | FormikErrors<T>
+  index: number,
+  dataCy: string,
+  error?: ItemError<T>
 ) => React.ReactNode;
 
-interface Props<T> {
-  label: string;
+interface Props<T> extends AutomationTestingProps {
+  label?: string;
   value: T[];
   onChange(value: T[], e: OnChangeEvent<T>): void;
   itemBuilder?(): T;
@@ -52,11 +70,15 @@ interface Props<T> {
   addLabel?: string;
   itemKeyGetter?(item: T, index: number): Key;
   movable?: boolean;
-  errors?: FormikErrors<T>[] | string | string[];
+  canUndoDelete?: boolean;
+  errors?: ArrayError<T[]>;
   textTip?: string;
   isAddButtonHidden?: boolean;
+  isDeleteButtonHidden?: boolean;
   disabled?: boolean;
+  addButtonError?: string;
   readOnly?: boolean;
+  'aria-label'?: string;
 }
 
 export function InputList<T = DefaultType>({
@@ -70,28 +92,45 @@ export function InputList<T = DefaultType>({
   addLabel = 'Add item',
   itemKeyGetter = (item: T, index: number) => index,
   movable,
+  canUndoDelete = false,
   errors,
   textTip,
   isAddButtonHidden = false,
+  isDeleteButtonHidden = false,
+  'data-cy': dataCy,
   disabled,
+  addButtonError,
   readOnly,
+  'aria-label': ariaLabel,
 }: Props<T>) {
+  const initialItemsCount = useRef(value.length);
+  const isAddButtonVisible = !(isAddButtonHidden || readOnly);
+  const isDeleteButtonVisible = !(isDeleteButtonHidden || readOnly);
+  const {
+    handleMoveUp,
+    handleMoveDown,
+    handleRemoveItem,
+    handleAdd,
+    handleChangeItem,
+    toggleNeedsDeletion,
+  } = useInputList<T>({
+    value,
+    onChange,
+    itemBuilder,
+    itemKeyGetter,
+    movable,
+  });
+
   return (
-    <div className={clsx('form-group', styles.root)}>
-      <div className={clsx('col-sm-12', styles.header)}>
-        <div className={clsx('control-label text-left', styles.label)}>
-          {label}
-          {tooltip && <Tooltip message={tooltip} />}
+    <div className="form-group" aria-label={ariaLabel || label}>
+      {label && (
+        <div className="col-sm-12">
+          <span className="control-label space-right pt-2 text-left !font-bold">
+            {label}
+            {tooltip && <Tooltip message={tooltip} />}
+          </span>
         </div>
-        {!(isAddButtonHidden || readOnly) && (
-          <AddButton
-            label={addLabel}
-            className="space-left"
-            onClick={handleAdd}
-            disabled={disabled}
-          />
-        )}
-      </div>
+      )}
 
       {textTip && (
         <div className="col-sm-12 mt-5">
@@ -99,72 +138,124 @@ export function InputList<T = DefaultType>({
         </div>
       )}
 
-      <div className={clsx('col-sm-12', styles.items, 'space-y-4')}>
-        {value.map((item, index) => {
-          const key = itemKeyGetter(item, index);
-          const error = typeof errors === 'object' ? errors[index] : undefined;
+      {value.length > 0 && (
+        <div className="col-sm-12 mt-5 flex flex-col gap-y-5">
+          {value.map((item, index) => {
+            const key = itemKeyGetter(item, index);
+            const error =
+              typeof errors === 'object' ? errors[index] : undefined;
 
-          return (
-            <div
-              key={key}
-              className={clsx(
-                styles.itemLine,
-                { [styles.hasError]: !!error },
-                'vertical-center'
-              )}
-            >
-              {Item ? (
-                <Item
-                  item={item}
-                  onChange={(value: T) => handleChangeItem(key, value)}
-                  error={error}
-                  disabled={disabled}
-                  readOnly={readOnly}
-                />
-              ) : (
-                renderItem(
-                  item,
-                  (value: T) => handleChangeItem(key, value),
-                  error
-                )
-              )}
-              <div className={clsx(styles.itemActions, 'items-start')}>
-                {!readOnly && movable && (
-                  <>
-                    <Button
-                      size="medium"
-                      disabled={disabled || index === 0}
-                      onClick={() => handleMoveUp(index)}
-                      className="vertical-center btn-only-icon"
-                      icon={ArrowUp}
-                    />
-                    <Button
-                      size="medium"
-                      type="button"
-                      disabled={disabled || index === value.length - 1}
-                      onClick={() => handleMoveDown(index)}
-                      className="vertical-center btn-only-icon"
-                      icon={ArrowDown}
-                    />
-                  </>
-                )}
-                {!readOnly && (
-                  <Button
-                    color="dangerlight"
-                    size="medium"
-                    onClick={() => handleRemoveItem(key, item)}
-                    className="vertical-center btn-only-icon"
-                    icon={Trash2}
+            return (
+              <div key={key} className="flex">
+                {Item ? (
+                  <Item
+                    item={item}
+                    onChange={(value: T) => handleChangeItem(key, value)}
+                    error={error}
+                    disabled={disabled}
+                    readOnly={readOnly}
+                    index={index}
                   />
+                ) : (
+                  renderItem(
+                    item,
+                    (value: T) => handleChangeItem(key, value),
+                    index,
+                    dataCy,
+                    error
+                  )
                 )}
+                <div className="items-start">
+                  {!readOnly && movable && (
+                    <>
+                      <Button
+                        size="medium"
+                        disabled={disabled || index === 0}
+                        onClick={() => handleMoveUp(index)}
+                        className="vertical-center btn-only-icon"
+                        icon={ArrowUp}
+                        data-cy={`${dataCy}-move-up_${index}`}
+                      />
+                      <Button
+                        size="medium"
+                        type="button"
+                        disabled={disabled || index === value.length - 1}
+                        onClick={() => handleMoveDown(index)}
+                        className="vertical-center btn-only-icon"
+                        icon={ArrowDown}
+                        data-cy={`${dataCy}-move-down_${index}`}
+                      />
+                    </>
+                  )}
+                  {isDeleteButtonVisible && !canUndoDelete && (
+                    <Button
+                      color="dangerlight"
+                      size="medium"
+                      onClick={() => handleRemoveItem(key, item)}
+                      className="vertical-center btn-only-icon"
+                      data-cy={`${dataCy}RemoveButton_${index}`}
+                      icon={Trash2}
+                    />
+                  )}
+                  {isDeleteButtonVisible &&
+                    canUndoDelete &&
+                    hasKey(item, 'needsDeletion') && (
+                      <CanUndoDeleteButton
+                        item={{ ...item, needsDeletion: !!item.needsDeletion }}
+                        itemIndex={index}
+                        initialItemsCount={initialItemsCount.current}
+                        handleRemoveItem={handleRemoveItem}
+                        handleToggleNeedsDeletion={toggleNeedsDeletion}
+                        dataCy={`${dataCy}RemoveButton_${index}`}
+                      />
+                    )}
+                </div>
               </div>
+            );
+          })}
+        </div>
+      )}
+
+      {isAddButtonVisible && (
+        <>
+          <div className="col-sm-12 mt-7">
+            <Button
+              onClick={handleAdd}
+              disabled={disabled}
+              type="button"
+              color="default"
+              className="!ml-0"
+              size="small"
+              icon={Plus}
+              data-cy={`${dataCy}AddButton`}
+            >
+              {addLabel}
+            </Button>
+          </div>
+          {addButtonError && (
+            <div className="col-sm-12 mt-1">
+              <TextTip color="blue">{addButtonError}</TextTip>
             </div>
-          );
-        })}
-      </div>
+          )}
+        </>
+      )}
     </div>
   );
+}
 
+export function useInputList<T = DefaultType>({
+  value,
+  onChange,
+  itemBuilder = defaultItemBuilder as unknown as () => T,
+  itemKeyGetter = (item: T, index: number) => index,
+  movable = false,
+}: {
+  value: T[];
+  onChange(value: T[], e: OnChangeEvent<T>): void;
+  itemBuilder?(): T;
+  itemKeyGetter?(item: T, index: number): Key;
+  movable?: boolean;
+}) {
   function handleMoveUp(index: number) {
     if (index <= 0) {
       return;
@@ -201,6 +292,10 @@ export function InputList<T = DefaultType>({
     );
   }
 
+  function toggleNeedsDeletion(key: Key, item: CanUndoDeleteItem<T>) {
+    handleChangeItem(key, { ...item, needsDeletion: !item.needsDeletion });
+  }
+
   function handleAdd() {
     const newItem = itemBuilder();
     onChange([...value, newItem], { type: 'create', item: newItem });
@@ -219,6 +314,15 @@ export function InputList<T = DefaultType>({
       item: newItemValue,
     });
   }
+
+  return {
+    handleMoveUp,
+    handleMoveDown,
+    handleRemoveItem,
+    handleAdd,
+    handleChangeItem,
+    toggleNeedsDeletion,
+  };
 }
 
 function defaultItemBuilder(): DefaultType {
@@ -231,15 +335,18 @@ function DefaultItem({
   error,
   disabled,
   readOnly,
-}: ItemProps<DefaultType>) {
+  index,
+  'data-cy': dataCy,
+}: ItemProps<DefaultType> & AutomationTestingProps) {
   return (
     <>
       <Input
         value={item.value}
         onChange={(e) => onChange({ value: e.target.value })}
-        className={styles.defaultItem}
-        disabled={disabled}
+        className={clsx('!w-full', item.needsDeletion && 'striked')}
+        disabled={disabled || item.needsDeletion}
         readOnly={readOnly}
+        data-cy={`${dataCy}RemoveButton_${index}`}
       />
       {error && <FormError>{error}</FormError>}
     </>
@@ -249,7 +356,69 @@ function DefaultItem({
 function renderDefaultItem(
   item: DefaultType,
   onChange: (value: DefaultType) => void,
-  error?: FormikErrors<DefaultType>
+  index: number,
+  dataCy: string,
+  error?: ItemError<DefaultType>
 ) {
-  return <DefaultItem item={item} onChange={onChange} error={error} />;
+  return (
+    <DefaultItem
+      item={item}
+      onChange={onChange}
+      error={error}
+      index={index}
+      data-cy={dataCy}
+    />
+  );
+}
+
+type CanUndoDeleteButtonProps<T> = {
+  item: CanUndoDeleteItem<T>;
+  itemIndex: number;
+  initialItemsCount: number;
+  handleRemoveItem(key: Key, item: T): void;
+  handleToggleNeedsDeletion(key: Key, item: T): void;
+  dataCy: string;
+};
+
+function CanUndoDeleteButton<T>({
+  item,
+  itemIndex,
+  initialItemsCount,
+  handleRemoveItem,
+  handleToggleNeedsDeletion,
+  dataCy,
+}: CanUndoDeleteButtonProps<T>) {
+  return (
+    <div className="items-start">
+      {!item.needsDeletion && (
+        <Button
+          color="dangerlight"
+          size="medium"
+          onClick={handleDeleteClick}
+          className="vertical-center btn-only-icon"
+          icon={Trash2}
+          data-cy={`${dataCy}_delete`}
+        />
+      )}
+      {item.needsDeletion && (
+        <Button
+          color="default"
+          size="medium"
+          onClick={handleDeleteClick}
+          className="vertical-center btn-only-icon"
+          icon={RotateCw}
+          data-cy={`${dataCy}_undo_delete`}
+        />
+      )}
+    </div>
+  );
+
+  // if the item is new, we can just remove it, otherwise we need to toggle the needsDeletion flag
+  function handleDeleteClick() {
+    if (itemIndex < initialItemsCount) {
+      handleToggleNeedsDeletion(itemIndex, item);
+    } else {
+      handleRemoveItem(itemIndex, item);
+    }
+  }
 }

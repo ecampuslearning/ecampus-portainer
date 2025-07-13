@@ -1,18 +1,22 @@
-import { FormControl } from '@@/form-components/FormControl';
 import { FormSection } from '@@/form-components/FormSection/FormSection';
-import { Input } from '@@/form-components/Input';
+import { ArrayError } from '@@/form-components/InputList/InputList';
+import { FormError } from '@@/form-components/FormError';
 
 import { VariableDefinition } from '../CustomTemplatesVariablesDefinitionField/CustomTemplatesVariablesDefinitionField';
 
-export type Variables = Record<string, string>;
+import { VariableFieldItem } from './VariableFieldItem';
+
+export type Values = Array<{ key: string; value?: string }>;
 
 interface Props {
-  value: Variables;
-  definitions?: VariableDefinition[];
-  onChange: (value: Variables) => void;
+  errors?: ArrayError<Values>;
+  value: Values;
+  definitions: VariableDefinition[] | undefined;
+  onChange: (value: Values) => void;
 }
 
 export function CustomTemplatesVariablesField({
+  errors,
   value,
   definitions,
   onChange,
@@ -23,32 +27,36 @@ export function CustomTemplatesVariablesField({
 
   return (
     <FormSection title="Template Variables">
-      {definitions.map((def) => {
-        const inputId = `${def.name}-input`;
-        const variable = value[def.name] || '';
-        return (
-          <FormControl
-            required={!def.defaultValue}
-            label={def.label}
-            key={def.name}
-            inputId={inputId}
-            tooltip={def.description}
-            size="small"
-          >
-            <Input
-              name={`variables.${def.name}`}
-              value={variable}
-              id={inputId}
-              onChange={(e) =>
-                onChange({
-                  ...value,
-                  [def.name]: e.target.value,
-                })
-              }
-            />
-          </FormControl>
-        );
-      })}
+      {definitions.map((definition, index) => (
+        <VariableFieldItem
+          key={definition.name}
+          definition={definition}
+          error={getError(errors, index)}
+          value={value.find((v) => v.key === definition.name)?.value}
+          onChange={(fieldValue) => {
+            onChange(
+              value.map((v) =>
+                v.key === definition.name ? { ...v, value: fieldValue } : v
+              )
+            );
+          }}
+        />
+      ))}
+
+      {typeof errors === 'string' && <FormError>{errors}</FormError>}
     </FormSection>
   );
+}
+
+function getError(errors: ArrayError<Values> | undefined, index: number) {
+  if (!errors || typeof errors !== 'object') {
+    return undefined;
+  }
+
+  const error = errors[index];
+  if (!error) {
+    return undefined;
+  }
+
+  return typeof error === 'object' ? error.value : error;
 }

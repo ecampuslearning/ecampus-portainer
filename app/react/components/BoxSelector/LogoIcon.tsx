@@ -1,16 +1,18 @@
+import clsx from 'clsx';
+
 import { Icon, IconProps } from '@@/Icon';
 
 type Props = IconProps;
 
-export function LogoIcon({ icon }: Props) {
+export function LogoIcon({ icon, iconClass }: Props) {
   return (
     <div
       className={`
-   text-6xl h-14 w-14
-   inline-flex items-center justify-center
+   inline-flex h-14 w-14
+   items-center justify-center text-7xl
 `}
     >
-      <Icon icon={icon} className="!flex" />
+      <Icon icon={icon} className={clsx('!flex', iconClass)} />
     </div>
   );
 }

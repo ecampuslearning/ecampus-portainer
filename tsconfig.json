@@ -6,7 +6,7 @@
     // "module": "commonjs",
     // "module": "esnext",
     "incremental": true,
-    "target": "es2017",
+    "target": "ES2018",
     "allowJs": true,
     "checkJs": false,
     "skipLibCheck": true,
@@ -36,12 +36,12 @@
       "Azure/*": ["azure/*"],
       "Docker/*": ["docker/*"],
       "Kubernetes/*": ["kubernetes/*"],
-      "Portainer/*": ["portainer/*"]
-    }
+      "Portainer/*": ["portainer/*"],
+      // https://github.com/jsonnext/codemirror-json-schema/issues/107#issuecomment-2144584296
+      "yaml-schema": ["../node_modules/codemirror-json-schema/dist/yaml"]
+    },
+    "types": ["vitest/globals"]
   },
   "exclude": ["api", "build", "dist", "distribution", "node_modules", "test", "webpack"],
-  "include": ["app"],
-  "typeAcquisition": {
-    "include": ["jest"]
-  }
+  "include": ["app", ".storybook"]
 }

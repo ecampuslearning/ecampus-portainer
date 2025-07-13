@@ -1,4 +1,4 @@
-import { useMutation, useQueryClient } from 'react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 import { deleteContainerGroup } from '@/react/azure/services/container-groups.service';
 import { useEnvironmentId } from '@/react/hooks/useEnvironmentId';
@@ -32,9 +32,9 @@ export function ListView() {
   return (
     <>
       <PageHeader
+        title="Container list"
         breadcrumbs="Container instances"
         reload
-        title="Container list"
       />
 
       <ContainersDatatable

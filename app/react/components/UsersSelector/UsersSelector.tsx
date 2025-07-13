@@ -7,7 +7,7 @@ interface Props {
   value: UserId[];
   onChange(value: UserId[]): void;
   users: User[];
-  dataCy?: string;
+  dataCy: string;
   inputId?: string;
   placeholder?: string;
   disabled?: boolean;
@@ -36,6 +36,7 @@ export function UsersSelector({
         onChange(selectedUsers.map((user) => user.Id))
       }
       data-cy={dataCy}
+      id={dataCy}
       inputId={inputId}
       placeholder={placeholder}
       isDisabled={disabled}

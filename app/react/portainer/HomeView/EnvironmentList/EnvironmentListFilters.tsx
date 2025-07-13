@@ -4,23 +4,16 @@ import { useTags } from '@/portainer/tags/queries';
 
 import { useAgentVersionsList } from '../../environments/queries/useAgentVersionsList';
 import { EnvironmentStatus, PlatformType } from '../../environments/types';
-import { isBE } from '../../feature-flags/feature-flags.service';
 import { useGroups } from '../../environments/environment-groups/queries';
 
 import { HomepageFilter } from './HomepageFilter';
-import { SortbySelector } from './SortbySelector';
-import { ConnectionType, Filter } from './types';
+import { ListSortType, SortbySelector } from './SortbySelector';
+import { ConnectionType } from './types';
 import styles from './EnvironmentList.module.css';
 
 const status = [
   { value: EnvironmentStatus.Up, label: 'Up' },
   { value: EnvironmentStatus.Down, label: 'Down' },
-];
-
-const sortByOptions = [
-  { value: 1, label: 'Name' },
-  { value: 2, label: 'Group' },
-  { value: 3, label: 'Status' },
 ];
 
 export function EnvironmentListFilters({
@@ -37,32 +30,32 @@ export function EnvironmentListFilters({
   sortByDescending,
   sortByState,
   sortOnDescending,
-  sortOnchange,
+  sortOnChange,
   statusOnChange,
   statusState,
   tagOnChange,
   tagState,
 }: {
-  platformTypes: Filter<PlatformType>[];
-  setPlatformTypes: (value: Filter<PlatformType>[]) => void;
+  platformTypes: PlatformType[];
+  setPlatformTypes: (value: PlatformType[]) => void;
 
-  connectionTypes: Filter<ConnectionType>[];
-  setConnectionTypes: (value: Filter<ConnectionType>[]) => void;
+  connectionTypes: ConnectionType[];
+  setConnectionTypes: (value: ConnectionType[]) => void;
 
-  statusState: Filter<number>[];
-  statusOnChange: (filterOptions: Filter[]) => void;
+  statusState: number[];
+  statusOnChange: (value: number[]) => void;
 
-  tagOnChange: (filterOptions: Filter[]) => void;
-  tagState: Filter<number>[];
+  tagOnChange: (value: number[]) => void;
+  tagState: number[];
 
-  groupOnChange: (filterOptions: Filter[]) => void;
-  groupState: Filter<number>[];
+  groupOnChange: (value: number[]) => void;
+  groupState: number[];
 
-  setAgentVersions: (value: Filter<string>[]) => void;
-  agentVersions: Filter<string>[];
+  setAgentVersions: (value: string[]) => void;
+  agentVersions: string[];
 
-  sortByState: Filter<number> | undefined;
-  sortOnchange: (filterOptions: Filter) => void;
+  sortByState?: ListSortType;
+  sortOnChange: (value: ListSortType) => void;
 
   sortOnDescending: () => void;
   sortByDescending: boolean;
@@ -85,7 +78,7 @@ export function EnvironmentListFilters({
   }));
 
   const tagsQuery = useTags();
-  const tagOptions = [...(tagsQuery.tags || [])];
+  const tagOptions = [...(tagsQuery.data || [])];
   const uniqueTag = [
     ...new Map(tagOptions.map((item) => [item.ID, item])).values(),
   ].map(({ ID: value, Name: label }) => ({
@@ -136,7 +129,7 @@ export function EnvironmentListFilters({
         />
       </div>
       <div className={styles.filterLeft}>
-        <HomepageFilter<string>
+        <HomepageFilter
           filterOptions={
             agentVersionsQuery.data?.map((v) => ({
               label: v,
@@ -158,8 +151,7 @@ export function EnvironmentListFilters({
 
       <div className={styles.filterRight}>
         <SortbySelector
-          filterOptions={sortByOptions}
-          onChange={sortOnchange}
+          onChange={sortOnChange}
           onDescending={sortOnDescending}
           placeHolder="Sort By"
           sortByDescending={sortByDescending}
@@ -171,27 +163,34 @@ export function EnvironmentListFilters({
   );
 }
 
-function getConnectionTypeOptions(platformTypes: Filter<PlatformType>[]) {
+function getConnectionTypeOptions(platformTypes: PlatformType[]) {
   const platformTypeConnectionType = {
     [PlatformType.Docker]: [
       ConnectionType.API,
       ConnectionType.Agent,
-      ConnectionType.EdgeAgent,
-      ConnectionType.EdgeDevice,
+      ConnectionType.EdgeAgentStandard,
+      ConnectionType.EdgeAgentAsync,
+    ],
+    [PlatformType.Podman]: [
+      // api includes a socket connection, so keep this for podman
+      ConnectionType.API,
+      ConnectionType.Agent,
+      ConnectionType.EdgeAgentStandard,
+      ConnectionType.EdgeAgentAsync,
     ],
     [PlatformType.Azure]: [ConnectionType.API],
     [PlatformType.Kubernetes]: [
       ConnectionType.Agent,
-      ConnectionType.EdgeAgent,
-      ConnectionType.EdgeDevice,
+      ConnectionType.EdgeAgentStandard,
+      ConnectionType.EdgeAgentAsync,
     ],
-    [PlatformType.Nomad]: [ConnectionType.EdgeAgent, ConnectionType.EdgeDevice],
   };
 
   const connectionTypesDefaultOptions = [
     { value: ConnectionType.API, label: 'API' },
     { value: ConnectionType.Agent, label: 'Agent' },
-    { value: ConnectionType.EdgeAgent, label: 'Edge Agent' },
+    { value: ConnectionType.EdgeAgentStandard, label: 'Edge Agent Standard' },
+    { value: ConnectionType.EdgeAgentAsync, label: 'Edge Agent Async' },
   ];
 
   if (platformTypes.length === 0) {
@@ -200,47 +199,49 @@ function getConnectionTypeOptions(platformTypes: Filter<PlatformType>[]) {
 
   return _.compact(
     _.intersection(
-      ...platformTypes.map((p) => platformTypeConnectionType[p.value])
+      ...platformTypes.map((p) => platformTypeConnectionType[p])
     ).map((c) => connectionTypesDefaultOptions.find((o) => o.value === c))
   );
 }
 
-function getPlatformTypeOptions(connectionTypes: Filter<ConnectionType>[]) {
+function getPlatformTypeOptions(connectionTypes: ConnectionType[]) {
   const platformDefaultOptions = [
     { value: PlatformType.Docker, label: 'Docker' },
     { value: PlatformType.Azure, label: 'Azure' },
     { value: PlatformType.Kubernetes, label: 'Kubernetes' },
+    { value: PlatformType.Podman, label: 'Podman' },
   ];
-
-  if (isBE) {
-    platformDefaultOptions.push({
-      value: PlatformType.Nomad,
-      label: 'Nomad',
-    });
-  }
 
   if (connectionTypes.length === 0) {
     return platformDefaultOptions;
   }
 
   const connectionTypePlatformType = {
-    [ConnectionType.API]: [PlatformType.Docker, PlatformType.Azure],
-    [ConnectionType.Agent]: [PlatformType.Docker, PlatformType.Kubernetes],
-    [ConnectionType.EdgeAgent]: [
-      PlatformType.Kubernetes,
-      PlatformType.Nomad,
+    [ConnectionType.API]: [
       PlatformType.Docker,
+      PlatformType.Azure,
+      PlatformType.Podman,
     ],
-    [ConnectionType.EdgeDevice]: [
-      PlatformType.Nomad,
+    [ConnectionType.Agent]: [
       PlatformType.Docker,
       PlatformType.Kubernetes,
+      PlatformType.Podman,
+    ],
+    [ConnectionType.EdgeAgentStandard]: [
+      PlatformType.Kubernetes,
+      PlatformType.Docker,
+      PlatformType.Podman,
+    ],
+    [ConnectionType.EdgeAgentAsync]: [
+      PlatformType.Docker,
+      PlatformType.Kubernetes,
+      PlatformType.Podman,
     ],
   };
 
   return _.compact(
     _.intersection(
-      ...connectionTypes.map((p) => connectionTypePlatformType[p.value])
+      ...connectionTypes.map((p) => connectionTypePlatformType[p])
     ).map((c) => platformDefaultOptions.find((o) => o.value === c))
   );
 }

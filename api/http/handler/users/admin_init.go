@@ -3,12 +3,12 @@ package users
 import (
 	"errors"
 	"net/http"
+	"strings"
 
-	"github.com/asaskevich/govalidator"
-	httperror "github.com/portainer/libhttp/error"
-	"github.com/portainer/libhttp/request"
-	"github.com/portainer/libhttp/response"
 	portainer "github.com/portainer/portainer/api"
+	httperror "github.com/portainer/portainer/pkg/libhttp/error"
+	"github.com/portainer/portainer/pkg/libhttp/request"
+	"github.com/portainer/portainer/pkg/libhttp/response"
 )
 
 type adminInitPayload struct {
@@ -19,10 +19,10 @@ type adminInitPayload struct {
 }
 
 func (payload *adminInitPayload) Validate(r *http.Request) error {
-	if govalidator.IsNull(payload.Username) || govalidator.Contains(payload.Username, " ") {
+	if len(payload.Username) == 0 || strings.Contains(payload.Username, " ") {
 		return errors.New("Invalid username. Must not contain any whitespace")
 	}
-	if govalidator.IsNull(payload.Password) {
+	if len(payload.Password) == 0 {
 		return errors.New("Invalid password")
 	}
 	return nil
@@ -54,7 +54,7 @@ func (handler *Handler) adminInit(w http.ResponseWriter, r *http.Request) *httpe
 	}
 
 	if len(users) != 0 {
-		return &httperror.HandlerError{StatusCode: http.StatusConflict, Message: "Unable to create administrator user", Err: errAdminAlreadyInitialized}
+		return httperror.Conflict("Unable to create administrator user", errAdminAlreadyInitialized)
 	}
 
 	if !handler.passwordStrengthChecker.Check(payload.Password) {
@@ -75,6 +75,9 @@ func (handler *Handler) adminInit(w http.ResponseWriter, r *http.Request) *httpe
 	if err != nil {
 		return httperror.InternalServerError("Unable to persist user inside the database", err)
 	}
+
+	// After the admin user is created, we can notify the endpoint initialization process
+	handler.AdminCreationDone <- struct{}{}
 
 	return response.JSON(w, user)
 }

@@ -9,7 +9,6 @@ require('./includes/logging.html');
 require('./includes/mounts.html');
 require('./includes/networks.html');
 require('./includes/placementPreferences.html');
-require('./includes/ports.html');
 require('./includes/resources.html');
 require('./includes/restart.html');
 require('./includes/secrets.html');
@@ -19,9 +18,15 @@ require('./includes/updateconfig.html');
 
 import _ from 'lodash-es';
 
+import * as envVarsUtils from '@/react/components/form-components/EnvironmentVariablesFieldset/utils';
 import { PorImageRegistryModel } from 'Docker/models/porImageRegistry';
-import * as envVarsUtils from '@/portainer/helpers/env-vars';
 import { ResourceControlType } from '@/react/portainer/access-control/types';
+import { confirmServiceForceUpdate } from '@/react/docker/services/common/update-service-modal';
+import { confirm, confirmDelete } from '@@/modals/confirm';
+import { ModalType } from '@@/modals';
+import { buildConfirmButton } from '@@/modals/utils';
+import { convertServiceToConfig } from '@/react/docker/services/common/convertServiceToConfig';
+import { portsMappingUtils } from '@/react/docker/services/ItemView/PortMappingField';
 
 angular.module('portainer.docker').controller('ServiceController', [
   '$q',
@@ -44,7 +49,6 @@ angular.module('portainer.docker').controller('ServiceController', [
   'ContainerService',
   'TaskHelper',
   'Notifications',
-  'ModalService',
   'PluginService',
   'Authentication',
   'VolumeService',
@@ -76,7 +80,6 @@ angular.module('portainer.docker').controller('ServiceController', [
     ContainerService,
     TaskHelper,
     Notifications,
-    ModalService,
     PluginService,
     Authentication,
     VolumeService,
@@ -89,6 +92,7 @@ angular.module('portainer.docker').controller('ServiceController', [
     endpoint
   ) {
     $scope.resourceType = ResourceControlType.Service;
+    $scope.WebhookExists = false;
 
     $scope.onUpdateResourceControlSuccess = function () {
       $state.reload();
@@ -104,6 +108,7 @@ angular.module('portainer.docker').controller('ServiceController', [
 
     $scope.formValues = {
       RegistryModel: new PorImageRegistryModel(),
+      ports: [],
     };
 
     $scope.tasks = [];
@@ -123,8 +128,10 @@ angular.module('portainer.docker').controller('ServiceController', [
     };
 
     $scope.addEnvironmentVariable = function addEnvironmentVariable(service) {
-      service.EnvironmentVariables.push({ name: '', value: '' });
-      updateServiceArray(service, 'EnvironmentVariables', service.EnvironmentVariables);
+      $scope.$evalAsync(() => {
+        service.EnvironmentVariables = service.EnvironmentVariables.concat({ name: '', value: '' });
+        updateServiceArray(service, 'EnvironmentVariables', service.EnvironmentVariables);
+      });
     };
 
     $scope.onChangeEnvVars = onChangeEnvVars;
@@ -234,6 +241,13 @@ angular.module('portainer.docker').controller('ServiceController', [
       updateServiceArray(service, 'ServiceMounts', service.ServiceMounts);
     };
 
+    $scope.toggleMountReadOnly = function toggleMountReadOnly(isReadOnly, index) {
+      $scope.$evalAsync(function () {
+        updateServiceArray($scope.service, 'ServiceMounts', $scope.service.ServiceMounts);
+        $scope.service.ServiceMounts[index].ReadOnly = isReadOnly;
+      });
+    };
+
     $scope.addNetwork = function addNetwork(service) {
       if (!service.Networks) {
         service.Networks = [];
@@ -332,9 +346,11 @@ angular.module('portainer.docker').controller('ServiceController', [
     };
 
     $scope.onWebhookChange = function (enabled) {
+      enabled = enabled | '';
       $scope.$evalAsync(() => {
         $scope.updateWebhook($scope.service);
         $scope.WebhookExists = enabled;
+        updateServiceAttribute($scope.service, 'Webhooks', enabled);
       });
     };
 
@@ -425,7 +441,7 @@ angular.module('portainer.docker').controller('ServiceController', [
     }
 
     function buildChanges(service) {
-      var config = ServiceHelper.serviceToConfig(service.Model);
+      var config = convertServiceToConfig(service.Model);
       config.Name = service.Name;
       config.Labels = LabelHelper.fromKeyValueToLabelHash(service.ServiceLabels);
       config.TaskTemplate.ContainerSpec.Env = envVarsUtils.convertToArrayOfStrings(service.EnvironmentVariables);
@@ -449,6 +465,27 @@ angular.module('portainer.docker').controller('ServiceController', [
 
       config.TaskTemplate.ContainerSpec.Secrets = service.ServiceSecrets ? service.ServiceSecrets.map(SecretHelper.secretConfig) : [];
       config.TaskTemplate.ContainerSpec.Configs = service.ServiceConfigs ? service.ServiceConfigs.map(ConfigHelper.configConfig) : [];
+
+      // support removal and (future) editing of credential specs
+      const credSpec = service.ServiceConfigs.find((config) => config.credSpec);
+      const credSpecId = credSpec ? credSpec.Id : '';
+      const oldCredSpecId =
+        (config.TaskTemplate.ContainerSpec.Privileges &&
+          config.TaskTemplate.ContainerSpec.Privileges.CredentialSpec &&
+          config.TaskTemplate.ContainerSpec.Privileges.CredentialSpec.Config) ||
+        '';
+      if (oldCredSpecId && !credSpecId) {
+        delete config.TaskTemplate.ContainerSpec.Privileges.CredentialSpec;
+      } else if (credSpec && oldCredSpecId !== credSpec) {
+        config.TaskTemplate.ContainerSpec.Privileges = {
+          ...(config.TaskTemplate.ContainerSpec.Privileges || {}),
+          CredentialSpec: {
+            ...((config.TaskTemplate.ContainerSpec.Privileges && config.TaskTemplate.ContainerSpec.Privileges.CredentialSpec) || {}),
+            Config: credSpec,
+          },
+        };
+      }
+
       config.TaskTemplate.ContainerSpec.Hosts = service.Hosts ? ServiceHelper.translateHostnameIPToHostsEntries(service.Hosts) : [];
 
       if (service.Mode === 'replicated') {
@@ -508,12 +545,8 @@ angular.module('portainer.docker').controller('ServiceController', [
         }
       }
 
-      if (service.Ports) {
-        service.Ports.forEach(function (binding) {
-          if (binding.PublishedPort === null || binding.PublishedPort === '') {
-            delete binding.PublishedPort;
-          }
-        });
+      if ($scope.hasChanges(service, ['Ports'])) {
+        service.Ports = portsMappingUtils.toRequest($scope.formValues.ports);
       }
 
       config.EndpointSpec = {
@@ -550,21 +583,16 @@ angular.module('portainer.docker').controller('ServiceController', [
     }
 
     $scope.rollbackService = function (service) {
-      ModalService.confirmWarn({
+      confirm({
         title: 'Rollback service',
         message: 'Are you sure you want to rollback?',
-        buttons: {
-          confirm: {
-            label: 'Yes',
-            className: 'btn-danger',
-          },
-        },
-        callback: function onConfirm(confirmed) {
-          if (!confirmed) {
-            return;
-          }
-          rollbackService(service);
-        },
+        modalType: ModalType.Warn,
+        confirmButton: buildConfirmButton('Yes', 'danger'),
+      }).then((confirmed) => {
+        if (!confirmed) {
+          return;
+        }
+        rollbackService(service);
       });
     };
 
@@ -574,8 +602,7 @@ angular.module('portainer.docker').controller('ServiceController', [
     }
 
     $scope.updateService = function updateService(service) {
-      let config = {};
-      service, (config = buildChanges(service));
+      const config = buildChanges(service);
       ServiceService.update(service, config).then(
         function (data) {
           if (data.message && data.message.match(/^rpc error:/)) {
@@ -594,7 +621,7 @@ angular.module('portainer.docker').controller('ServiceController', [
     };
 
     $scope.removeService = function () {
-      ModalService.confirmDeletion('Do you want to remove this service? All the containers associated to this service will be removed too.', function onConfirm(confirmed) {
+      confirmDelete('Do you want to remove this service? All the containers associated to this service will be removed too.').then((confirmed) => {
         if (!confirmed) {
           return;
         }
@@ -621,20 +648,17 @@ angular.module('portainer.docker').controller('ServiceController', [
     }
 
     $scope.forceUpdateService = function (service) {
-      ModalService.confirmServiceForceUpdate('Do you want to force an update of the service? All the tasks associated to the service will be recreated.', function (result) {
+      confirmServiceForceUpdate('Do you want to force an update of the service? All the tasks associated to the service will be recreated.').then(function (result) {
         if (!result) {
           return;
         }
-        var pullImage = false;
-        if (result[0]) {
-          pullImage = true;
-        }
-        forceUpdateService(service, pullImage);
+
+        forceUpdateService(service, result.pullLatest);
       });
     };
 
     function forceUpdateService(service, pullImage) {
-      var config = ServiceHelper.serviceToConfig(service.Model);
+      var config = convertServiceToConfig(service.Model);
       if (pullImage) {
         config.TaskTemplate.ContainerSpec.Image = ImageHelper.removeDigestFromRepository(config.TaskTemplate.ContainerSpec.Image);
       }
@@ -687,7 +711,27 @@ angular.module('portainer.docker').controller('ServiceController', [
       service.StopGracePeriod = service.StopGracePeriod ? ServiceHelper.translateNanosToHumanDuration(service.StopGracePeriod) : '';
     }
 
+    $scope.onChangePorts = function (ports) {
+      $scope.$evalAsync(() => {
+        $scope.formValues.ports = ports;
+        updateServiceArray($scope.service, 'Ports');
+      });
+    };
+
+    $scope.onResetPorts = function (all = false) {
+      $scope.$evalAsync(() => {
+        $scope.formValues.ports = portsMappingUtils.toViewModel($scope.service.Model.Spec.EndpointSpec.Ports);
+
+        $scope.cancelChanges($scope.service, all ? undefined : ['Ports']);
+      });
+    };
+
+    $scope.onSubmit = function () {
+      $scope.updateService($scope.service);
+    };
+
     function initView() {
+      $scope.isLoading = true;
       var apiVersion = $scope.applicationState.endpoint.apiVersion;
       var agentProxy = $scope.applicationState.endpoint.mode.agentProxy;
 
@@ -700,6 +744,8 @@ angular.module('portainer.docker').controller('ServiceController', [
             $scope.lastVersion = service.Version;
           }
 
+          $scope.formValues.ports = portsMappingUtils.toViewModel(service.Model.Spec.EndpointSpec.Ports);
+
           transformResources(service);
           translateServiceArrays(service);
           transformDurations(service);
@@ -709,10 +755,10 @@ angular.module('portainer.docker').controller('ServiceController', [
           return $q.all({
             volumes: VolumeService.volumes(),
             tasks: TaskService.tasks({ service: [service.Name] }),
-            containers: agentProxy ? ContainerService.containers() : [],
+            containers: agentProxy ? ContainerService.containers(endpoint.Id) : [],
             nodes: NodeService.nodes(),
             secrets: apiVersion >= 1.25 ? SecretService.secrets() : [],
-            configs: apiVersion >= 1.3 ? ConfigService.configs() : [],
+            configs: apiVersion >= 1.3 ? ConfigService.configs(endpoint.Id) : [],
             availableImages: ImageService.images(),
             availableLoggingDrivers: PluginService.loggingPlugins(apiVersion < 1.25),
             availableNetworks: NetworkService.networks(true, true, apiVersion >= 1.25),
@@ -810,6 +856,9 @@ angular.module('portainer.docker').controller('ServiceController', [
           $scope.secrets = [];
           $scope.configs = [];
           Notifications.error('Failure', err, 'Unable to retrieve service details');
+        })
+        .finally(() => {
+          $scope.isLoading = false;
         });
     }
 
@@ -824,6 +873,15 @@ angular.module('portainer.docker').controller('ServiceController', [
     $scope.filterNetworks = filterNetworks;
     function filterNetworks(networks, current) {
       return networks.filter((network) => !network.Ingress && (network.Id === current.Id || $scope.service.Networks.every((serviceNetwork) => network.Id !== serviceNetwork.Id)));
+    }
+
+    $scope.filterConfigs = filterConfigs;
+    function filterConfigs(configs) {
+      if (!configs) {
+        return [];
+      }
+
+      return configs.filter((config) => $scope.service.ServiceConfigs.every((serviceConfig) => config.Id !== serviceConfig.Id));
     }
 
     function updateServiceArray(service, name) {

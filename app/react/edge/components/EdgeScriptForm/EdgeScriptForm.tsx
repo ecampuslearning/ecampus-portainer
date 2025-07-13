@@ -1,4 +1,5 @@
 import { Formik } from 'formik';
+import { PropsWithChildren } from 'react';
 
 import { OsSelector } from './OsSelector';
 import { CommandTab } from './scripts';
@@ -12,40 +13,45 @@ const edgePropertiesFormInitialValues: ScriptFormValues = {
   envVars: '',
   os: 'linux' as OS,
   platform: 'k8s' as Platform,
-  nomadToken: '',
   authEnabled: true,
   tlsEnabled: false,
+  edgeGroupsIds: [],
+  group: 0,
+  tagsIds: [],
+  edgeIdGenerator: '',
 };
 
 interface Props {
   edgeInfo: EdgeInfo;
   commands: CommandTab[] | Partial<Record<OS, CommandTab[]>>;
-  isNomadTokenVisible?: boolean;
-  hideAsyncMode?: boolean;
+  asyncMode?: boolean;
+  showMetaFields?: boolean;
 }
 
 export function EdgeScriptForm({
   edgeInfo,
   commands,
-  isNomadTokenVisible,
-  hideAsyncMode,
-}: Props) {
+  asyncMode,
+  showMetaFields,
+  children,
+}: PropsWithChildren<Props>) {
   const showOsSelector = !(commands instanceof Array);
 
   return (
     <div className="form-horizontal">
       <Formik
         initialValues={edgePropertiesFormInitialValues}
-        validationSchema={() => validationSchema(isNomadTokenVisible)}
+        validationSchema={() => validationSchema()}
         onSubmit={() => {}}
+        validateOnMount
       >
         {({ values, setFieldValue }) => (
           <>
+            {children}
+
             <EdgeScriptSettingsFieldset
-              isNomadTokenVisible={
-                isNomadTokenVisible && values.platform === 'nomad'
-              }
               hideIdGetter={edgeInfo.id !== undefined}
+              showMetaFields={showMetaFields}
             />
             <div className="mt-8">
               {showOsSelector && (
@@ -63,7 +69,7 @@ export function EdgeScriptForm({
                 onPlatformChange={(platform) =>
                   setFieldValue('platform', platform)
                 }
-                hideAsyncMode={hideAsyncMode}
+                asyncMode={asyncMode}
               />
             </div>
           </>

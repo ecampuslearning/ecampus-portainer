@@ -1,15 +1,21 @@
 import _ from 'lodash';
 
-import { useInfo } from '@/docker/services/system.service';
-import { EnvironmentId } from '@/react/portainer/environments/types';
 import { ResourceControlViewModel } from '@/react/portainer/access-control/models/ResourceControlViewModel';
+import { EnvironmentId } from '@/react/portainer/environments/types';
+import { useIsStandAlone } from '@/react/docker/proxy/queries/useInfo';
+import { useEnvironment } from '@/react/portainer/environments/queries';
 
-import { DockerContainer, ContainerStatus } from './types';
+import { ContainerListViewModel, ContainerStatus } from './types';
 import { DockerContainerResponse } from './types/response';
 
-export function parseViewModel(
+/**
+ * Transform an item of the raw docker container list reponse to a container list view model
+ * @param response Raw docker container list reponse item
+ * @returns ContainerListViewModel
+ */
+export function toListViewModel(
   response: DockerContainerResponse
-): DockerContainer {
+): ContainerListViewModel {
   const resourceControl =
     response.Portainer?.ResourceControl &&
     new ResourceControlViewModel(response?.Portainer?.ResourceControl);
@@ -37,9 +43,15 @@ export function parseViewModel(
     )
   );
 
+  const names = response.Names?.map((n) => {
+    const nameWithoutSlash = n[0] === '/' ? n.slice(1) : n;
+    return nameWithoutSlash;
+  });
+
   return {
     ...response,
     ResourceControl: resourceControl,
+    Names: names,
     NodeName: nodeName,
     IP: ip,
     StackName: stackName,
@@ -88,11 +100,11 @@ function createStatus(statusText = ''): ContainerStatus {
   return ContainerStatus.Running;
 }
 
-export function useShowGPUsColumn(environmentID: EnvironmentId) {
-  const envInfoQuery = useInfo(
-    environmentID,
-    (info) => !!info.Swarm?.NodeID && !!info.Swarm?.ControlAvailable
+export function useShowGPUsColumn(environmentId: EnvironmentId) {
+  const isDockerStandalone = useIsStandAlone(environmentId);
+  const enableGPUManagementQuery = useEnvironment(
+    environmentId,
+    (env) => env?.EnableGPUManagement
   );
-
-  return envInfoQuery.data !== true && !envInfoQuery.isLoading;
+  return isDockerStandalone && enableGPUManagementQuery.data;
 }

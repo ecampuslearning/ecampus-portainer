@@ -1,4 +1,4 @@
-<page-header title="'Authentication settings'" breadcrumbs="[{label:'Settings', link:'portainer.settings'}, 'Authentication']"> </page-header>
+<page-header title="'Authentication settings'" breadcrumbs="[{label:'Settings', link:'portainer.settings'}, 'Authentication']" reload="true"> </page-header>
 
 <div class="row">
   <div class="col-sm-12">
@@ -15,6 +15,7 @@
             <div class="col-sm-10">
               <select
                 id="user_timeout"
+                data-cy="user-timeout-select"
                 class="form-control"
                 ng-model="settings.UserSessionTimeout"
                 ng-options="opt.value as opt.key for opt in state.availableUserSessionTimeoutOptions"

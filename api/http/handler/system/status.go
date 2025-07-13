@@ -3,16 +3,15 @@ package system
 import (
 	"net/http"
 
-	httperror "github.com/portainer/libhttp/error"
-	"github.com/portainer/libhttp/response"
 	portainer "github.com/portainer/portainer/api"
-	"github.com/portainer/portainer/api/demo"
+	httperror "github.com/portainer/portainer/pkg/libhttp/error"
+	"github.com/portainer/portainer/pkg/libhttp/response"
+
 	"github.com/rs/zerolog/log"
 )
 
 type status struct {
 	*portainer.Status
-	DemoEnvironment demo.EnvironmentDetails
 }
 
 // @id systemStatus
@@ -25,8 +24,7 @@ type status struct {
 // @router /system/status [get]
 func (handler *Handler) systemStatus(w http.ResponseWriter, r *http.Request) *httperror.HandlerError {
 	return response.JSON(w, &status{
-		Status:          handler.status,
-		DemoEnvironment: handler.demoService.Details(),
+		Status: handler.status,
 	})
 }
 

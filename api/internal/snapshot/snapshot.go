@@ -10,11 +10,13 @@ import (
 	"github.com/portainer/portainer/api/agent"
 	"github.com/portainer/portainer/api/crypto"
 	"github.com/portainer/portainer/api/dataservices"
+	"github.com/portainer/portainer/api/pendingactions"
+	endpointsutils "github.com/portainer/portainer/pkg/endpoints"
 
 	"github.com/rs/zerolog/log"
 )
 
-// Service repesents a service to manage environment(endpoint) snapshots.
+// Service represents a service to manage environment(endpoint) snapshots.
 // It provides an interface to start background snapshots as well as
 // specific Docker/Kubernetes environment(endpoint) snapshot methods.
 type Service struct {
@@ -24,10 +26,18 @@ type Service struct {
 	dockerSnapshotter         portainer.DockerSnapshotter
 	kubernetesSnapshotter     portainer.KubernetesSnapshotter
 	shutdownCtx               context.Context
+	pendingActionsService     *pendingactions.PendingActionsService
 }
 
 // NewService creates a new instance of a service
-func NewService(snapshotIntervalFromFlag string, dataStore dataservices.DataStore, dockerSnapshotter portainer.DockerSnapshotter, kubernetesSnapshotter portainer.KubernetesSnapshotter, shutdownCtx context.Context) (*Service, error) {
+func NewService(
+	snapshotIntervalFromFlag string,
+	dataStore dataservices.DataStore,
+	dockerSnapshotter portainer.DockerSnapshotter,
+	kubernetesSnapshotter portainer.KubernetesSnapshotter,
+	shutdownCtx context.Context,
+	pendingActionsService *pendingactions.PendingActionsService,
+) (*Service, error) {
 	interval, err := parseSnapshotFrequency(snapshotIntervalFromFlag, dataStore)
 	if err != nil {
 		return nil, err
@@ -40,7 +50,39 @@ func NewService(snapshotIntervalFromFlag string, dataStore dataservices.DataStor
 		dockerSnapshotter:         dockerSnapshotter,
 		kubernetesSnapshotter:     kubernetesSnapshotter,
 		shutdownCtx:               shutdownCtx,
+		pendingActionsService:     pendingActionsService,
 	}, nil
+}
+
+// NewBackgroundSnapshotter queues snapshots of existing edge environments that
+// do not have one already
+func NewBackgroundSnapshotter(dataStore dataservices.DataStore, tunnelService portainer.ReverseTunnelService) {
+	if err := dataStore.ViewTx(func(tx dataservices.DataStoreTx) error {
+		endpoints, err := tx.Endpoint().Endpoints()
+		if err != nil {
+			return err
+		}
+
+		for _, e := range endpoints {
+			if !endpointsutils.HasDirectConnectivity(&e) {
+				continue
+			}
+
+			s, err := tx.Snapshot().Read(e.ID)
+			if dataservices.IsErrObjectNotFound(err) ||
+				(err == nil && s.Docker == nil && s.Kubernetes == nil) {
+				if err := tunnelService.Open(&e); err != nil {
+					log.Error().Err(err).Msg("could not open the tunnel")
+				}
+			}
+		}
+
+		return nil
+	}); err != nil {
+		log.Error().Err(err).Msg("background snapshotter failure")
+
+		return
+	}
 }
 
 func parseSnapshotFrequency(snapshotInterval string, dataStore dataservices.DataStore) (float64, error) {
@@ -49,15 +91,18 @@ func parseSnapshotFrequency(snapshotInterval string, dataStore dataservices.Data
 		if err != nil {
 			return 0, err
 		}
+
 		snapshotInterval = settings.SnapshotInterval
 		if snapshotInterval == "" {
 			snapshotInterval = portainer.DefaultSnapshotInterval
 		}
 	}
+
 	snapshotFrequency, err := time.ParseDuration(snapshotInterval)
 	if err != nil {
 		return 0, err
 	}
+
 	return snapshotFrequency.Seconds(), nil
 }
 
@@ -85,6 +130,7 @@ func SupportDirectSnapshot(endpoint *portainer.Endpoint) bool {
 	case portainer.EdgeAgentOnDockerEnvironment, portainer.EdgeAgentOnKubernetesEnvironment, portainer.AzureEnvironment:
 		return false
 	}
+
 	return true
 }
 
@@ -94,6 +140,7 @@ func (service *Service) SnapshotEndpoint(endpoint *portainer.Endpoint) error {
 	if endpoint.Type == portainer.AgentOnDockerEnvironment || endpoint.Type == portainer.AgentOnKubernetesEnvironment {
 		var err error
 		var tlsConfig *tls.Config
+
 		if endpoint.TLSConfig.TLS {
 			tlsConfig, err = crypto.CreateTLSConfigurationFromDisk(endpoint.TLSConfig.TLSCACertPath, endpoint.TLSConfig.TLSCertPath, endpoint.TLSConfig.TLSKeyPath, endpoint.TLSConfig.TLSSkipVerify)
 			if err != nil {
@@ -123,32 +170,8 @@ func (service *Service) Create(snapshot portainer.Snapshot) error {
 	return service.dataStore.Snapshot().Create(&snapshot)
 }
 
-func (service *Service) FillSnapshotData(endpoint *portainer.Endpoint) error {
-	return FillSnapshotData(service.dataStore, endpoint)
-}
-
-func FillSnapshotData(dataStore dataservices.DataStore, endpoint *portainer.Endpoint) error {
-	snapshot, err := dataStore.Snapshot().Snapshot(endpoint.ID)
-	if dataStore.IsErrObjectNotFound(err) {
-		endpoint.Snapshots = []portainer.DockerSnapshot{}
-		endpoint.Kubernetes.Snapshots = []portainer.KubernetesSnapshot{}
-
-		return nil
-	}
-
-	if err != nil {
-		return err
-	}
-
-	if snapshot.Docker != nil {
-		endpoint.Snapshots = []portainer.DockerSnapshot{*snapshot.Docker}
-	}
-
-	if snapshot.Kubernetes != nil {
-		endpoint.Kubernetes.Snapshots = []portainer.KubernetesSnapshot{*snapshot.Kubernetes}
-	}
-
-	return nil
+func (service *Service) FillSnapshotData(endpoint *portainer.Endpoint, includeRaw bool) error {
+	return FillSnapshotData(service.dataStore, endpoint, includeRaw)
 }
 
 func (service *Service) snapshotKubernetesEndpoint(endpoint *portainer.Endpoint) error {
@@ -172,12 +195,30 @@ func (service *Service) snapshotDockerEndpoint(endpoint *portainer.Endpoint) err
 		return err
 	}
 
+	if err := validateContainerEngineCompatibility(endpoint, dockerSnapshot); err != nil {
+		return err
+	}
+
 	if dockerSnapshot != nil {
 		snapshot := &portainer.Snapshot{EndpointID: endpoint.ID, Docker: dockerSnapshot}
 
 		return service.dataStore.Snapshot().Create(snapshot)
 	}
 
+	return nil
+}
+
+func validateContainerEngineCompatibility(endpoint *portainer.Endpoint, dockerSnapshot *portainer.DockerSnapshot) error {
+	if endpoint.ContainerEngine == portainer.ContainerEngineDocker && dockerSnapshot.IsPodman {
+		err := errors.New("the Docker environment option doesn't support Podman environments. Please select the Podman option instead.")
+		log.Error().Err(err).Str("endpoint", endpoint.Name).Msg(err.Error())
+		return err
+	}
+	if endpoint.ContainerEngine == portainer.ContainerEnginePodman && !dockerSnapshot.IsPodman {
+		err := errors.New("the Podman environment option doesn't support Docker environments. Please select the Docker option instead.")
+		log.Error().Err(err).Str("endpoint", endpoint.Name).Msg(err.Error())
+		return err
+	}
 	return nil
 }
 
@@ -199,6 +240,7 @@ func (service *Service) startSnapshotLoop() {
 		case <-service.shutdownCtx.Done():
 			log.Debug().Msg("shutting down snapshotting")
 			ticker.Stop()
+
 			return
 		case interval := <-service.snapshotIntervalCh:
 			ticker.Reset(interval)
@@ -213,50 +255,62 @@ func (service *Service) snapshotEndpoints() error {
 	}
 
 	for _, endpoint := range endpoints {
-		if !SupportDirectSnapshot(&endpoint) {
-			continue
-		}
-
-		if endpoint.URL == "" {
+		if !SupportDirectSnapshot(&endpoint) || endpoint.URL == "" {
 			continue
 		}
 
 		snapshotError := service.SnapshotEndpoint(&endpoint)
 
-		latestEndpointReference, err := service.dataStore.Endpoint().Endpoint(endpoint.ID)
-		if latestEndpointReference == nil {
-			log.Debug().
-				Str("endpoint", endpoint.Name).
-				Str("URL", endpoint.URL).Err(err).
-				Msg("background schedule error (environment snapshot), environment not found inside the database anymore")
+		if err := service.dataStore.UpdateTx(func(tx dataservices.DataStoreTx) error {
+			updateEndpointStatus(tx, &endpoint, snapshotError, service.pendingActionsService)
 
-			continue
-		}
-
-		latestEndpointReference.Status = portainer.EndpointStatusUp
-		if snapshotError != nil {
-			log.Debug().
-				Str("endpoint", endpoint.Name).
-				Str("URL", endpoint.URL).Err(err).
-				Msg("background schedule error (environment snapshot), unable to create snapshot")
-
-			latestEndpointReference.Status = portainer.EndpointStatusDown
-		}
-
-		latestEndpointReference.Agent.Version = endpoint.Agent.Version
-
-		err = service.dataStore.Endpoint().UpdateEndpoint(latestEndpointReference.ID, latestEndpointReference)
-		if err != nil {
-			log.Debug().
-				Str("endpoint", endpoint.Name).
-				Str("URL", endpoint.URL).Err(err).
-				Msg("background schedule error (environment snapshot), unable to update environment")
-
-			continue
+			return nil
+		}); err != nil {
+			log.Error().
+				Err(err).
+				Int("endpoint_id", int(endpoint.ID)).
+				Msg("unable to update environment status")
 		}
 	}
 
 	return nil
+}
+
+func updateEndpointStatus(tx dataservices.DataStoreTx, endpoint *portainer.Endpoint, snapshotError error, pendingActionsService *pendingactions.PendingActionsService) {
+	latestEndpointReference, err := tx.Endpoint().Endpoint(endpoint.ID)
+	if latestEndpointReference == nil {
+		log.Debug().
+			Str("endpoint", endpoint.Name).
+			Str("URL", endpoint.URL).Err(err).
+			Msg("background schedule error (environment snapshot), environment not found inside the database anymore")
+
+		return
+	}
+
+	latestEndpointReference.Status = portainer.EndpointStatusUp
+
+	if snapshotError != nil {
+		log.Debug().
+			Str("endpoint", endpoint.Name).
+			Str("URL", endpoint.URL).Err(err).
+			Msg("background schedule error (environment snapshot), unable to create snapshot")
+
+		latestEndpointReference.Status = portainer.EndpointStatusDown
+	}
+
+	latestEndpointReference.Agent.Version = endpoint.Agent.Version
+
+	if err := tx.Endpoint().UpdateEndpoint(latestEndpointReference.ID, latestEndpointReference); err != nil {
+		log.Debug().
+			Str("endpoint", endpoint.Name).
+			Str("URL", endpoint.URL).Err(err).
+			Msg("background schedule error (environment snapshot), unable to update environment")
+	}
+
+	// Run the pending actions
+	if latestEndpointReference.Status == portainer.EndpointStatusUp {
+		pendingActionsService.Execute(endpoint.ID)
+	}
 }
 
 // FetchDockerID fetches info.Swarm.Cluster.ID if environment(endpoint) is swarm and info.ID otherwise
@@ -267,11 +321,39 @@ func FetchDockerID(snapshot portainer.DockerSnapshot) (string, error) {
 		return info.ID, nil
 	}
 
-	swarmInfo := info.Swarm
-	if swarmInfo.Cluster == nil {
+	if info.Swarm.Cluster == nil {
 		return "", errors.New("swarm environment is missing cluster info snapshot")
 	}
 
-	clusterInfo := swarmInfo.Cluster
-	return clusterInfo.ID, nil
+	return info.Swarm.Cluster.ID, nil
+}
+
+func FillSnapshotData(tx dataservices.DataStoreTx, endpoint *portainer.Endpoint, includeRaw bool) error {
+	var snapshot *portainer.Snapshot
+	var err error
+
+	if includeRaw {
+		snapshot, err = tx.Snapshot().Read(endpoint.ID)
+	} else {
+		snapshot, err = tx.Snapshot().ReadWithoutSnapshotRaw(endpoint.ID)
+	}
+
+	if tx.IsErrObjectNotFound(err) {
+		endpoint.Snapshots = []portainer.DockerSnapshot{}
+		endpoint.Kubernetes.Snapshots = []portainer.KubernetesSnapshot{}
+
+		return nil
+	} else if err != nil {
+		return err
+	}
+
+	if snapshot.Docker != nil {
+		endpoint.Snapshots = []portainer.DockerSnapshot{*snapshot.Docker}
+	}
+
+	if snapshot.Kubernetes != nil {
+		endpoint.Kubernetes.Snapshots = []portainer.KubernetesSnapshot{*snapshot.Kubernetes}
+	}
+
+	return nil
 }

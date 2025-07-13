@@ -2,19 +2,19 @@ package edgejobs
 
 import (
 	"errors"
+	"maps"
 	"net/http"
+	"slices"
 	"strconv"
 
-	httperror "github.com/portainer/libhttp/error"
-	"github.com/portainer/libhttp/request"
-	"github.com/portainer/libhttp/response"
 	portainer "github.com/portainer/portainer/api"
+	"github.com/portainer/portainer/api/dataservices"
 	"github.com/portainer/portainer/api/internal/edge"
+	"github.com/portainer/portainer/api/internal/edge/cache"
 	"github.com/portainer/portainer/api/internal/endpointutils"
-	"github.com/portainer/portainer/api/internal/maps"
-	"github.com/portainer/portainer/api/internal/slices"
-
-	"github.com/asaskevich/govalidator"
+	httperror "github.com/portainer/portainer/pkg/libhttp/error"
+	"github.com/portainer/portainer/pkg/libhttp/request"
+	"github.com/portainer/portainer/pkg/validate"
 )
 
 type edgeJobUpdatePayload struct {
@@ -27,9 +27,10 @@ type edgeJobUpdatePayload struct {
 }
 
 func (payload *edgeJobUpdatePayload) Validate(r *http.Request) error {
-	if payload.Name != nil && !govalidator.Matches(*payload.Name, `^[a-zA-Z0-9][a-zA-Z0-9_.-]+$`) {
+	if payload.Name != nil && !validate.Matches(*payload.Name, `^[a-zA-Z0-9][a-zA-Z0-9_.-]+$`) {
 		return errors.New("invalid Edge job name format. Allowed characters are: [a-zA-Z0-9_.-]")
 	}
+
 	return nil
 }
 
@@ -41,13 +42,13 @@ func (payload *edgeJobUpdatePayload) Validate(r *http.Request) error {
 // @security jwt
 // @accept json
 // @produce json
-// @param id path string true "EdgeJob Id"
+// @param id path int true "EdgeJob Id"
 // @param body body edgeJobUpdatePayload true "EdgeGroup data"
 // @success 200 {object} portainer.EdgeJob
 // @failure 500
 // @failure 400
 // @failure 503 "Edge compute features are disabled"
-// @router /edge_jobs/{id} [post]
+// @router /edge_jobs/{id} [put]
 func (handler *Handler) edgeJobUpdate(w http.ResponseWriter, r *http.Request) *httperror.HandlerError {
 	edgeJobID, err := request.RetrieveNumericRouteVariableValue(r, "id")
 	if err != nil {
@@ -55,32 +56,39 @@ func (handler *Handler) edgeJobUpdate(w http.ResponseWriter, r *http.Request) *h
 	}
 
 	var payload edgeJobUpdatePayload
-	err = request.DecodeAndValidateJSONPayload(r, &payload)
-	if err != nil {
+	if err := request.DecodeAndValidateJSONPayload(r, &payload); err != nil {
 		return httperror.BadRequest("Invalid request payload", err)
 	}
 
-	edgeJob, err := handler.DataStore.EdgeJob().EdgeJob(portainer.EdgeJobID(edgeJobID))
-	if handler.DataStore.IsErrObjectNotFound(err) {
-		return httperror.NotFound("Unable to find an Edge job with the specified identifier inside the database", err)
-	} else if err != nil {
-		return httperror.InternalServerError("Unable to find an Edge job with the specified identifier inside the database", err)
-	}
+	var edgeJob *portainer.EdgeJob
+	err = handler.DataStore.UpdateTx(func(tx dataservices.DataStoreTx) error {
+		edgeJob, err = handler.updateEdgeJob(tx, portainer.EdgeJobID(edgeJobID), payload)
+		return err
+	})
 
-	err = handler.updateEdgeSchedule(edgeJob, &payload)
-	if err != nil {
-		return httperror.InternalServerError("Unable to update Edge job", err)
-	}
-
-	err = handler.DataStore.EdgeJob().UpdateEdgeJob(edgeJob.ID, edgeJob)
-	if err != nil {
-		return httperror.InternalServerError("Unable to persist Edge job changes inside the database", err)
-	}
-
-	return response.JSON(w, edgeJob)
+	return txResponse(w, edgeJob, err)
 }
 
-func (handler *Handler) updateEdgeSchedule(edgeJob *portainer.EdgeJob, payload *edgeJobUpdatePayload) error {
+func (handler *Handler) updateEdgeJob(tx dataservices.DataStoreTx, edgeJobID portainer.EdgeJobID, payload edgeJobUpdatePayload) (*portainer.EdgeJob, error) {
+	edgeJob, err := tx.EdgeJob().Read(edgeJobID)
+	if tx.IsErrObjectNotFound(err) {
+		return nil, httperror.NotFound("Unable to find an Edge job with the specified identifier inside the database", err)
+	} else if err != nil {
+		return nil, httperror.InternalServerError("Unable to find an Edge job with the specified identifier inside the database", err)
+	}
+
+	if err := handler.updateEdgeSchedule(tx, edgeJob, &payload); err != nil {
+		return nil, httperror.InternalServerError("Unable to update Edge job", err)
+	}
+
+	if err := tx.EdgeJob().Update(edgeJob.ID, edgeJob); err != nil {
+		return nil, httperror.InternalServerError("Unable to persist Edge job changes inside the database", err)
+	}
+
+	return edgeJob, nil
+}
+
+func (handler *Handler) updateEdgeSchedule(tx dataservices.DataStoreTx, edgeJob *portainer.EdgeJob, payload *edgeJobUpdatePayload) error {
 	if payload.Name != nil {
 		edgeJob.Name = *payload.Name
 	}
@@ -99,7 +107,7 @@ func (handler *Handler) updateEdgeSchedule(edgeJob *portainer.EdgeJob, payload *
 		}
 
 		for _, endpointID := range payload.Endpoints {
-			endpoint, err := handler.DataStore.Endpoint().Endpoint(endpointID)
+			endpoint, err := tx.Endpoint().Endpoint(endpointID)
 			if err != nil {
 				return err
 			}
@@ -120,13 +128,13 @@ func (handler *Handler) updateEdgeSchedule(edgeJob *portainer.EdgeJob, payload *
 	}
 
 	if len(payload.EdgeGroups) == 0 && len(edgeJob.EdgeGroups) > 0 {
-		endpoints, err := edge.GetEndpointsFromEdgeGroups(edgeJob.EdgeGroups, handler.DataStore)
+		endpoints, err := edge.GetEndpointsFromEdgeGroups(edgeJob.EdgeGroups, tx)
 		if err != nil {
 			return errors.New("unable to get endpoints from edge groups")
 		}
 
 		for _, endpointID := range endpoints {
-			endpointsToRemove[portainer.EndpointID(endpointID)] = true
+			endpointsToRemove[endpointID] = true
 		}
 
 		edgeJob.EdgeGroups = nil
@@ -138,8 +146,7 @@ func (handler *Handler) updateEdgeSchedule(edgeJob *portainer.EdgeJob, payload *
 
 	if len(payload.EdgeGroups) > 0 {
 		for _, edgeGroupID := range payload.EdgeGroups {
-			_, err := handler.DataStore.EdgeGroup().EdgeGroup(edgeGroupID)
-			if err != nil {
+			if _, err := tx.EdgeGroup().Read(edgeGroupID); err != nil {
 				return err
 			}
 
@@ -148,7 +155,7 @@ func (handler *Handler) updateEdgeSchedule(edgeJob *portainer.EdgeJob, payload *
 			}
 		}
 
-		endpointsFromGroupsToAdd, err := edge.GetEndpointsFromEdgeGroups(edgeGroupsToAdd, handler.DataStore)
+		endpointsFromGroupsToAdd, err := edge.GetEndpointsFromEdgeGroups(edgeGroupsToAdd, tx)
 		if err != nil {
 			return errors.New("unable to get endpoints from edge groups")
 		}
@@ -165,7 +172,7 @@ func (handler *Handler) updateEdgeSchedule(edgeJob *portainer.EdgeJob, payload *
 			}
 		}
 
-		endpointsFromGroupsToRemove, err := edge.GetEndpointsFromEdgeGroups(edgeGroupsToRemove, handler.DataStore)
+		endpointsFromGroupsToRemove, err := edge.GetEndpointsFromEdgeGroups(edgeGroupsToRemove, tx)
 		if err != nil {
 			return errors.New("unable to get endpoints from edge groups")
 		}
@@ -192,8 +199,7 @@ func (handler *Handler) updateEdgeSchedule(edgeJob *portainer.EdgeJob, payload *
 
 	if payload.FileContent != nil && *payload.FileContent != string(fileContent) {
 		fileContent = []byte(*payload.FileContent)
-		_, err := handler.FileService.StoreEdgeJobFileFromBytes(strconv.Itoa(int(edgeJob.ID)), fileContent)
-		if err != nil {
+		if _, err := handler.FileService.StoreEdgeJobFileFromBytes(strconv.Itoa(int(edgeJob.ID)), fileContent); err != nil {
 			return err
 		}
 
@@ -212,11 +218,11 @@ func (handler *Handler) updateEdgeSchedule(edgeJob *portainer.EdgeJob, payload *
 	maps.Copy(endpointsFromGroupsToAddMap, edgeJob.Endpoints)
 
 	for endpointID := range endpointsFromGroupsToAddMap {
-		handler.ReverseTunnelService.AddEdgeJob(endpointID, edgeJob)
+		cache.Del(endpointID)
 	}
 
 	for endpointID := range endpointsToRemove {
-		handler.ReverseTunnelService.RemoveEdgeJobFromEndpoint(endpointID, edgeJob.ID)
+		cache.Del(endpointID)
 	}
 
 	return nil

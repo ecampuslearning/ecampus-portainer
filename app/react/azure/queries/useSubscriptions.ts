@@ -1,4 +1,4 @@
-import { useQuery } from 'react-query';
+import { useQuery } from '@tanstack/react-query';
 
 import axios, { parseAxiosError } from '@/portainer/services/axios';
 import { EnvironmentId } from '@/react/portainer/environments/types';
@@ -29,7 +29,7 @@ async function getSubscriptions(environmentId: EnvironmentId) {
     return data.value;
   } catch (e) {
     throw parseAxiosError(
-      e as Error,
+      e,
       'Unable to retrieve subscriptions',
       azureErrorParser
     );

@@ -1,21 +1,18 @@
+import { processItemsInBatches } from '@/react/common/processItemsInBatches';
+
 angular.module('portainer.app').controller('StacksController', StacksController);
 
 /* @ngInject */
-function StacksController($scope, $state, Notifications, StackService, ModalService, Authentication, endpoint) {
+function StacksController($scope, $state, Notifications, StackService, Authentication, endpoint) {
   $scope.removeAction = function (selectedItems) {
-    ModalService.confirmDeletion('Do you want to remove the selected stack(s)? Associated services will be removed as well.', function onConfirm(confirmed) {
-      if (!confirmed) {
-        return;
-      }
-      deleteSelectedStacks(selectedItems);
-    });
+    return deleteSelectedStacks(selectedItems);
   };
 
-  function deleteSelectedStacks(stacks) {
+  async function deleteSelectedStacks(selectedItems) {
     const endpointId = endpoint.Id;
-    let actionCount = stacks.length;
-    angular.forEach(stacks, function (stack) {
-      StackService.remove(stack, stack.External, endpointId)
+
+    async function doRemove(stack) {
+      return StackService.remove(stack, stack.External, endpointId)
         .then(function success() {
           Notifications.success('Stack successfully removed', stack.Name);
           var index = $scope.stacks.indexOf(stack);
@@ -23,14 +20,11 @@ function StacksController($scope, $state, Notifications, StackService, ModalServ
         })
         .catch(function error(err) {
           Notifications.error('Failure', err, 'Unable to remove stack ' + stack.Name);
-        })
-        .finally(function final() {
-          --actionCount;
-          if (actionCount === 0) {
-            $state.reload();
-          }
         });
-    });
+    }
+
+    await processItemsInBatches(selectedItems, doRemove);
+    $state.reload();
   }
 
   $scope.createEnabled = false;

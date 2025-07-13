@@ -1,23 +1,14 @@
 package snapshot
 
 import (
-	"fmt"
-
 	portainer "github.com/portainer/portainer/api"
-
-	"github.com/rs/zerolog/log"
+	"github.com/portainer/portainer/api/dataservices"
 )
 
-const (
-	BucketName = "snapshots"
-)
+const BucketName = "snapshots"
 
 type Service struct {
-	connection portainer.Connection
-}
-
-func (service *Service) BucketName() string {
-	return BucketName
+	dataservices.BaseDataService[portainer.Snapshot, portainer.EndpointID]
 }
 
 func NewService(connection portainer.Connection) (*Service, error) {
@@ -27,51 +18,53 @@ func NewService(connection portainer.Connection) (*Service, error) {
 	}
 
 	return &Service{
-		connection: connection,
+		BaseDataService: dataservices.BaseDataService[portainer.Snapshot, portainer.EndpointID]{
+			Bucket:     BucketName,
+			Connection: connection,
+		},
 	}, nil
 }
 
-func (service *Service) Snapshot(endpointID portainer.EndpointID) (*portainer.Snapshot, error) {
-	var snapshot portainer.Snapshot
-	identifier := service.connection.ConvertToKey(int(endpointID))
-
-	err := service.connection.GetObject(BucketName, identifier, &snapshot)
-	if err != nil {
-		return nil, err
+func (service *Service) Tx(tx portainer.Transaction) ServiceTx {
+	return ServiceTx{
+		BaseDataServiceTx: dataservices.BaseDataServiceTx[portainer.Snapshot, portainer.EndpointID]{
+			Bucket:     BucketName,
+			Connection: service.Connection,
+			Tx:         tx,
+		},
 	}
-
-	return &snapshot, nil
-}
-
-func (service *Service) Snapshots() ([]portainer.Snapshot, error) {
-	var snapshots = make([]portainer.Snapshot, 0)
-
-	err := service.connection.GetAllWithJsoniter(
-		BucketName,
-		&portainer.Snapshot{},
-		func(obj interface{}) (interface{}, error) {
-			snapshot, ok := obj.(*portainer.Snapshot)
-			if !ok {
-				log.Debug().Str("obj", fmt.Sprintf("%#v", obj)).Msg("failed to convert to Snapshot object")
-				return nil, fmt.Errorf("failed to convert to Snapshot object: %s", obj)
-			}
-			snapshots = append(snapshots, *snapshot)
-			return &portainer.Snapshot{}, nil
-		})
-
-	return snapshots, err
-}
-
-func (service *Service) UpdateSnapshot(snapshot *portainer.Snapshot) error {
-	identifier := service.connection.ConvertToKey(int(snapshot.EndpointID))
-	return service.connection.UpdateObject(BucketName, identifier, snapshot)
-}
-
-func (service *Service) DeleteSnapshot(endpointID portainer.EndpointID) error {
-	identifier := service.connection.ConvertToKey(int(endpointID))
-	return service.connection.DeleteObject(BucketName, identifier)
 }
 
 func (service *Service) Create(snapshot *portainer.Snapshot) error {
-	return service.connection.CreateObjectWithId(BucketName, int(snapshot.EndpointID), snapshot)
+	return service.Connection.CreateObjectWithId(BucketName, int(snapshot.EndpointID), snapshot)
+}
+
+func (service *Service) ReadWithoutSnapshotRaw(ID portainer.EndpointID) (*portainer.Snapshot, error) {
+	var snapshot *portainer.Snapshot
+
+	err := service.Connection.ViewTx(func(tx portainer.Transaction) error {
+		var err error
+		snapshot, err = service.Tx(tx).ReadWithoutSnapshotRaw(ID)
+
+		return err
+	})
+
+	return snapshot, err
+}
+
+func (service *Service) ReadRawMessage(ID portainer.EndpointID) (*portainer.SnapshotRawMessage, error) {
+	var snapshot *portainer.SnapshotRawMessage
+
+	err := service.Connection.ViewTx(func(tx portainer.Transaction) error {
+		var err error
+		snapshot, err = service.Tx(tx).ReadRawMessage(ID)
+
+		return err
+	})
+
+	return snapshot, err
+}
+
+func (service *Service) CreateRawMessage(snapshot *portainer.SnapshotRawMessage) error {
+	return service.Connection.CreateObjectWithId(BucketName, int(snapshot.EndpointID), snapshot)
 }

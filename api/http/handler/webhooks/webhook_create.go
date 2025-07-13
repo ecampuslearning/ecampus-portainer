@@ -4,33 +4,32 @@ import (
 	"errors"
 	"net/http"
 
+	portainer "github.com/portainer/portainer/api"
 	"github.com/portainer/portainer/api/http/security"
 	"github.com/portainer/portainer/api/internal/registryutils/access"
+	httperror "github.com/portainer/portainer/pkg/libhttp/error"
+	"github.com/portainer/portainer/pkg/libhttp/request"
+	"github.com/portainer/portainer/pkg/libhttp/response"
 
-	httperror "github.com/portainer/libhttp/error"
-	"github.com/portainer/libhttp/request"
-	"github.com/portainer/libhttp/response"
-	portainer "github.com/portainer/portainer/api"
-
-	"github.com/asaskevich/govalidator"
 	"github.com/gofrs/uuid"
 )
 
 type webhookCreatePayload struct {
-	ResourceID  string
-	EndpointID  int
-	RegistryID  portainer.RegistryID
-	WebhookType int
+	ResourceID string
+	EndpointID portainer.EndpointID
+	RegistryID portainer.RegistryID
+	// Type of webhook (1 - service)
+	WebhookType portainer.WebhookType
 }
 
 func (payload *webhookCreatePayload) Validate(r *http.Request) error {
-	if govalidator.IsNull(payload.ResourceID) {
+	if len(payload.ResourceID) == 0 {
 		return errors.New("Invalid ResourceID")
 	}
 	if payload.EndpointID == 0 {
 		return errors.New("Invalid EndpointID")
 	}
-	if payload.WebhookType != 1 {
+	if payload.WebhookType != portainer.ServiceWebhook {
 		return errors.New("Invalid WebhookType")
 	}
 	return nil
@@ -45,9 +44,9 @@ func (payload *webhookCreatePayload) Validate(r *http.Request) error {
 // @produce json
 // @param body body webhookCreatePayload true "Webhook data"
 // @success 200 {object} portainer.Webhook
-// @failure 400
-// @failure 409
-// @failure 500
+// @failure 400 "Invalid request"
+// @failure 409 "A webhook for this resource already exists"
+// @failure 500 "Server error"
 // @router /webhooks [post]
 func (handler *Handler) webhookCreate(w http.ResponseWriter, r *http.Request) *httperror.HandlerError {
 	var payload webhookCreatePayload
@@ -61,10 +60,10 @@ func (handler *Handler) webhookCreate(w http.ResponseWriter, r *http.Request) *h
 		return httperror.InternalServerError("An error occurred retrieving webhooks from the database", err)
 	}
 	if webhook != nil {
-		return &httperror.HandlerError{StatusCode: http.StatusConflict, Message: "A webhook for this resource already exists", Err: errors.New("A webhook for this resource already exists")}
+		return httperror.Conflict("A webhook for this resource already exists", errors.New("A webhook for this resource already exists"))
 	}
 
-	endpointID := portainer.EndpointID(payload.EndpointID)
+	endpointID := payload.EndpointID
 
 	securityContext, err := security.RetrieveRestrictedRequestContext(r)
 	if err != nil {
@@ -81,7 +80,7 @@ func (handler *Handler) webhookCreate(w http.ResponseWriter, r *http.Request) *h
 			return httperror.InternalServerError("Unable to retrieve user authentication token", err)
 		}
 
-		_, err = access.GetAccessibleRegistry(handler.DataStore, tokenData.ID, endpointID, payload.RegistryID)
+		_, err = access.GetAccessibleRegistry(handler.DataStore, nil, tokenData.ID, endpointID, payload.RegistryID)
 		if err != nil {
 			return httperror.Forbidden("Permission deny to access registry", err)
 		}
@@ -97,7 +96,7 @@ func (handler *Handler) webhookCreate(w http.ResponseWriter, r *http.Request) *h
 		ResourceID:  payload.ResourceID,
 		EndpointID:  endpointID,
 		RegistryID:  payload.RegistryID,
-		WebhookType: portainer.WebhookType(payload.WebhookType),
+		WebhookType: payload.WebhookType,
 	}
 
 	err = handler.DataStore.Webhook().Create(webhook)

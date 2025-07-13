@@ -20,8 +20,8 @@ export function EnvironmentStatusBadgeItem({
     <span
       className={clsx(
         'flex items-center gap-1',
-        'border-2 border-solid rounded',
-        'w-fit py-px px-1',
+        'rounded border-2 border-solid',
+        'w-fit px-1 py-px',
         'text-xs font-semibold text-gray-7',
         {
           'border-green-3 bg-green-2': color === 'success',

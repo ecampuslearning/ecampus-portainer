@@ -4,21 +4,24 @@ import { Plug2 } from 'lucide-react';
 
 import { useCreateAgentEnvironmentMutation } from '@/react/portainer/environments/queries/useCreateEnvironmentMutation';
 import { notifySuccess } from '@/portainer/services/notifications';
-import { Environment } from '@/react/portainer/environments/types';
+import {
+  ContainerEngine,
+  Environment,
+} from '@/react/portainer/environments/types';
 import { CreateAgentEnvironmentValues } from '@/react/portainer/environments/environment.service/create';
 
 import { LoadingButton } from '@@/buttons/LoadingButton';
 
 import { NameField } from '../NameField';
 import { MoreSettingsSection } from '../MoreSettingsSection';
-import { Hardware } from '../Hardware/Hardware';
 
 import { EnvironmentUrlField } from './EnvironmentUrlField';
 import { useValidation } from './AgentForm.validation';
 
 interface Props {
   onCreate(environment: Environment): void;
-  showGpus?: boolean;
+  envDefaultPort?: string;
+  containerEngine?: ContainerEngine;
 }
 
 const initialValues: CreateAgentEnvironmentValues = {
@@ -28,10 +31,13 @@ const initialValues: CreateAgentEnvironmentValues = {
     groupId: 1,
     tagIds: [],
   },
-  gpus: [],
 };
 
-export function AgentForm({ onCreate, showGpus = false }: Props) {
+export function AgentForm({
+  onCreate,
+  envDefaultPort,
+  containerEngine = ContainerEngine.Docker,
+}: Props) {
   const [formKey, clearForm] = useReducer((state) => state + 1, 0);
 
   const mutation = useCreateAgentEnvironmentMutation();
@@ -48,14 +54,15 @@ export function AgentForm({ onCreate, showGpus = false }: Props) {
       {({ isValid, dirty }) => (
         <Form>
           <NameField />
-          <EnvironmentUrlField />
+          <EnvironmentUrlField placeholderPort={envDefaultPort} />
 
-          <MoreSettingsSection>{showGpus && <Hardware />}</MoreSettingsSection>
+          <MoreSettingsSection />
 
           <div className="form-group">
             <div className="col-sm-12">
               <LoadingButton
                 className="wizard-connect-button vertical-center"
+                data-cy="agent-connect-environment-button"
                 loadingText="Connecting environment..."
                 isLoading={mutation.isLoading}
                 disabled={!dirty || !isValid}
@@ -71,12 +78,15 @@ export function AgentForm({ onCreate, showGpus = false }: Props) {
   );
 
   function handleSubmit(values: CreateAgentEnvironmentValues) {
-    mutation.mutate(values, {
-      onSuccess(environment) {
-        notifySuccess('Environment created', environment.Name);
-        clearForm();
-        onCreate(environment);
-      },
-    });
+    mutation.mutate(
+      { ...values, containerEngine },
+      {
+        onSuccess(environment) {
+          notifySuccess('Environment created', environment.Name);
+          clearForm();
+          onCreate(environment);
+        },
+      }
+    );
   }
 }

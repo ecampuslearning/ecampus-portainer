@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	portainer "github.com/portainer/portainer/api"
+
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -21,8 +22,8 @@ func newNodes() *v1.NodeList {
 				},
 				Status: v1.NodeStatus{
 					Allocatable: v1.ResourceList{
-						v1.ResourceName(v1.ResourceCPU):    resource.MustParse("2"),
-						v1.ResourceName(v1.ResourceMemory): resource.MustParse("4M"),
+						v1.ResourceCPU:    resource.MustParse("2"),
+						v1.ResourceMemory: resource.MustParse("4M"),
 					},
 				},
 			},
@@ -32,8 +33,8 @@ func newNodes() *v1.NodeList {
 				},
 				Status: v1.NodeStatus{
 					Allocatable: v1.ResourceList{
-						v1.ResourceName(v1.ResourceCPU):    resource.MustParse("3"),
-						v1.ResourceName(v1.ResourceMemory): resource.MustParse("6M"),
+						v1.ResourceCPU:    resource.MustParse("3"),
+						v1.ResourceMemory: resource.MustParse("6M"),
 					},
 				},
 			},
@@ -56,8 +57,8 @@ func newPods() *v1.PodList {
 							Name: "test-container-0",
 							Resources: v1.ResourceRequirements{
 								Requests: v1.ResourceList{
-									v1.ResourceName(v1.ResourceCPU):    resource.MustParse("1"),
-									v1.ResourceName(v1.ResourceMemory): resource.MustParse("2M"),
+									v1.ResourceCPU:    resource.MustParse("1"),
+									v1.ResourceMemory: resource.MustParse("2M"),
 								},
 							},
 						},
@@ -76,8 +77,8 @@ func newPods() *v1.PodList {
 							Name: "test-container-1",
 							Resources: v1.ResourceRequirements{
 								Requests: v1.ResourceList{
-									v1.ResourceName(v1.ResourceCPU):    resource.MustParse("2"),
-									v1.ResourceName(v1.ResourceMemory): resource.MustParse("3M"),
+									v1.ResourceCPU:    resource.MustParse("2"),
+									v1.ResourceMemory: resource.MustParse("3M"),
 								},
 							},
 						},

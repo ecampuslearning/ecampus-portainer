@@ -10,32 +10,32 @@ import (
 func Test_apiKeyCacheGet(t *testing.T) {
 	is := assert.New(t)
 
-	keyCache := NewAPIKeyCache(10)
+	keyCache := NewAPIKeyCache(10, compareUser)
 
 	// pre-populate cache
-	keyCache.cache.Add(string("foo"), entry{user: portainer.User{}, apiKey: portainer.APIKey{}})
-	keyCache.cache.Add(string(""), entry{user: portainer.User{}, apiKey: portainer.APIKey{}})
+	keyCache.cache.Add(string("foo"), entry[portainer.User]{user: portainer.User{}, apiKey: portainer.APIKey{}})
+	keyCache.cache.Add(string(""), entry[portainer.User]{user: portainer.User{}, apiKey: portainer.APIKey{}})
 
 	tests := []struct {
-		digest []byte
+		digest string
 		found  bool
 	}{
 		{
-			digest: []byte("foo"),
+			digest: "foo",
 			found:  true,
 		},
 		{
-			digest: []byte(""),
+			digest: "",
 			found:  true,
 		},
 		{
-			digest: []byte("bar"),
+			digest: "bar",
 			found:  false,
 		},
 	}
 
 	for _, test := range tests {
-		t.Run(string(test.digest), func(t *testing.T) {
+		t.Run(test.digest, func(t *testing.T) {
 			_, _, found := keyCache.Get(test.digest)
 			is.Equal(test.found, found)
 		})
@@ -45,43 +45,43 @@ func Test_apiKeyCacheGet(t *testing.T) {
 func Test_apiKeyCacheSet(t *testing.T) {
 	is := assert.New(t)
 
-	keyCache := NewAPIKeyCache(10)
+	keyCache := NewAPIKeyCache(10, compareUser)
 
 	// pre-populate cache
-	keyCache.Set([]byte("bar"), portainer.User{ID: 2}, portainer.APIKey{})
-	keyCache.Set([]byte("foo"), portainer.User{ID: 1}, portainer.APIKey{})
+	keyCache.Set("bar", portainer.User{ID: 2}, portainer.APIKey{})
+	keyCache.Set("foo", portainer.User{ID: 1}, portainer.APIKey{})
 
 	// overwrite existing entry
-	keyCache.Set([]byte("foo"), portainer.User{ID: 3}, portainer.APIKey{})
+	keyCache.Set("foo", portainer.User{ID: 3}, portainer.APIKey{})
 
 	val, ok := keyCache.cache.Get(string("bar"))
 	is.True(ok)
 
-	tuple := val.(entry)
+	tuple := val.(entry[portainer.User])
 	is.Equal(portainer.User{ID: 2}, tuple.user)
 
 	val, ok = keyCache.cache.Get(string("foo"))
 	is.True(ok)
 
-	tuple = val.(entry)
+	tuple = val.(entry[portainer.User])
 	is.Equal(portainer.User{ID: 3}, tuple.user)
 }
 
 func Test_apiKeyCacheDelete(t *testing.T) {
 	is := assert.New(t)
 
-	keyCache := NewAPIKeyCache(10)
+	keyCache := NewAPIKeyCache(10, compareUser)
 
 	t.Run("Delete an existing entry", func(t *testing.T) {
-		keyCache.cache.Add(string("foo"), entry{user: portainer.User{ID: 1}, apiKey: portainer.APIKey{}})
-		keyCache.Delete([]byte("foo"))
+		keyCache.cache.Add(string("foo"), entry[portainer.User]{user: portainer.User{ID: 1}, apiKey: portainer.APIKey{}})
+		keyCache.Delete("foo")
 
 		_, ok := keyCache.cache.Get(string("foo"))
 		is.False(ok)
 	})
 
 	t.Run("Delete a non-existing entry", func(t *testing.T) {
-		nonPanicFunc := func() { keyCache.Delete([]byte("non-existent-key")) }
+		nonPanicFunc := func() { keyCache.Delete("non-existent-key") }
 		is.NotPanics(nonPanicFunc)
 	})
 }
@@ -128,19 +128,19 @@ func Test_apiKeyCacheLRU(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			keyCache := NewAPIKeyCache(test.cacheLen)
+			keyCache := NewAPIKeyCache(test.cacheLen, compareUser)
 
 			for _, key := range test.key {
-				keyCache.Set([]byte(key), portainer.User{ID: 1}, portainer.APIKey{})
+				keyCache.Set(key, portainer.User{ID: 1}, portainer.APIKey{})
 			}
 
 			for _, key := range test.foundKeys {
-				_, _, found := keyCache.Get([]byte(key))
+				_, _, found := keyCache.Get(key)
 				is.True(found, "Key %s not found", key)
 			}
 
 			for _, key := range test.evictedKeys {
-				_, _, found := keyCache.Get([]byte(key))
+				_, _, found := keyCache.Get(key)
 				is.False(found, "key %s should have been evicted", key)
 			}
 		})
@@ -150,10 +150,10 @@ func Test_apiKeyCacheLRU(t *testing.T) {
 func Test_apiKeyCacheInvalidateUserKeyCache(t *testing.T) {
 	is := assert.New(t)
 
-	keyCache := NewAPIKeyCache(10)
+	keyCache := NewAPIKeyCache(10, compareUser)
 
 	t.Run("Removes users keys from cache", func(t *testing.T) {
-		keyCache.cache.Add(string("foo"), entry{user: portainer.User{ID: 1}, apiKey: portainer.APIKey{}})
+		keyCache.cache.Add(string("foo"), entry[portainer.User]{user: portainer.User{ID: 1}, apiKey: portainer.APIKey{}})
 
 		ok := keyCache.InvalidateUserKeyCache(1)
 		is.True(ok)
@@ -163,8 +163,8 @@ func Test_apiKeyCacheInvalidateUserKeyCache(t *testing.T) {
 	})
 
 	t.Run("Does not affect other keys", func(t *testing.T) {
-		keyCache.cache.Add(string("foo"), entry{user: portainer.User{ID: 1}, apiKey: portainer.APIKey{}})
-		keyCache.cache.Add(string("bar"), entry{user: portainer.User{ID: 2}, apiKey: portainer.APIKey{}})
+		keyCache.cache.Add(string("foo"), entry[portainer.User]{user: portainer.User{ID: 1}, apiKey: portainer.APIKey{}})
+		keyCache.cache.Add(string("bar"), entry[portainer.User]{user: portainer.User{ID: 2}, apiKey: portainer.APIKey{}})
 
 		ok := keyCache.InvalidateUserKeyCache(1)
 		is.True(ok)

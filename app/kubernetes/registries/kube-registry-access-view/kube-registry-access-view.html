@@ -1,4 +1,4 @@
-<page-header title="'Registry access'" breadcrumbs="[{label:'Registries', link:'kubernetes.registries'}, $ctrl.registry.Name, 'Access management']"> </page-header>
+<page-header title="'Registry access'" breadcrumbs="[{label:'Registries', link:'kubernetes.registries'}, $ctrl.registry.Name, 'Access management']" reload="true"> </page-header>
 
 <registry-details registry="$ctrl.registry" ng-if="$ctrl.registry"></registry-details>
 
@@ -19,6 +19,7 @@
                 namespaces="$ctrl.resourcePools"
                 placeholder="'Select one or more namespaces'"
                 on-change="($ctrl.onChangeResourcePools)"
+                allow-select-all="true"
               ></namespaces-selector>
             </div>
             <div class="col-sm-12 small text-muted vertical-center">
@@ -48,17 +49,5 @@
     </rd-widget>
   </div>
 </div>
-<div class="row">
-  <div class="col-sm-12">
-    <strings-datatable
-      title-text="Access"
-      title-icon="user-x"
-      table-key="access_registry_resourcepools"
-      dataset="$ctrl.savedResourcePools"
-      empty-dataset-message="No namespace has been authorized yet."
-      on-remove="($ctrl.handleRemove)"
-      column-header="Namespace"
-    >
-    </strings-datatable>
-  </div>
-</div>
+
+<kube-registry-access-table dataset="$ctrl.savedResourcePools" on-remove="($ctrl.handleRemove)"></kube-registry-access-table>

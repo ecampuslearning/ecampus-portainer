@@ -37,6 +37,7 @@ export function PorAccessManagementUsersSelector({
             closeMenuOnSelect={false}
             onChange={onChange}
             data-cy="component-selectUser"
+            id="component-selectUser"
             inputId="users-selector"
             placeholder="Select one or more users and/or teams"
             components={{ MultiValueLabel, Option: OptionComponent }}
@@ -76,7 +77,7 @@ function Label({ option }: { option: Option }) {
   const Icon = option.Type === 'user' ? UserIcon : TeamIcon;
 
   return (
-    <div className="flex gap-1 items-center">
+    <div className="flex items-center gap-1">
       <Icon />
       <span>{option.Name}</span>
     </div>

@@ -6,7 +6,6 @@ import { getPlatformType } from '@/react/portainer/environments/utils';
 
 import { EnvironmentStatsDocker } from './EnvironmentStatsDocker';
 import { EnvironmentStatsKubernetes } from './EnvironmentStatsKubernetes';
-import { EnvironmentStatsNomad } from './EnvironmentStatsNomad';
 
 interface Props {
   environment: Environment;
@@ -18,7 +17,7 @@ export function EnvironmentStats({ environment }: Props) {
   const component = getComponent(platform, environment);
 
   return (
-    <span className="blocklist-item-desc flex items-center gap-x-10 gap-y-2 flex-wrap">
+    <span className="blocklist-item-desc flex flex-wrap items-center gap-x-10 gap-y-2">
       {component}
     </span>
   );
@@ -34,10 +33,6 @@ function getComponent(platform: PlatformType, environment: Environment) {
       );
     case PlatformType.Docker:
       return <EnvironmentStatsDocker snapshot={environment.Snapshots?.[0]} />;
-    case PlatformType.Nomad:
-      return (
-        <EnvironmentStatsNomad snapshot={environment.Nomad.Snapshots?.[0]} />
-      );
     default:
       return null;
   }

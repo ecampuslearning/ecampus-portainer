@@ -1,8 +1,12 @@
 import _ from 'lodash';
+import { QueryObserverResult } from '@tanstack/react-query';
 
 import { Team } from '@/react/portainer/users/teams/types';
 import { Role, User, UserId } from '@/portainer/users/types';
-import { Environment } from '@/react/portainer/environments/types';
+import {
+  ContainerEngine,
+  Environment,
+} from '@/react/portainer/environments/types';
 
 export function createMockUsers(
   count: number,
@@ -12,12 +16,15 @@ export function createMockUsers(
     Id: value,
     Username: `user${value}`,
     Role: getRoles(roles, value),
-    UserTheme: '',
     RoleName: '',
     AuthenticationMethod: '',
     Checked: false,
     EndpointAuthorizations: {},
     PortainerAuthorizations: {},
+    UseCache: false,
+    ThemeSettings: {
+      color: 'auto',
+    },
   }));
 }
 
@@ -66,11 +73,17 @@ export function createMockEnvironment(): Environment {
     TagIds: [],
     GroupId: 1,
     Type: 1,
+    ContainerEngine: ContainerEngine.Docker,
     Name: 'environment',
     Status: 1,
     URL: 'url',
     Snapshots: [],
     Kubernetes: {
+      Flags: {
+        IsServerMetricsDetected: true,
+        IsServerIngressClassDetected: true,
+        IsServerStorageDetected: true,
+      },
       Snapshots: [],
       Configuration: {
         IngressClasses: [],
@@ -78,8 +91,11 @@ export function createMockEnvironment(): Environment {
         AllowNoneIngressClass: false,
       },
     },
-    Nomad: { Snapshots: [] },
+    UserAccessPolicies: {},
+    TeamAccessPolicies: {},
+    ComposeSyntaxMaxVersion: '0',
     EdgeKey: '',
+    EnableGPUManagement: false,
     Id: 3,
     UserTrusted: false,
     Edge: {
@@ -99,7 +115,58 @@ export function createMockEnvironment(): Environment {
       allowVolumeBrowserForRegularUsers: false,
       enableHostManagementFeatures: false,
     },
+    DeploymentOptions: {
+      overrideGlobalOptions: false,
+      hideAddWithForm: true,
+      hideWebEditor: false,
+      hideFileUpload: false,
+    },
     Gpus: [],
     Agent: { Version: '1.0.0' },
+    EnableImageNotification: false,
+    ChangeWindow: {
+      Enabled: false,
+      EndTime: '',
+      StartTime: '',
+    },
+    StatusMessage: {
+      detail: '',
+      summary: '',
+    },
   };
+}
+
+export function createMockQueryResult<TData, TError = unknown>(
+  data: TData,
+  overrides?: Partial<QueryObserverResult<TData, TError>>
+) {
+  const defaultResult = {
+    data,
+    dataUpdatedAt: 0,
+    error: null,
+    errorUpdatedAt: 0,
+    failureCount: 0,
+    errorUpdateCount: 0,
+    failureReason: null,
+    isError: false,
+    isFetched: true,
+    isFetchedAfterMount: true,
+    isFetching: false,
+    isInitialLoading: false,
+    isLoading: false,
+    isLoadingError: false,
+    isPaused: false,
+    isPlaceholderData: false,
+    isPreviousData: false,
+    isRefetchError: false,
+    isRefetching: false,
+    isStale: false,
+    isSuccess: true,
+    refetch: async () => defaultResult,
+    remove: () => {},
+    status: 'success',
+    fetchStatus: 'idle',
+  };
+
+  return { ...defaultResult, ...overrides };
 }

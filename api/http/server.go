@@ -7,13 +7,15 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/pkg/errors"
 	portainer "github.com/portainer/portainer/api"
 	"github.com/portainer/portainer/api/adminmonitor"
 	"github.com/portainer/portainer/api/apikey"
 	"github.com/portainer/portainer/api/crypto"
 	"github.com/portainer/portainer/api/dataservices"
-	"github.com/portainer/portainer/api/demo"
 	"github.com/portainer/portainer/api/docker"
+	dockerclient "github.com/portainer/portainer/api/docker/client"
+	"github.com/portainer/portainer/api/http/csrf"
 	"github.com/portainer/portainer/api/http/handler"
 	"github.com/portainer/portainer/api/http/handler/auth"
 	"github.com/portainer/portainer/api/http/handler/backup"
@@ -22,14 +24,13 @@ import (
 	"github.com/portainer/portainer/api/http/handler/edgegroups"
 	"github.com/portainer/portainer/api/http/handler/edgejobs"
 	"github.com/portainer/portainer/api/http/handler/edgestacks"
-	"github.com/portainer/portainer/api/http/handler/edgetemplates"
 	"github.com/portainer/portainer/api/http/handler/endpointedge"
 	"github.com/portainer/portainer/api/http/handler/endpointgroups"
 	"github.com/portainer/portainer/api/http/handler/endpointproxy"
 	"github.com/portainer/portainer/api/http/handler/endpoints"
 	"github.com/portainer/portainer/api/http/handler/file"
+	"github.com/portainer/portainer/api/http/handler/gitops"
 	"github.com/portainer/portainer/api/http/handler/helm"
-	"github.com/portainer/portainer/api/http/handler/hostmanagement/fdo"
 	"github.com/portainer/portainer/api/http/handler/hostmanagement/openamt"
 	kubehandler "github.com/portainer/portainer/api/http/handler/kubernetes"
 	"github.com/portainer/portainer/api/http/handler/ldap"
@@ -50,19 +51,23 @@ import (
 	"github.com/portainer/portainer/api/http/handler/users"
 	"github.com/portainer/portainer/api/http/handler/webhooks"
 	"github.com/portainer/portainer/api/http/handler/websocket"
+	"github.com/portainer/portainer/api/http/middlewares"
 	"github.com/portainer/portainer/api/http/offlinegate"
 	"github.com/portainer/portainer/api/http/proxy"
 	"github.com/portainer/portainer/api/http/proxy/factory/kubernetes"
 	"github.com/portainer/portainer/api/http/security"
 	"github.com/portainer/portainer/api/internal/authorization"
 	edgestackservice "github.com/portainer/portainer/api/internal/edge/edgestacks"
+	"github.com/portainer/portainer/api/internal/snapshot"
 	"github.com/portainer/portainer/api/internal/ssl"
 	"github.com/portainer/portainer/api/internal/upgrade"
 	k8s "github.com/portainer/portainer/api/kubernetes"
 	"github.com/portainer/portainer/api/kubernetes/cli"
+	"github.com/portainer/portainer/api/pendingactions"
+	"github.com/portainer/portainer/api/platform"
 	"github.com/portainer/portainer/api/scheduler"
 	"github.com/portainer/portainer/api/stacks/deployments"
-	"github.com/portainer/portainer/pkg/libhelm"
+	libhelmtypes "github.com/portainer/portainer/pkg/libhelm/types"
 
 	"github.com/rs/zerolog/log"
 )
@@ -72,6 +77,7 @@ type Server struct {
 	AuthorizationService        *authorization.Service
 	BindAddress                 string
 	BindAddressHTTPS            string
+	CSP                         bool
 	HTTPEnabled                 bool
 	AssetsPath                  string
 	Status                      *portainer.Status
@@ -86,7 +92,7 @@ type Server struct {
 	GitService                  portainer.GitService
 	OpenAMTService              portainer.OpenAMTService
 	APIKeyService               apikey.APIKeyService
-	JWTService                  dataservices.JWTService
+	JWTService                  portainer.JWTService
 	LDAPService                 portainer.LDAPService
 	OAuthService                portainer.OAuthService
 	SwarmStackManager           portainer.SwarmStackManager
@@ -95,16 +101,20 @@ type Server struct {
 	KubeClusterAccessService    k8s.KubeClusterAccessService
 	Handler                     *handler.Handler
 	SSLService                  *ssl.Service
-	DockerClientFactory         *docker.ClientFactory
+	DockerClientFactory         *dockerclient.ClientFactory
 	KubernetesClientFactory     *cli.ClientFactory
 	KubernetesDeployer          portainer.KubernetesDeployer
-	HelmPackageManager          libhelm.HelmPackageManager
+	HelmPackageManager          libhelmtypes.HelmPackageManager
 	Scheduler                   *scheduler.Scheduler
 	ShutdownCtx                 context.Context
 	ShutdownTrigger             context.CancelFunc
 	StackDeployer               deployments.StackDeployer
-	DemoService                 *demo.Service
 	UpgradeService              upgrade.Service
+	AdminCreationDone           chan struct{}
+	PendingActionsService       *pendingactions.PendingActionsService
+	PlatformService             platform.Service
+	PullLimitCheckDisabled      bool
+	TrustedOrigins              []string
 }
 
 // Start starts the HTTP server
@@ -112,13 +122,16 @@ func (server *Server) Start() error {
 	kubernetesTokenCacheManager := server.KubernetesTokenCacheManager
 
 	requestBouncer := security.NewRequestBouncer(server.DataStore, server.JWTService, server.APIKeyService)
+	if !server.CSP {
+		requestBouncer.DisableCSP()
+	}
 
 	rateLimiter := security.NewRateLimiter(10, 1*time.Second, 1*time.Hour)
 	offlineGate := offlinegate.NewOfflineGate()
 
 	passwordStrengthChecker := security.NewPasswordStrengthChecker(server.DataStore.Settings())
 
-	var authHandler = auth.NewHandler(requestBouncer, rateLimiter, passwordStrengthChecker)
+	var authHandler = auth.NewHandler(requestBouncer, rateLimiter, passwordStrengthChecker, server.KubernetesClientFactory)
 	authHandler.DataStore = server.DataStore
 	authHandler.CryptoService = server.CryptoService
 	authHandler.JWTService = server.JWTService
@@ -137,16 +150,12 @@ func (server *Server) Start() error {
 		server.FileService.GetDatastorePath(),
 		server.ShutdownTrigger,
 		adminMonitor,
-		server.DemoService,
 	)
 
 	var roleHandler = roles.NewHandler(requestBouncer)
 	roleHandler.DataStore = server.DataStore
 
-	var customTemplatesHandler = customtemplates.NewHandler(requestBouncer)
-	customTemplatesHandler.DataStore = server.DataStore
-	customTemplatesHandler.FileService = server.FileService
-	customTemplatesHandler.GitService = server.GitService
+	var customTemplatesHandler = customtemplates.NewHandler(requestBouncer, server.DataStore, server.FileService, server.GitService)
 
 	var edgeGroupsHandler = edgegroups.NewHandler(requestBouncer)
 	edgeGroupsHandler.DataStore = server.DataStore
@@ -162,26 +171,27 @@ func (server *Server) Start() error {
 	edgeStacksHandler.GitService = server.GitService
 	edgeStacksHandler.KubernetesDeployer = server.KubernetesDeployer
 
-	var edgeTemplatesHandler = edgetemplates.NewHandler(requestBouncer)
-	edgeTemplatesHandler.DataStore = server.DataStore
-
-	var endpointHandler = endpoints.NewHandler(requestBouncer, server.DemoService)
+	var endpointHandler = endpoints.NewHandler(requestBouncer)
 	endpointHandler.DataStore = server.DataStore
 	endpointHandler.FileService = server.FileService
 	endpointHandler.ProxyManager = server.ProxyManager
 	endpointHandler.SnapshotService = server.SnapshotService
 	endpointHandler.K8sClientFactory = server.KubernetesClientFactory
+	endpointHandler.DockerClientFactory = server.DockerClientFactory
 	endpointHandler.ReverseTunnelService = server.ReverseTunnelService
 	endpointHandler.ComposeStackManager = server.ComposeStackManager
 	endpointHandler.AuthorizationService = server.AuthorizationService
 	endpointHandler.BindAddress = server.BindAddress
 	endpointHandler.BindAddressHTTPS = server.BindAddressHTTPS
+	endpointHandler.PendingActionsService = server.PendingActionsService
+	endpointHandler.PullLimitCheckDisabled = server.PullLimitCheckDisabled
 
 	var endpointEdgeHandler = endpointedge.NewHandler(requestBouncer, server.DataStore, server.FileService, server.ReverseTunnelService)
 
 	var endpointGroupHandler = endpointgroups.NewHandler(requestBouncer)
 	endpointGroupHandler.AuthorizationService = server.AuthorizationService
 	endpointGroupHandler.DataStore = server.DataStore
+	endpointGroupHandler.PendingActionsService = server.PendingActionsService
 
 	var endpointProxyHandler = endpointproxy.NewHandler(requestBouncer)
 	endpointProxyHandler.DataStore = server.DataStore
@@ -190,11 +200,15 @@ func (server *Server) Start() error {
 
 	var kubernetesHandler = kubehandler.NewHandler(requestBouncer, server.AuthorizationService, server.DataStore, server.JWTService, server.KubeClusterAccessService, server.KubernetesClientFactory, nil)
 
-	var dockerHandler = dockerhandler.NewHandler(requestBouncer, server.AuthorizationService, server.DataStore, server.DockerClientFactory)
+	containerService := docker.NewContainerService(server.DockerClientFactory, server.DataStore)
 
-	var fileHandler = file.NewHandler(filepath.Join(server.AssetsPath, "public"), adminMonitor.WasInstanceDisabled)
+	var dockerHandler = dockerhandler.NewHandler(requestBouncer, server.AuthorizationService, server.DataStore, server.DockerClientFactory, containerService)
+
+	var fileHandler = file.NewHandler(filepath.Join(server.AssetsPath, "public"), server.CSP, adminMonitor.WasInstanceDisabled)
 
 	var endpointHelmHandler = helm.NewHandler(requestBouncer, server.DataStore, server.JWTService, server.KubernetesDeployer, server.HelmPackageManager, server.KubeClusterAccessService)
+
+	var gitOperationHandler = gitops.NewHandler(requestBouncer, server.DataStore, server.GitService, server.FileService)
 
 	var helmTemplatesHandler = helm.NewTemplateHandler(requestBouncer, server.HelmPackageManager)
 
@@ -214,7 +228,7 @@ func (server *Server) Start() error {
 	var resourceControlHandler = resourcecontrols.NewHandler(requestBouncer)
 	resourceControlHandler.DataStore = server.DataStore
 
-	var settingsHandler = settings.NewHandler(requestBouncer, server.DemoService)
+	var settingsHandler = settings.NewHandler(requestBouncer)
 	settingsHandler.DataStore = server.DataStore
 	settingsHandler.FileService = server.FileService
 	settingsHandler.JWTService = server.JWTService
@@ -228,8 +242,6 @@ func (server *Server) Start() error {
 	openAMTHandler.OpenAMTService = server.OpenAMTService
 	openAMTHandler.DataStore = server.DataStore
 	openAMTHandler.DockerClientFactory = server.DockerClientFactory
-
-	fdoHandler := fdo.NewHandler(requestBouncer, server.DataStore, server.FileService)
 
 	var stackHandler = stacks.NewHandler(requestBouncer)
 	stackHandler.DataStore = server.DataStore
@@ -253,11 +265,12 @@ func (server *Server) Start() error {
 
 	var teamMembershipHandler = teammemberships.NewHandler(requestBouncer)
 	teamMembershipHandler.DataStore = server.DataStore
+	teamMembershipHandler.K8sClientFactory = server.KubernetesClientFactory
 
 	var systemHandler = system.NewHandler(requestBouncer,
 		server.Status,
-		server.DemoService,
 		server.DataStore,
+		server.PlatformService,
 		server.UpgradeService)
 
 	var templatesHandler = templates.NewHandler(requestBouncer)
@@ -268,9 +281,11 @@ func (server *Server) Start() error {
 	var uploadHandler = upload.NewHandler(requestBouncer)
 	uploadHandler.FileService = server.FileService
 
-	var userHandler = users.NewHandler(requestBouncer, rateLimiter, server.APIKeyService, server.DemoService, passwordStrengthChecker)
+	var userHandler = users.NewHandler(requestBouncer, rateLimiter, server.APIKeyService, passwordStrengthChecker)
 	userHandler.DataStore = server.DataStore
 	userHandler.CryptoService = server.CryptoService
+	userHandler.AdminCreationDone = server.AdminCreationDone
+	userHandler.FileService = server.FileService
 
 	var websocketHandler = websocket.NewHandler(server.KubernetesTokenCacheManager, requestBouncer)
 	websocketHandler.DataStore = server.DataStore
@@ -291,19 +306,18 @@ func (server *Server) Start() error {
 		EdgeGroupsHandler:      edgeGroupsHandler,
 		EdgeJobsHandler:        edgeJobsHandler,
 		EdgeStacksHandler:      edgeStacksHandler,
-		EdgeTemplatesHandler:   edgeTemplatesHandler,
 		EndpointGroupHandler:   endpointGroupHandler,
 		EndpointHandler:        endpointHandler,
 		EndpointHelmHandler:    endpointHelmHandler,
 		EndpointEdgeHandler:    endpointEdgeHandler,
 		EndpointProxyHandler:   endpointProxyHandler,
+		GitOperationHandler:    gitOperationHandler,
 		FileHandler:            fileHandler,
 		LDAPHandler:            ldapHandler,
 		HelmTemplatesHandler:   helmTemplatesHandler,
 		KubernetesHandler:      kubernetesHandler,
 		MOTDHandler:            motdHandler,
 		OpenAMTHandler:         openAMTHandler,
-		FDOHandler:             fdoHandler,
 		RegistryHandler:        registryHandler,
 		ResourceControlHandler: resourceControlHandler,
 		SettingsHandler:        settingsHandler,
@@ -321,13 +335,24 @@ func (server *Server) Start() error {
 		WebhookHandler:         webhookHandler,
 	}
 
+	errorLogger := NewHTTPLogger()
+
 	handler := adminMonitor.WithRedirect(offlineGate.WaitingMiddleware(time.Minute, server.Handler))
+
+	handler = middlewares.WithPanicLogger(middlewares.WithSlowRequestsLogger(handler))
+
+	handler, err := csrf.WithProtect(handler, server.TrustedOrigins)
+	if err != nil {
+		return errors.Wrap(err, "failed to create CSRF middleware")
+	}
+
 	if server.HTTPEnabled {
 		go func() {
 			log.Info().Str("bind_address", server.BindAddress).Msg("starting HTTP server")
 			httpServer := &http.Server{
-				Addr:    server.BindAddress,
-				Handler: handler,
+				Addr:     server.BindAddress,
+				Handler:  middlewares.PlaintextHTTPRequest(handler),
+				ErrorLog: errorLogger,
 			}
 
 			go shutdown(server.ShutdownCtx, httpServer)
@@ -343,15 +368,17 @@ func (server *Server) Start() error {
 	httpsServer := &http.Server{
 		Addr:         server.BindAddressHTTPS,
 		Handler:      handler,
+		ErrorLog:     errorLogger,
 		TLSNextProto: make(map[string]func(*http.Server, *tls.Conn, http.Handler)), // Disable HTTP/2
 	}
 
-	httpsServer.TLSConfig = crypto.CreateServerTLSConfiguration()
+	httpsServer.TLSConfig = crypto.CreateTLSConfiguration()
 	httpsServer.TLSConfig.GetCertificate = func(*tls.ClientHelloInfo) (*tls.Certificate, error) {
 		return server.SSLService.GetRawCertificate(), nil
 	}
 
 	go shutdown(server.ShutdownCtx, httpsServer)
+	go snapshot.NewBackgroundSnapshotter(server.DataStore, server.ReverseTunnelService)
 
 	return httpsServer.ListenAndServeTLS("", "")
 }

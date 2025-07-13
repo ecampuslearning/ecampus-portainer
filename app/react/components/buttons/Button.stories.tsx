@@ -40,8 +40,9 @@ export function DifferentTheme() {
             {themes.map((theme) => (
               <td
                 key={theme}
-                // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+                // eslint-disable-next-line @typescript-eslint/ban-ts-comment,
                 // @ts-ignore
+                // eslint-disable-next-line react/no-unknown-property
                 theme={theme}
                 className="p-5"
                 style={{ background: 'var(--bg-body-color)' }}
@@ -49,6 +50,7 @@ export function DifferentTheme() {
                 {states.map((state) => (
                   <Button
                     color={color}
+                    data-cy="button"
                     key={state}
                     disabled={state === 'disabled'}
                   >
@@ -71,7 +73,13 @@ function Template({
   disabled,
 }: JSX.IntrinsicAttributes & PropsWithChildren<Props>) {
   return (
-    <Button onClick={onClick} color={color} size={size} disabled={disabled}>
+    <Button
+      onClick={onClick}
+      color={color}
+      size={size}
+      disabled={disabled}
+      data-cy="button"
+    >
       Primary Button
     </Button>
   );
@@ -89,7 +97,7 @@ Primary.args = {
 
 export function Disabled() {
   return (
-    <Button color="primary" onClick={() => {}} disabled>
+    <Button color="primary" onClick={() => {}} disabled data-cy="button">
       Disabled Button
     </Button>
   );
@@ -97,7 +105,7 @@ export function Disabled() {
 
 export function Danger() {
   return (
-    <Button color="danger" onClick={() => {}}>
+    <Button color="danger" onClick={() => {}} data-cy="button">
       Danger Button
     </Button>
   );
@@ -105,7 +113,7 @@ export function Danger() {
 
 export function ButtonIcon() {
   return (
-    <Button color="primary" onClick={() => {}} icon={Download}>
+    <Button color="primary" onClick={() => {}} icon={Download} data-cy="button">
       Button with an icon
     </Button>
   );
@@ -113,7 +121,13 @@ export function ButtonIcon() {
 
 export function ButtonIconLarge() {
   return (
-    <Button color="primary" onClick={() => {}} icon={Download} size="large">
+    <Button
+      color="primary"
+      onClick={() => {}}
+      icon={Download}
+      size="large"
+      data-cy="button"
+    >
       Button with an icon
     </Button>
   );
@@ -121,7 +135,13 @@ export function ButtonIconLarge() {
 
 export function ButtonIconMedium() {
   return (
-    <Button color="primary" onClick={() => {}} icon={Download} size="medium">
+    <Button
+      color="primary"
+      onClick={() => {}}
+      icon={Download}
+      size="medium"
+      data-cy="button"
+    >
       Button with an icon
     </Button>
   );
@@ -129,7 +149,13 @@ export function ButtonIconMedium() {
 
 export function ButtonIconXSmall() {
   return (
-    <Button color="primary" onClick={() => {}} icon={Download} size="xsmall">
+    <Button
+      color="primary"
+      onClick={() => {}}
+      icon={Download}
+      size="xsmall"
+      data-cy="button"
+    >
       Button with an icon
     </Button>
   );
@@ -137,7 +163,7 @@ export function ButtonIconXSmall() {
 
 export function Default() {
   return (
-    <Button color="default" onClick={() => {}}>
+    <Button color="default" onClick={() => {}} data-cy="button">
       Default
     </Button>
   );
@@ -145,7 +171,7 @@ export function Default() {
 
 export function Link() {
   return (
-    <Button color="link" onClick={() => {}}>
+    <Button color="link" onClick={() => {}} data-cy="button">
       Link Button
     </Button>
   );
@@ -153,7 +179,7 @@ export function Link() {
 
 export function XSmall() {
   return (
-    <Button color="primary" onClick={() => {}} size="xsmall">
+    <Button color="primary" onClick={() => {}} size="xsmall" data-cy="button">
       XSmall Button
     </Button>
   );
@@ -161,7 +187,7 @@ export function XSmall() {
 
 export function Small() {
   return (
-    <Button color="primary" onClick={() => {}} size="small">
+    <Button color="primary" onClick={() => {}} size="small" data-cy="button">
       Small Button
     </Button>
   );
@@ -169,7 +195,7 @@ export function Small() {
 
 export function Large() {
   return (
-    <Button color="primary" onClick={() => {}} size="large">
+    <Button color="primary" onClick={() => {}} size="large" data-cy="button">
       Large Button
     </Button>
   );

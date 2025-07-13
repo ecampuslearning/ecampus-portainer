@@ -1,7 +1,7 @@
 import _ from 'lodash-es';
 import YAML from 'yaml';
 import GenericHelper from '@/portainer/helpers/genericHelper';
-import { ExternalStackViewModel } from '@/portainer/models/stack';
+import { ExternalStackViewModel } from '@/react/docker/stacks/view-models/external-stack';
 
 angular.module('portainer.app').factory('StackHelper', [
   function StackHelperFactory() {
@@ -33,7 +33,7 @@ function validateYAML(yaml, containerNames, originalContainersNames = []) {
   let yamlObject;
 
   try {
-    yamlObject = YAML.parse(yaml);
+    yamlObject = YAML.parse(yaml, { mapAsMap: true, maxAliasCount: 10000 });
   } catch (err) {
     return 'There is an error in the yaml syntax: ' + err;
   }
@@ -58,7 +58,7 @@ export function extractContainerNames(yaml = '') {
   let yamlObject;
 
   try {
-    yamlObject = YAML.parse(yaml);
+    yamlObject = YAML.parse(yaml, { maxAliasCount: 10000 });
   } catch (err) {
     return [];
   }

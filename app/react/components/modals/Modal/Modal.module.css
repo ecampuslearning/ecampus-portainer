@@ -3,7 +3,6 @@
 }
 
 .modal-dialog {
-  width: 450px;
   display: inline-block;
   text-align: left;
   vertical-align: middle;
@@ -11,14 +10,12 @@
 
 .modal-content {
   background-color: var(--bg-modal-content-color);
-  padding: 20px;
-
-  position: relative;
 
   border: 1px solid rgba(0, 0, 0, 0.2);
-  border-radius: 6px;
-
-  outline: 0;
 
   box-shadow: 0 5px 15px rgb(0 0 0 / 50%);
+}
+
+[theme='highcontrast'] .modal-content {
+  border: 1px solid var(--border-widget);
 }

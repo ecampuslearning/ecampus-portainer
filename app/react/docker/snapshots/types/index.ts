@@ -1,7 +1,11 @@
-import { DockerContainer } from '@/react/docker/containers/types';
+import { ContainerListViewModel } from '@/react/docker/containers/types';
+
+export type DockerContainerSnapshot = ContainerListViewModel & {
+  Env: string[];
+};
 
 export type DockerSnapshotRaw = {
-  Containers: DockerContainer[];
+  Containers: DockerContainerSnapshot[];
   SnapshotTime: string;
 };
 
@@ -11,6 +15,7 @@ export interface DockerSnapshot {
   NodeCount: number;
   ImageCount: number;
   VolumeCount: number;
+  ContainerCount: number;
   RunningContainerCount: number;
   StoppedContainerCount: number;
   HealthyContainerCount: number;

@@ -1,49 +1,43 @@
-import { ChevronDown, ChevronUp } from 'lucide-react';
-import { CellProps, Column, HeaderProps } from 'react-table';
+import { ColumnDef } from '@tanstack/react-table';
 
-import { Button } from '@@/buttons';
+import { CollapseExpandButton } from '../CollapseExpandButton';
 
-export function buildExpandColumn<T extends Record<string, unknown>>(
-  isExpandable: (item: T) => boolean
-): Column<T> {
+import { DefaultType } from './types';
+
+export function buildExpandColumn<T extends DefaultType>(): ColumnDef<T> {
   return {
     id: 'expand',
-    Header: ({
-      filteredFlatRows,
-      getToggleAllRowsExpandedProps,
-      isAllRowsExpanded,
-    }: HeaderProps<T>) => {
-      const hasExpandableItems = filteredFlatRows.some((item) =>
-        isExpandable(item.original)
-      );
+    header: ({ table }) => {
+      const hasExpandableItems = table.getCanSomeRowsExpand();
 
       return (
         hasExpandableItems && (
-          <Button
-            // eslint-disable-next-line react/jsx-props-no-spreading
-            {...getToggleAllRowsExpandedProps()}
-            color="none"
-            icon={isAllRowsExpanded ? ChevronDown : ChevronUp}
+          <CollapseExpandButton
+            isExpanded={table.getIsAllRowsExpanded()}
+            onClick={table.getToggleAllRowsExpandedHandler()}
+            data-cy="expand-all-rows-button"
+            aria-label={
+              table.getIsAllRowsExpanded()
+                ? 'Collapse all rows'
+                : 'Expand all rows'
+            }
           />
         )
       );
     },
-    Cell: ({ row }: CellProps<T>) => (
-      <div className="vertical-center">
-        {isExpandable(row.original) && (
-          <Button
-            /*  eslint-disable-next-line react/jsx-props-no-spreading */
-            {...row.getToggleRowExpandedProps()}
-            color="none"
-            icon={row.isExpanded ? ChevronDown : ChevronUp}
-          />
-        )}
-      </div>
-    ),
-    disableFilters: true,
-    Filter: () => null,
-    canHide: false,
-    width: 30,
-    disableResizing: true,
+    cell: ({ row }) =>
+      row.getCanExpand() && (
+        <CollapseExpandButton
+          isExpanded={row.getIsExpanded()}
+          onClick={row.getToggleExpandedHandler()}
+          data-cy={`expand-row-button_${row.index}`}
+        />
+      ),
+    enableColumnFilter: false,
+    enableGlobalFilter: false,
+    enableHiding: false,
+    meta: {
+      width: 40,
+    },
   };
 }

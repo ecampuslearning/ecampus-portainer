@@ -6,11 +6,12 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/portainer/portainer/api/archive"
+	gittypes "github.com/portainer/portainer/api/git/types"
+
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/plumbing/object"
 	"github.com/pkg/errors"
-	"github.com/portainer/portainer/api/archive"
-	gittypes "github.com/portainer/portainer/api/git/types"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -23,8 +24,7 @@ func setup(t *testing.T) string {
 		t.Fatal(errors.Wrap(err, "failed to open an archive"))
 	}
 
-	err = archive.ExtractTarGz(file, dir)
-	if err != nil {
+	if err := archive.ExtractTarGz(file, dir); err != nil {
 		t.Fatal(errors.Wrapf(err, "failed to extract file from the archive to a folder %s", dir))
 	}
 
@@ -38,7 +38,7 @@ func Test_ClonePublicRepository_Shallow(t *testing.T) {
 
 	dir := t.TempDir()
 	t.Logf("Cloning into %s", dir)
-	err := service.CloneRepository(dir, repositoryURL, referenceName, "", "")
+	err := service.CloneRepository(dir, repositoryURL, referenceName, "", "", false)
 	assert.NoError(t, err)
 	assert.Equal(t, 1, getCommitHistoryLength(t, err, dir), "cloned repo has incorrect depth")
 }
@@ -50,7 +50,7 @@ func Test_ClonePublicRepository_NoGitDirectory(t *testing.T) {
 
 	dir := t.TempDir()
 	t.Logf("Cloning into %s", dir)
-	err := service.CloneRepository(dir, repositoryURL, referenceName, "", "")
+	err := service.CloneRepository(dir, repositoryURL, referenceName, "", "", false)
 	assert.NoError(t, err)
 	assert.NoDirExists(t, filepath.Join(dir, ".git"))
 }
@@ -84,10 +84,33 @@ func Test_latestCommitID(t *testing.T) {
 	repositoryURL := setup(t)
 	referenceName := "refs/heads/main"
 
-	id, err := service.LatestCommitID(repositoryURL, referenceName, "", "")
+	id, err := service.LatestCommitID(repositoryURL, referenceName, "", "", false)
 
 	assert.NoError(t, err)
 	assert.Equal(t, "68dcaa7bd452494043c64252ab90db0f98ecf8d2", id)
+}
+
+func Test_ListRefs(t *testing.T) {
+	service := Service{git: NewGitClient(true)}
+
+	repositoryURL := setup(t)
+
+	fs, err := service.ListRefs(repositoryURL, "", "", false, false)
+
+	assert.NoError(t, err)
+	assert.Equal(t, []string{"refs/heads/main"}, fs)
+}
+
+func Test_ListFiles(t *testing.T) {
+	service := Service{git: NewGitClient(true)}
+
+	repositoryURL := setup(t)
+	referenceName := "refs/heads/main"
+
+	fs, err := service.ListFiles(repositoryURL, referenceName, "", "", false, false, []string{".yml"}, false)
+
+	assert.NoError(t, err)
+	assert.Equal(t, []string{"docker-compose.yml"}, fs)
 }
 
 func getCommitHistoryLength(t *testing.T, err error, dir string) int {
@@ -95,10 +118,12 @@ func getCommitHistoryLength(t *testing.T, err error, dir string) int {
 	if err != nil {
 		t.Fatalf("can't open a git repo at %s with error %v", dir, err)
 	}
+
 	iter, err := repo.Log(&git.LogOptions{All: true})
 	if err != nil {
 		t.Fatalf("can't get a commit history iterator with error %v", err)
 	}
+
 	count := 0
 	err = iter.ForEach(func(_ *object.Commit) error {
 		count++
@@ -107,6 +132,7 @@ func getCommitHistoryLength(t *testing.T, err error, dir string) int {
 	if err != nil {
 		t.Fatalf("can't iterate over the commit history with error %v", err)
 	}
+
 	return count
 }
 

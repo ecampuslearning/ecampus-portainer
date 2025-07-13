@@ -13,15 +13,9 @@
 
 <div class="form-group" style="margin-top: 10px">
   <div class="col-sm-12">
-    <button
-      class="label label-default interactive vertical-center"
-      style="border: 0"
-      ng-click="$ctrl.onAddClick()"
-      limited-feature-dir="{{::$ctrl.limitedFeatureId}}"
-      limited-feature-tabindex="-1"
-    >
-      <pr-icon icon="'plus-circle'"></pr-icon>
-      add group search configuration
+    <button class="btn btn-sm btn-light vertical-center !ml-0" ng-click="$ctrl.onAddClick()" disabled>
+      <pr-icon icon="'plus'"></pr-icon>
+      Add group search configuration
     </button>
   </div>
   <div class="col-sm-12" style="margin-top: 10px">
@@ -31,8 +25,4 @@
   </div>
 </div>
 
-<div ng-if="$ctrl.showTable">
-  <div class="form-group col-sm-12">
-    <ldap-groups-datatable dataset="$ctrl.groups" title-text="Groups" title-icon="users" table-key="ldapGroups"></ldap-groups-datatable>
-  </div>
-</div>
+<ldap-groups-datatable ng-if="$ctrl.showTable" dataset="$ctrl.groups"></ldap-groups-datatable>

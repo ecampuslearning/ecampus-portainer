@@ -3,12 +3,12 @@ package libhelm
 import (
 	"testing"
 
-	"github.com/portainer/portainer/pkg/libhelm/libhelmtest"
+	"github.com/portainer/portainer/pkg/libhelm/test"
 	"github.com/stretchr/testify/assert"
 )
 
 func Test_ValidateHelmRepositoryURL(t *testing.T) {
-	libhelmtest.EnsureIntegrationTest(t)
+	test.EnsureIntegrationTest(t)
 	is := assert.New(t)
 
 	type testCase struct {
@@ -31,13 +31,15 @@ func Test_ValidateHelmRepositoryURL(t *testing.T) {
 		{"portainer helm repo", "https://portainer.github.io/k8s/", false},
 		{"elastic helm repo", "https://helm.elastic.co/", false},
 		{"redirect", "https://charts.jetstack.io/", false},
+		{"fabric8.io helm repo", "https://fabric8.io/helm/", false},
+		{"lensesio helm repo", "https://lensesio.github.io/kafka-helm-charts", false},
 	}
 
 	for _, test := range tests {
 		func(tc testCase) {
 			t.Run(tc.name, func(t *testing.T) {
 				t.Parallel()
-				err := ValidateHelmRepositoryURL(tc.url)
+				err := ValidateHelmRepositoryURL(tc.url, nil)
 				if tc.invalid {
 					is.Errorf(err, "error expected: %s", tc.url)
 				} else {

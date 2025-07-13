@@ -9,14 +9,14 @@ import (
 	"testing"
 
 	helper "github.com/portainer/portainer/api/internal/testhelpers"
-	"github.com/portainer/portainer/pkg/libhelm/binary/test"
+	"github.com/portainer/portainer/pkg/libhelm/test"
 	"github.com/stretchr/testify/assert"
 )
 
 func Test_helmShow(t *testing.T) {
 	is := assert.New(t)
 
-	helmPackageManager := test.NewMockHelmBinaryPackageManager("")
+	helmPackageManager := test.NewMockHelmPackageManager()
 	h := NewTemplateHandler(helper.NewTestRequestBouncer(), helmPackageManager)
 
 	is.NotNil(h, "Handler should not fail")

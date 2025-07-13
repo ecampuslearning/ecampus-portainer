@@ -24,7 +24,7 @@ func (m *Migrator) updateSettingsToDB24() error {
 func (m *Migrator) updateStacksToDB24() error {
 	log.Info().Msg("updating stacks")
 
-	stacks, err := m.stackService.Stacks()
+	stacks, err := m.stackService.ReadAll()
 	if err != nil {
 		return err
 	}
@@ -32,8 +32,8 @@ func (m *Migrator) updateStacksToDB24() error {
 	for idx := range stacks {
 		stack := &stacks[idx]
 		stack.Status = portainer.StackStatusActive
-		err := m.stackService.UpdateStack(stack.ID, stack)
-		if err != nil {
+
+		if err := m.stackService.Update(stack.ID, stack); err != nil {
 			return err
 		}
 	}

@@ -4,12 +4,12 @@ import (
 	"errors"
 	"net/http"
 
-	httperror "github.com/portainer/libhttp/error"
-	"github.com/portainer/libhttp/request"
-	"github.com/portainer/libhttp/response"
 	portainer "github.com/portainer/portainer/api"
 	httperrors "github.com/portainer/portainer/api/http/errors"
 	"github.com/portainer/portainer/api/http/security"
+	httperror "github.com/portainer/portainer/pkg/libhttp/error"
+	"github.com/portainer/portainer/pkg/libhttp/request"
+	"github.com/portainer/portainer/pkg/libhttp/response"
 )
 
 type teamMembershipCreatePayload struct {
@@ -45,7 +45,6 @@ func (payload *teamMembershipCreatePayload) Validate(r *http.Request) error {
 // @produce json
 // @param body body teamMembershipCreatePayload true "Team membership details"
 // @success 200 {object} portainer.TeamMembership "Success"
-// @success 204 "Success"
 // @failure 400 "Invalid request"
 // @failure 403 "Permission denied to manage memberships"
 // @failure 409 "Team membership already registered"
@@ -75,7 +74,7 @@ func (handler *Handler) teamMembershipCreate(w http.ResponseWriter, r *http.Requ
 	if len(memberships) > 0 {
 		for _, membership := range memberships {
 			if membership.UserID == portainer.UserID(payload.UserID) && membership.TeamID == portainer.TeamID(payload.TeamID) {
-				return &httperror.HandlerError{StatusCode: http.StatusConflict, Message: "Team membership already registered", Err: errors.New("Team membership already exists for this user and team")}
+				return httperror.Conflict("Team membership already registered", errors.New("Team membership already exists for this user and team"))
 			}
 		}
 	}
@@ -90,6 +89,8 @@ func (handler *Handler) teamMembershipCreate(w http.ResponseWriter, r *http.Requ
 	if err != nil {
 		return httperror.InternalServerError("Unable to persist team memberships inside the database", err)
 	}
+
+	defer handler.updateUserServiceAccounts(membership)
 
 	return response.JSON(w, membership)
 }

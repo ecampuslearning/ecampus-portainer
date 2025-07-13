@@ -11,21 +11,22 @@ export function LinkButton({
   className,
   children,
   title = '',
+  'data-cy': dataCy,
   ...props
 }: ComponentProps<typeof Button> & ComponentProps<typeof Link>) {
   return (
     <Button
       title={title}
-      size="medium"
       // eslint-disable-next-line react/jsx-props-no-spreading
       {...props}
-      className={clsx(className, '!m-0 no-link')}
+      className={clsx(className, 'no-link !m-0')}
       disabled={disabled}
       as={disabled ? 'span' : Link}
       props={{
         to,
         params,
       }}
+      data-cy={dataCy}
     >
       {children}
     </Button>

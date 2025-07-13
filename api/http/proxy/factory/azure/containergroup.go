@@ -6,6 +6,8 @@ import (
 
 	portainer "github.com/portainer/portainer/api"
 	"github.com/portainer/portainer/api/http/proxy/factory/utils"
+	"github.com/portainer/portainer/api/http/security"
+	httperror "github.com/portainer/portainer/pkg/libhttp/error"
 )
 
 // proxy for /subscriptions/*/resourceGroups/*/providers/Microsoft.ContainerInstance/containerGroups/*
@@ -23,22 +25,27 @@ func (transport *Transport) proxyContainerGroupRequest(request *http.Request) (*
 }
 
 func (transport *Transport) proxyContainerGroupPutRequest(request *http.Request) (*http.Response, error) {
-	//add a lock before processing existence check
+	tokenData, err := security.RetrieveTokenData(request)
+	if err != nil {
+		return nil, httperror.Forbidden("Permission denied to access environment", err)
+	}
+
+	// Add a lock before processing existence check
 	transport.mutex.Lock()
 	defer transport.mutex.Unlock()
 
-	//generate a temp http GET request based on the current PUT request
+	// Generate a temp http GET request based on the current PUT request
 	validationRequest := &http.Request{
 		Method: http.MethodGet,
 		URL:    request.URL,
 		Header: http.Header{
-			"Authorization": []string{request.Header.Get("Authorization")},
+			"Authorization": []string{"Bearer " + tokenData.Token},
 		},
 	}
 
-	//fire the request to Azure API to validate if there is an existing container instance with the same name
-	//positive - reject the request
-	//negative - continue the process
+	// Fire the request to Azure API to validate if there is an existing container instance with the same name
+	// positive - reject the request
+	// negative - continue the process
 	validationResponse, err := http.DefaultTransport.RoundTrip(validationRequest)
 	if err != nil {
 		return validationResponse, err
@@ -54,6 +61,7 @@ func (transport *Transport) proxyContainerGroupPutRequest(request *http.Request)
 			"message": "A container instance with the same name already exists inside the selected resource group",
 		}
 		err = utils.RewriteResponse(resp, errObj, http.StatusConflict)
+
 		return resp, err
 	}
 

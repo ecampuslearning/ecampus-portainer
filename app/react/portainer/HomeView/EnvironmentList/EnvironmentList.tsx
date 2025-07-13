@@ -10,15 +10,15 @@ import {
   EnvironmentStatus,
   PlatformType,
   EdgeTypes,
+  EnvironmentGroupId,
 } from '@/react/portainer/environments/types';
-import { EnvironmentGroupId } from '@/react/portainer/environments/environment-groups/types';
 import {
   refetchIfAnyOffline,
   useEnvironmentList,
 } from '@/react/portainer/environments/queries/useEnvironmentList';
 import { useGroups } from '@/react/portainer/environments/environment-groups/queries';
 import { EnvironmentsQueryParams } from '@/react/portainer/environments/environment.service';
-import { useUser } from '@/react/hooks/useUser';
+import { useIsPureAdmin } from '@/react/hooks/useUser';
 import { isBE } from '@/react/portainer/feature-flags/feature-flags.service';
 import { environmentStore } from '@/react/hooks/current-environment-store';
 
@@ -29,13 +29,14 @@ import { PaginationControls } from '@@/PaginationControls';
 import { SearchBar, useSearchBarState } from '@@/datatables/SearchBar';
 
 import { useHomePageFilter } from './HomepageFilter';
-import { ConnectionType, Filter } from './types';
+import { ConnectionType } from './types';
 import { EnvironmentItem } from './EnvironmentItem';
 import { KubeconfigButton } from './KubeconfigButton';
 import { NoEnvironmentsInfoPanel } from './NoEnvironmentsInfoPanel';
 import { UpdateBadge } from './UpdateBadge';
 import { EnvironmentListFilters } from './EnvironmentListFilters';
 import { AMTButton } from './AMTButton/AMTButton';
+import { ListSortType } from './SortbySelector';
 
 interface Props {
   onClickBrowse(environment: Environment): void;
@@ -45,18 +46,19 @@ interface Props {
 const storageKey = 'home_endpoints';
 
 export function EnvironmentList({ onClickBrowse, onRefresh }: Props) {
-  const { isAdmin } = useUser();
-  const { environmentId: currentEnvironmentId } = useStore(environmentStore);
+  const isPureAdmin = useIsPureAdmin();
+  const currentEnvStore = useStore(environmentStore);
 
-  const [platformTypes, setPlatformTypes] = useHomePageFilter<
-    Filter<PlatformType>[]
-  >('platformType', []);
+  const [platformTypes, setPlatformTypes] = useHomePageFilter<PlatformType[]>(
+    'platformType',
+    []
+  );
   const [searchBarValue, setSearchBarValue] = useSearchBarState(storageKey);
   const [pageLimit, setPageLimit] = usePaginationLimitState(storageKey);
   const [page, setPage] = useState(1);
 
   const [connectionTypes, setConnectionTypes] = useHomePageFilter<
-    Filter<ConnectionType>[]
+    ConnectionType[]
   >('connectionTypes', []);
 
   const [statusFilter, setStatusFilter] = useHomePageFilter<
@@ -67,7 +69,9 @@ export function EnvironmentList({ onClickBrowse, onRefresh }: Props) {
     'group',
     []
   );
-  const [sortByFilter, setSortByFilter] = useSearchBarState('sortBy');
+  const [sortByFilter, setSortByFilter] = useHomePageFilter<
+    ListSortType | undefined
+  >('sortBy', undefined);
   const [sortByDescending, setSortByDescending] = useHomePageFilter(
     'sortOrder',
     false
@@ -77,20 +81,17 @@ export function EnvironmentList({ onClickBrowse, onRefresh }: Props) {
     false
   );
 
-  const [statusState, setStatusState] = useHomePageFilter<Filter[]>(
+  const [statusState, setStatusState] = useHomePageFilter<number[]>(
     'status_state',
     []
   );
-  const [tagState, setTagState] = useHomePageFilter<Filter[]>('tag_state', []);
-  const [groupState, setGroupState] = useHomePageFilter<Filter[]>(
+  const [tagState, setTagState] = useHomePageFilter<number[]>('tag_state', []);
+  const [groupState, setGroupState] = useHomePageFilter<number[]>(
     'group_state',
     []
   );
-  const [sortByState, setSortByState] = useHomePageFilter<Filter | undefined>(
-    'sort_by_state',
-    undefined
-  );
-  const [agentVersions, setAgentVersions] = useHomePageFilter<Filter<string>[]>(
+
+  const [agentVersions, setAgentVersions] = useHomePageFilter<string[]>(
     'agentVersions',
     []
   );
@@ -98,18 +99,18 @@ export function EnvironmentList({ onClickBrowse, onRefresh }: Props) {
   const groupsQuery = useGroups();
 
   const environmentsQueryParams: EnvironmentsQueryParams = {
-    types: getTypes(
-      platformTypes.map((p) => p.value),
-      connectionTypes.map((p) => p.value)
-    ),
+    types: getTypes(platformTypes, connectionTypes),
     search: searchBarValue,
     status: statusFilter,
     tagIds: tagFilter?.length ? tagFilter : undefined,
     groupIds: groupFilter,
     provisioned: true,
     tagsPartialMatch: true,
-    agentVersions: agentVersions.map((a) => a.value),
+    agentVersions,
     updateInformation: isBE,
+    edgeAsync: getEdgeAsyncValue(connectionTypes),
+    platformTypes,
+    excludeSnapshotRaw: true,
   };
 
   const queryWithSort = {
@@ -130,7 +131,7 @@ export function EnvironmentList({ onClickBrowse, onRefresh }: Props) {
       pageLimit,
       ...queryWithSort,
     },
-    refetchIfAnyOffline
+    { refetchInterval: refetchIfAnyOffline }
   );
 
   useEffect(() => {
@@ -139,7 +140,9 @@ export function EnvironmentList({ onClickBrowse, onRefresh }: Props) {
 
   return (
     <>
-      {totalAvailable === 0 && <NoEnvironmentsInfoPanel isAdmin={isAdmin} />}
+      {totalAvailable === 0 && (
+        <NoEnvironmentsInfoPanel isAdmin={isPureAdmin} />
+      )}
 
       <TableContainer>
         <div className="px-4">
@@ -153,15 +156,15 @@ export function EnvironmentList({ onClickBrowse, onRefresh }: Props) {
               </div>
             }
           >
-            <div className="flex gap-4">
+            <div className="flex items-center gap-4">
               <SearchBar
-                className="!bg-transparent !m-0"
+                className="!m-0 !min-w-[350px] !bg-transparent"
                 value={searchBarValue}
                 onChange={setSearchBarValue}
                 placeholder="Search by name, group, tag, status, URL..."
                 data-cy="home-endpointsSearchInput"
               />
-              {isAdmin && (
+              {isPureAdmin && (
                 <Button
                   onClick={onRefresh}
                   data-cy="home-refreshEndpointsButton"
@@ -201,16 +204,17 @@ export function EnvironmentList({ onClickBrowse, onRefresh }: Props) {
               setAgentVersions={setAgentVersions}
               agentVersions={agentVersions}
               clearFilter={clearFilter}
-              sortOnchange={sortOnchange}
+              sortOnChange={sortOnchange}
               sortOnDescending={sortOnDescending}
               sortByDescending={sortByDescending}
               sortByButton={sortByButton}
-              sortByState={sortByState}
+              sortByState={sortByFilter}
             />
           </div>
           <div
-            className="blocklist !p-0 mt-5 !space-y-2"
+            className="blocklist mt-5 !space-y-2 !p-0"
             data-cy="home-endpointList"
+            role="list"
           >
             {renderItems(
               isLoading,
@@ -223,19 +227,24 @@ export function EnvironmentList({ onClickBrowse, onRefresh }: Props) {
                     groupsQuery.data?.find((g) => g.Id === env.GroupId)?.Name
                   }
                   onClickBrowse={() => onClickBrowse(env)}
-                  isActive={env.Id === currentEnvironmentId}
+                  onClickDisconnect={() =>
+                    env.Id === currentEnvStore.environmentId
+                      ? currentEnvStore.clear()
+                      : null
+                  }
+                  isActive={env.Id === currentEnvStore.environmentId}
                 />
               ))
             )}
           </div>
-          <TableFooter>
+          <TableFooter className="!border-t-0">
             <PaginationControls
               className="!mr-0"
               showAll={totalCount <= 100}
               pageLimit={pageLimit}
               page={page}
               onPageChange={setPage}
-              totalCount={totalCount}
+              pageCount={Math.ceil(totalCount / pageLimit)}
               onPageLimitChange={setPageLimit}
             />
           </TableFooter>
@@ -258,13 +267,18 @@ export function EnvironmentList({ onClickBrowse, onRefresh }: Props) {
         EnvironmentType.AgentOnDocker,
         EnvironmentType.EdgeAgentOnDocker,
       ],
+      // for podman keep the env type as docker (the containerEngine distinguishes podman from docker)
+      [PlatformType.Podman]: [
+        EnvironmentType.Docker,
+        EnvironmentType.AgentOnDocker,
+        EnvironmentType.EdgeAgentOnDocker,
+      ],
       [PlatformType.Azure]: [EnvironmentType.Azure],
       [PlatformType.Kubernetes]: [
         EnvironmentType.KubernetesLocal,
         EnvironmentType.AgentOnKubernetes,
         EnvironmentType.EdgeAgentOnKubernetes,
       ],
-      [PlatformType.Nomad]: [EnvironmentType.EdgeAgentOnNomad],
     };
 
     const typesByConnection = {
@@ -277,8 +291,8 @@ export function EnvironmentList({ onClickBrowse, onRefresh }: Props) {
         EnvironmentType.AgentOnDocker,
         EnvironmentType.AgentOnKubernetes,
       ],
-      [ConnectionType.EdgeAgent]: EdgeTypes,
-      [ConnectionType.EdgeDevice]: EdgeTypes,
+      [ConnectionType.EdgeAgentStandard]: EdgeTypes,
+      [ConnectionType.EdgeAgentAsync]: EdgeTypes,
     };
 
     const selectedTypesByPlatform = platformTypes.flatMap(
@@ -299,50 +313,32 @@ export function EnvironmentList({ onClickBrowse, onRefresh }: Props) {
     return _.intersection(selectedTypesByConnection, selectedTypesByPlatform);
   }
 
-  function statusOnChange(filterOptions: Filter[]) {
-    setStatusState(filterOptions);
-    if (filterOptions.length === 0) {
+  function statusOnChange(value: number[]) {
+    setStatusState(value);
+    if (value.length === 0) {
       setStatusFilter([]);
     } else {
-      const filteredStatus = [
-        ...new Set(
-          filterOptions.map(
-            (filterOptions: { value: number }) => filterOptions.value
-          )
-        ),
-      ];
+      const filteredStatus = [...new Set(value)];
       setStatusFilter(filteredStatus);
     }
   }
 
-  function groupOnChange(filterOptions: Filter[]) {
-    setGroupState(filterOptions);
-    if (filterOptions.length === 0) {
+  function groupOnChange(value: number[]) {
+    setGroupState(value);
+    if (value.length === 0) {
       setGroupFilter([]);
     } else {
-      const filteredGroups = [
-        ...new Set(
-          filterOptions.map(
-            (filterOptions: { value: number }) => filterOptions.value
-          )
-        ),
-      ];
+      const filteredGroups = [...new Set(value)];
       setGroupFilter(filteredGroups);
     }
   }
 
-  function tagOnChange(filterOptions: Filter[]) {
-    setTagState(filterOptions);
-    if (filterOptions.length === 0) {
+  function tagOnChange(value: number[]) {
+    setTagState(value);
+    if (value.length === 0) {
       setTagFilter([]);
     } else {
-      const filteredTags = [
-        ...new Set(
-          filterOptions.map(
-            (filterOptions: { value: number }) => filterOptions.value
-          )
-        ),
-      ];
+      const filteredTags = [...new Set(value)];
       setTagFilter(filteredTags);
     }
   }
@@ -359,16 +355,9 @@ export function EnvironmentList({ onClickBrowse, onRefresh }: Props) {
     setConnectionTypes([]);
   }
 
-  function sortOnchange(filterOptions: Filter) {
-    if (filterOptions !== null) {
-      setSortByFilter(filterOptions.label);
-      setSortByButton(true);
-      setSortByState(filterOptions);
-    } else {
-      setSortByFilter('');
-      setSortByButton(true);
-      setSortByState(undefined);
-    }
+  function sortOnchange(value?: 'Name' | 'Group' | 'Status') {
+    setSortByFilter(value);
+    setSortByButton(!!value);
   }
 
   function sortOnDescending() {
@@ -384,7 +373,7 @@ function renderItems(
 ) {
   if (isLoading) {
     return (
-      <div className="text-center text-muted" data-cy="home-loadingEndpoints">
+      <div className="text-muted text-center" data-cy="home-loadingEndpoints">
         Loading...
       </div>
     );
@@ -392,11 +381,28 @@ function renderItems(
 
   if (!totalCount) {
     return (
-      <div className="text-center text-muted" data-cy="home-noEndpoints">
+      <div className="text-muted text-center" data-cy="home-noEndpoints">
         No environments available.
       </div>
     );
   }
 
   return items;
+}
+
+function getEdgeAsyncValue(connectionTypes: ConnectionType[]) {
+  const hasEdgeAsync = connectionTypes.some(
+    (connectionType) => connectionType === ConnectionType.EdgeAgentAsync
+  );
+
+  const hasEdgeStandard = connectionTypes.some(
+    (connectionType) => connectionType === ConnectionType.EdgeAgentStandard
+  );
+
+  // If both are selected, we don't want to filter on either, and same for if both are not selected
+  if (hasEdgeAsync === hasEdgeStandard) {
+    return undefined;
+  }
+
+  return hasEdgeAsync;
 }

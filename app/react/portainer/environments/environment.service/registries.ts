@@ -1,6 +1,10 @@
 import axios, { parseAxiosError } from '@/portainer/services/axios';
 import { TeamId } from '@/react/portainer/users/teams/types';
 import { UserId } from '@/portainer/users/types';
+import {
+  RegistryId,
+  Registry,
+} from '@/react/portainer/registries/types/registry';
 
 import { EnvironmentId } from '../types';
 
@@ -14,12 +18,6 @@ interface AccessPolicy {
 type UserAccessPolicies = Record<UserId, AccessPolicy>; // map[UserID]AccessPolicy
 type TeamAccessPolicies = Record<TeamId, AccessPolicy>;
 
-export type RegistryId = number;
-export interface Registry {
-  Id: RegistryId;
-  Name: string;
-}
-
 interface RegistryAccess {
   UserAccessPolicies: UserAccessPolicies;
   TeamAccessPolicies: TeamAccessPolicies;
@@ -27,14 +25,14 @@ interface RegistryAccess {
 }
 
 export async function updateEnvironmentRegistryAccess(
-  id: EnvironmentId,
+  environmentId: EnvironmentId,
   registryId: RegistryId,
-  access: RegistryAccess
+  access: Partial<RegistryAccess>
 ) {
   try {
-    await axios.put<void>(buildRegistryUrl(id, registryId), access);
+    await axios.put<void>(buildRegistryUrl(environmentId, registryId), access);
   } catch (e) {
-    throw parseAxiosError(e as Error);
+    throw parseAxiosError(e);
   }
 }
 
@@ -48,7 +46,7 @@ export async function getEnvironmentRegistries(
     });
     return data;
   } catch (e) {
-    throw parseAxiosError(e as Error);
+    throw parseAxiosError(e);
   }
 }
 
@@ -62,7 +60,7 @@ export async function getEnvironmentRegistry(
     );
     return data;
   } catch (e) {
-    throw parseAxiosError(e as Error);
+    throw parseAxiosError(e);
   }
 }
 

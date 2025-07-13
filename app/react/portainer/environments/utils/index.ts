@@ -1,6 +1,21 @@
-import { Environment, EnvironmentType, PlatformType } from '../types';
+import { Cloud } from 'lucide-react';
 
-export function getPlatformType(envType: EnvironmentType) {
+import Kube from '@/assets/ico/kube.svg?c';
+import PodmanIcon from '@/assets/ico/vendor/podman-icon.svg?c';
+import DockerIcon from '@/assets/ico/vendor/docker-icon.svg?c';
+import MicrosoftIcon from '@/assets/ico/vendor/microsoft-icon.svg?c';
+
+import {
+  Environment,
+  EnvironmentType,
+  ContainerEngine,
+  PlatformType,
+} from '../types';
+
+export function getPlatformType(
+  envType: EnvironmentType,
+  containerEngine?: ContainerEngine
+) {
   switch (envType) {
     case EnvironmentType.KubernetesLocal:
     case EnvironmentType.AgentOnKubernetes:
@@ -9,11 +24,12 @@ export function getPlatformType(envType: EnvironmentType) {
     case EnvironmentType.Docker:
     case EnvironmentType.AgentOnDocker:
     case EnvironmentType.EdgeAgentOnDocker:
+      if (containerEngine === ContainerEngine.Podman) {
+        return PlatformType.Podman;
+      }
       return PlatformType.Docker;
     case EnvironmentType.Azure:
       return PlatformType.Azure;
-    case EnvironmentType.EdgeAgentOnNomad:
-      return PlatformType.Nomad;
     default:
       throw new Error(`Environment Type ${envType} is not supported`);
   }
@@ -27,12 +43,11 @@ export function isKubernetesEnvironment(envType: EnvironmentType) {
   return getPlatformType(envType) === PlatformType.Kubernetes;
 }
 
-export function getPlatformTypeName(envType: EnvironmentType): string {
-  return PlatformType[getPlatformType(envType)];
-}
-
-export function isNomadEnvironment(envType: EnvironmentType) {
-  return getPlatformType(envType) === PlatformType.Nomad;
+export function getPlatformTypeName(
+  envType: EnvironmentType,
+  containerEngine?: ContainerEngine
+): string {
+  return PlatformType[getPlatformType(envType, containerEngine)];
 }
 
 export function isAgentEnvironment(envType: EnvironmentType) {
@@ -67,6 +82,13 @@ export function isLocalEnvironment(environment: Environment) {
   );
 }
 
+export function isDockerAPIEnvironment(environment: Environment) {
+  return (
+    environment.URL.startsWith('tcp://') &&
+    environment.Type === EnvironmentType.Docker
+  );
+}
+
 export function getDashboardRoute(environment: Environment) {
   if (isEdgeEnvironment(environment.Type)) {
     if (!environment.EdgeID) {
@@ -79,7 +101,7 @@ export function getDashboardRoute(environment: Environment) {
     if (isEdgeAsync(environment)) {
       return {
         to: 'edge.browse.dashboard',
-        params: { environmentId: environment.EdgeID },
+        params: { environmentId: environment.Id },
       };
     }
   }
@@ -98,10 +120,32 @@ export function getDashboardRoute(environment: Environment) {
         return 'docker.dashboard';
       case PlatformType.Kubernetes:
         return 'kubernetes.dashboard';
-      case PlatformType.Nomad:
-        return 'nomad.dashboard';
       default:
         throw new Error(`Unsupported platform ${platform}`);
     }
+  }
+}
+
+export function getEnvironmentTypeIcon(
+  type: EnvironmentType,
+  containerEngine?: ContainerEngine
+) {
+  switch (type) {
+    case EnvironmentType.Azure:
+      return MicrosoftIcon;
+    case EnvironmentType.EdgeAgentOnDocker:
+      return Cloud;
+    case EnvironmentType.AgentOnKubernetes:
+    case EnvironmentType.EdgeAgentOnKubernetes:
+    case EnvironmentType.KubernetesLocal:
+      return Kube;
+    case EnvironmentType.AgentOnDocker:
+    case EnvironmentType.Docker:
+      if (containerEngine === ContainerEngine.Podman) {
+        return PodmanIcon;
+      }
+      return DockerIcon;
+    default:
+      throw new Error(`type ${type}-${EnvironmentType[type]} is not supported`);
   }
 }

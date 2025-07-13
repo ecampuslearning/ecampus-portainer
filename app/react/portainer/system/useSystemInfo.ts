@@ -1,4 +1,4 @@
-import { useQuery } from 'react-query';
+import { useQuery } from '@tanstack/react-query';
 
 import axios, { parseAxiosError } from '@/portainer/services/axios';
 import { withError } from '@/react-tools/react-query';
@@ -12,14 +12,12 @@ export type ContainerPlatform =
   | 'Docker Standalone'
   | 'Docker Swarm'
   | 'Kubernetes'
-  | 'Podman'
-  | 'Nomad';
+  | 'Podman';
 
 export interface SystemInfoResponse {
   platform: ContainerPlatform;
   agents: number;
   edgeAgents: number;
-  edgeDevices: number;
 }
 
 async function getSystemInfo() {

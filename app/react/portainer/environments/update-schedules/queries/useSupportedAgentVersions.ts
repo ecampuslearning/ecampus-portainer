@@ -1,8 +1,8 @@
-import { useQuery } from 'react-query';
-import semverCompare from 'semver-compare';
+import { useQuery } from '@tanstack/react-query';
 
 import axios, { parseAxiosError } from '@/portainer/services/axios';
 import { withError } from '@/react-tools/react-query';
+import { semverCompare } from '@/react/common/semver-utils';
 
 import { queryKeys } from './query-keys';
 import { buildUrl } from './urls';

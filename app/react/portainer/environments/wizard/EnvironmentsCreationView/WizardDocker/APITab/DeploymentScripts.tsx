@@ -1,10 +1,10 @@
 import { useState } from 'react';
 
-import { useAgentDetails } from '@/react/portainer/environments/queries/useAgentDetails';
-
 import { CopyButton } from '@@/buttons/CopyButton';
 import { Code } from '@@/Code';
 import { NavTabs } from '@@/NavTabs';
+import { NavContainer } from '@@/NavTabs/NavContainer';
+import { TextTip } from '@@/Tip/TextTip';
 
 const deployments = [
   {
@@ -22,12 +22,6 @@ const deployments = [
 export function DeploymentScripts() {
   const [deployType, setDeployType] = useState(deployments[0].id);
 
-  const agentDetailsQuery = useAgentDetails();
-
-  if (!agentDetailsQuery) {
-    return null;
-  }
-
   const options = deployments.map((c) => ({
     id: c.id,
     label: c.label,
@@ -35,11 +29,13 @@ export function DeploymentScripts() {
   }));
 
   return (
-    <NavTabs
-      options={options}
-      onSelect={(id: string) => setDeployType(id)}
-      selectedId={deployType}
-    />
+    <NavContainer>
+      <NavTabs
+        options={options}
+        onSelect={(id: string) => setDeployType(id)}
+        selectedId={deployType}
+      />
+    </NavContainer>
   );
 }
 
@@ -50,13 +46,17 @@ interface DeployCodeProps {
 function DeployCode({ code }: DeployCodeProps) {
   return (
     <>
-      <span className="text-muted small">
+      <TextTip color="blue" className="mb-1">
         When using the socket, ensure that you have started the Portainer
         container with the following Docker flag:
-      </span>
+      </TextTip>
 
       <Code>{code}</Code>
-      <CopyButton copyText={code}>Copy command</CopyButton>
+      <div className="mt-2">
+        <CopyButton copyText={code} data-cy="copy-deployment-command">
+          Copy command
+        </CopyButton>
+      </div>
     </>
   );
 }

@@ -1,10 +1,23 @@
 import { TagId } from '@/portainer/tags/types';
-import { EnvironmentGroupId } from '@/react/portainer/environments/environment-groups/types';
-import { Job } from '@/react/nomad/types';
 import { DockerSnapshot } from '@/react/docker/snapshots/types';
+
+export type EnvironmentGroupId = number;
+
+export type EdgeGroupId = number;
+
+type RoleId = number;
+interface AccessPolicy {
+  RoleId: RoleId;
+}
+
+export type UserAccessPolicies = Record<number, AccessPolicy>; // map[UserID]AccessPolicy
+export type TeamAccessPolicies = Record<number, AccessPolicy>;
 
 export type EnvironmentId = number;
 
+/**
+ * matches portainer.EndpointType in app/portainer.go
+ */
 export enum EnvironmentType {
   // Docker represents an environment(endpoint) connected to a Docker environment(endpoint)
   Docker = 1,
@@ -20,14 +33,11 @@ export enum EnvironmentType {
   AgentOnKubernetes,
   // EdgeAgentOnKubernetes represents an environment(endpoint) connected to an Edge agent deployed on a Kubernetes environment(endpoint)
   EdgeAgentOnKubernetes,
-  // EdgeAgentOnNomad represents an environment(endpoint) connected to an Edge agent deployed on a Nomad environment(endpoint)
-  EdgeAgentOnNomad,
 }
 
 export const EdgeTypes = [
   EnvironmentType.EdgeAgentOnDocker,
   EnvironmentType.EdgeAgentOnKubernetes,
-  EnvironmentType.EdgeAgentOnNomad,
 ] as const;
 
 export enum EnvironmentStatus {
@@ -48,14 +58,26 @@ export interface KubernetesSnapshot {
 export type IngressClass = {
   Name: string;
   Type: string;
+  Blocked?: boolean;
+  BlockedNamespaces?: string[] | null;
 };
+
+export interface StorageClass {
+  Name: string;
+  AccessModes: string[];
+  AllowVolumeExpansion: boolean;
+  Provisioner: string;
+}
 
 export interface KubernetesConfiguration {
   UseLoadBalancer?: boolean;
+  StorageClasses?: StorageClass[];
   UseServerMetrics?: boolean;
   EnableResourceOverCommit?: boolean;
   ResourceOverCommitPercentage?: number;
   RestrictDefaultNamespace?: boolean;
+  RestrictSecrets?: boolean;
+  RestrictStandardUserIngressW?: boolean;
   IngressClasses: IngressClass[];
   IngressAvailabilityPerNamespace: boolean;
   AllowNoneIngressClass: boolean;
@@ -64,20 +86,11 @@ export interface KubernetesConfiguration {
 export interface KubernetesSettings {
   Snapshots?: KubernetesSnapshot[] | null;
   Configuration: KubernetesConfiguration;
-}
-
-export interface NomadSnapshot {
-  JobCount: number;
-  GroupCount: number;
-  TaskCount: number;
-  RunningTaskCount: number;
-  NodeCount: number;
-  Time: number;
-  Jobs: Job[];
-}
-
-export interface NomadSettings {
-  Snapshots: NomadSnapshot[];
+  Flags: {
+    IsServerMetricsDetected: boolean;
+    IsServerIngressClassDetected: boolean;
+    IsServerStorageDetected: boolean;
+  };
 }
 
 export type EnvironmentEdge = {
@@ -108,31 +121,73 @@ export interface EnvironmentSecuritySettings {
   enableHostManagementFeatures: boolean;
 }
 
+export type DeploymentOptions = {
+  overrideGlobalOptions: boolean;
+  hideAddWithForm: boolean;
+  hideWebEditor: boolean;
+  hideFileUpload: boolean;
+};
+
+/**
+ *  EndpointChangeWindow determine when GitOps stack/app updates may occur
+ */
+export interface EndpointChangeWindow {
+  Enabled: boolean;
+  StartTime: string;
+  EndTime: string;
+}
+export interface EnvironmentStatusMessage {
+  summary: string;
+  detail: string;
+}
+
 export type Environment = {
   Agent: { Version: string };
   Id: EnvironmentId;
   Type: EnvironmentType;
+  ContainerEngine?: ContainerEngine;
   TagIds: TagId[];
   GroupId: EnvironmentGroupId;
+  DeploymentOptions: DeploymentOptions | null;
+  EnableGPUManagement: boolean;
   EdgeID?: string;
   EdgeKey: string;
   EdgeCheckinInterval?: number;
   QueryDate?: number;
+  Heartbeat?: boolean;
   LastCheckInDate?: number;
   Name: string;
   Status: EnvironmentStatus;
   URL: string;
   Snapshots: DockerSnapshot[];
   Kubernetes: KubernetesSettings;
-  Nomad: NomadSettings;
   PublicURL?: string;
-  IsEdgeDevice?: boolean;
-  UserTrusted: boolean;
+  UserTrusted?: boolean;
   AMTDeviceGUID?: string;
   Edge: EnvironmentEdge;
   SecuritySettings: EnvironmentSecuritySettings;
-  Gpus: { name: string; value: string }[];
+  Gpus?: { name: string; value: string }[];
+  TLSConfig?: {
+    TLS: boolean;
+    TLSSkipVerify: boolean;
+  };
+  AzureCredentials?: {
+    ApplicationID: string;
+    TenantID: string;
+    AuthenticationKey: string;
+  };
+  ComposeSyntaxMaxVersion: string;
+  EnableImageNotification: boolean;
   LocalTimeZone?: string;
+
+  /** GitOps update change window restriction for stacks and apps */
+  ChangeWindow: EndpointChangeWindow;
+  /**
+   *  A message that describes the status. Should be included for Status Provisioning or Error.
+   */
+  StatusMessage?: EnvironmentStatusMessage;
+  UserAccessPolicies?: UserAccessPolicies;
+  TeamAccessPolicies?: TeamAccessPolicies;
 };
 
 /**
@@ -147,9 +202,14 @@ export enum EnvironmentCreationTypes {
   KubeConfigEnvironment,
 }
 
+export enum ContainerEngine {
+  Docker = 'docker',
+  Podman = 'podman',
+}
+
 export enum PlatformType {
   Docker,
   Kubernetes,
   Azure,
-  Nomad,
+  Podman,
 }

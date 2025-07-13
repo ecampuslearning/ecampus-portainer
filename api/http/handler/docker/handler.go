@@ -4,44 +4,53 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/portainer/portainer/api/docker"
-	"github.com/portainer/portainer/api/internal/endpointutils"
-
-	"github.com/gorilla/mux"
-	httperror "github.com/portainer/libhttp/error"
 	"github.com/portainer/portainer/api/dataservices"
+	"github.com/portainer/portainer/api/docker"
+	dockerclient "github.com/portainer/portainer/api/docker/client"
 	"github.com/portainer/portainer/api/http/handler/docker/containers"
+	"github.com/portainer/portainer/api/http/handler/docker/images"
 	"github.com/portainer/portainer/api/http/middlewares"
 	"github.com/portainer/portainer/api/http/security"
 	"github.com/portainer/portainer/api/internal/authorization"
+	"github.com/portainer/portainer/api/internal/endpointutils"
+	httperror "github.com/portainer/portainer/pkg/libhttp/error"
+
+	"github.com/gorilla/mux"
 )
 
 // Handler is the HTTP handler which will natively deal with to external environments(endpoints).
 type Handler struct {
 	*mux.Router
-	requestBouncer       *security.RequestBouncer
+	requestBouncer       security.BouncerService
 	dataStore            dataservices.DataStore
-	dockerClientFactory  *docker.ClientFactory
+	dockerClientFactory  *dockerclient.ClientFactory
 	authorizationService *authorization.Service
+	containerService     *docker.ContainerService
 }
 
 // NewHandler creates a handler to process non-proxied requests to docker APIs directly.
-func NewHandler(bouncer *security.RequestBouncer, authorizationService *authorization.Service, dataStore dataservices.DataStore, dockerClientFactory *docker.ClientFactory) *Handler {
+func NewHandler(bouncer security.BouncerService, authorizationService *authorization.Service, dataStore dataservices.DataStore, dockerClientFactory *dockerclient.ClientFactory, containerService *docker.ContainerService) *Handler {
 	h := &Handler{
 		Router:               mux.NewRouter(),
 		requestBouncer:       bouncer,
 		authorizationService: authorizationService,
 		dataStore:            dataStore,
 		dockerClientFactory:  dockerClientFactory,
+		containerService:     containerService,
 	}
 
 	// endpoints
-	endpointRouter := h.PathPrefix("/{id}").Subrouter()
-	endpointRouter.Use(middlewares.WithEndpoint(dataStore.Endpoint(), "id"))
-	endpointRouter.Use(dockerOnlyMiddleware)
+	endpointRouter := h.PathPrefix("/docker/{id}").Subrouter()
+	endpointRouter.Use(bouncer.AuthenticatedAccess)
+	endpointRouter.Use(middlewares.WithEndpoint(dataStore.Endpoint(), "id"), dockerOnlyMiddleware)
 
-	containersHandler := containers.NewHandler("/{id}/containers", bouncer, dockerClientFactory)
+	endpointRouter.Handle("/dashboard", httperror.LoggerHandler(h.dashboard)).Methods(http.MethodGet)
+
+	containersHandler := containers.NewHandler("/docker/{id}/containers", bouncer, dataStore, dockerClientFactory, containerService)
 	endpointRouter.PathPrefix("/containers").Handler(containersHandler)
+
+	imagesHandler := images.NewHandler("/docker/{id}/images", bouncer, dockerClientFactory)
+	endpointRouter.PathPrefix("/images").Handler(imagesHandler)
 	return h
 }
 

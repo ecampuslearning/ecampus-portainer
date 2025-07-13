@@ -1,15 +1,17 @@
 import { Form, Formik } from 'formik';
 import clsx from 'clsx';
-import { useMutation } from 'react-query';
+import { useMutation } from '@tanstack/react-query';
 import { object } from 'yup';
 
-import { useUser } from '@/react/hooks/useUser';
-import { confirmAsync } from '@/portainer/services/modal.service/confirm';
+import { useCurrentUser, useIsEdgeAdmin } from '@/react/hooks/useUser';
 import { notifySuccess } from '@/portainer/services/notifications';
 import { EnvironmentId } from '@/react/portainer/environments/types';
 
+import { confirm } from '@@/modals/confirm';
 import { Button } from '@@/buttons';
 import { LoadingButton } from '@@/buttons/LoadingButton';
+import { buildConfirmButton } from '@@/modals/utils';
+import { ModalType } from '@@/modals';
 
 import { EditDetails } from '../EditDetails';
 import { parseAccessControlFormData } from '../utils';
@@ -28,7 +30,7 @@ interface Props {
   resourceType: ResourceControlType;
   resourceId: ResourceId;
   resourceControl?: ResourceControlViewModel;
-  environmentId?: EnvironmentId;
+  environmentId: EnvironmentId;
   onCancelClick(): void;
   onUpdateSuccess(): Promise<void>;
 }
@@ -41,7 +43,8 @@ export function AccessControlPanelForm({
   onCancelClick,
   onUpdateSuccess,
 }: Props) {
-  const { isAdmin } = useUser();
+  const { user } = useCurrentUser();
+  const isAdminQuery = useIsEdgeAdmin();
 
   const updateAccess = useMutation(
     (variables: AccessControlFormData) =>
@@ -61,8 +64,18 @@ export function AccessControlPanelForm({
     }
   );
 
+  if (isAdminQuery.isLoading) {
+    return null;
+  }
+
+  const { isAdmin } = isAdminQuery;
+
   const initialValues = {
-    accessControl: parseAccessControlFormData(isAdmin, resourceControl),
+    accessControl: parseAccessControlFormData(
+      isAdmin,
+      user.Id,
+      resourceControl
+    ),
   };
 
   return (
@@ -89,11 +102,17 @@ export function AccessControlPanelForm({
 
           <div className="form-group">
             <div className="col-sm-12">
-              <Button size="small" color="default" onClick={onCancelClick}>
+              <Button
+                size="small"
+                color="default"
+                onClick={onCancelClick}
+                data-cy="cancel-access-control-update-button"
+              >
                 Cancel
               </Button>
               <LoadingButton
                 size="small"
+                data-cy="update-access-control-button"
                 color="primary"
                 type="submit"
                 isLoading={isSubmitting}
@@ -128,15 +147,11 @@ export function AccessControlPanelForm({
 }
 
 function confirmAccessControlUpdate() {
-  return confirmAsync({
+  return confirm({
+    modalType: ModalType.Warn,
     title: 'Are you sure?',
     message:
       'Changing the ownership of this resource will potentially restrict its management to some users.',
-    buttons: {
-      confirm: {
-        label: 'Change ownership',
-        className: 'btn-primary',
-      },
-    },
+    confirmButton: buildConfirmButton('Change ownership'),
   });
 }

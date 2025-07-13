@@ -2,8 +2,6 @@ package openamt
 
 import (
 	"bytes"
-	"crypto/tls"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -11,6 +9,9 @@ import (
 	"time"
 
 	portainer "github.com/portainer/portainer/api"
+	"github.com/portainer/portainer/api/crypto"
+
+	"github.com/segmentio/encoding/json"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -31,12 +32,15 @@ type Service struct {
 }
 
 // NewService initializes a new service.
-func NewService() *Service {
+func NewService(insecureSkipVerify bool) *Service {
+	tlsConfig := crypto.CreateTLSConfiguration()
+	tlsConfig.InsecureSkipVerify = insecureSkipVerify
+
 	return &Service{
 		httpsClient: &http.Client{
 			Timeout: httpClientTimeout,
 			Transport: &http.Transport{
-				TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+				TLSClientConfig: tlsConfig,
 			},
 		},
 	}
@@ -93,12 +97,14 @@ func (service *Service) executeSaveRequest(method string, url string, token stri
 		return nil, err
 	}
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
+	req.Header.Set("Authorization", "Bearer "+token)
 
 	response, err := service.httpsClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
+	defer response.Body.Close()
+
 	responseBody, readErr := io.ReadAll(response.Body)
 	if readErr != nil {
 		return nil, readErr
@@ -122,12 +128,14 @@ func (service *Service) executeGetRequest(url string, token string) ([]byte, err
 	}
 
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
+	req.Header.Set("Authorization", "Bearer "+token)
 
 	response, err := service.httpsClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
+	defer response.Body.Close()
+
 	responseBody, readErr := io.ReadAll(response.Body)
 	if readErr != nil {
 		return nil, readErr
@@ -137,10 +145,12 @@ func (service *Service) executeGetRequest(url string, token string) ([]byte, err
 		if response.StatusCode == http.StatusNotFound {
 			return nil, nil
 		}
+
 		errorResponse := parseError(responseBody)
 		if errorResponse != nil {
 			return nil, errorResponse
 		}
+
 		return nil, fmt.Errorf("unexpected status code %s", response.Status)
 	}
 

@@ -1,16 +1,19 @@
 package system
 
 import (
-	"encoding/json"
 	"net/http"
 
-	"github.com/portainer/libhttp/response"
 	portainer "github.com/portainer/portainer/api"
-	"github.com/portainer/portainer/api/build"
 	"github.com/portainer/portainer/api/http/client"
+	"github.com/portainer/portainer/api/http/security"
+	"github.com/portainer/portainer/pkg/build"
+	libclient "github.com/portainer/portainer/pkg/libhttp/client"
+	httperror "github.com/portainer/portainer/pkg/libhttp/error"
+	"github.com/portainer/portainer/pkg/libhttp/response"
 
 	"github.com/coreos/go-semver/semver"
 	"github.com/rs/zerolog/log"
+	"github.com/segmentio/encoding/json"
 )
 
 type versionResponse struct {
@@ -20,17 +23,12 @@ type versionResponse struct {
 	LatestVersion string `json:"LatestVersion" example:"2.0.0"`
 
 	ServerVersion   string
+	VersionSupport  string `json:"VersionSupport" example:"STS/LTS"`
+	ServerEdition   string `json:"ServerEdition" example:"CE/EE"`
 	DatabaseVersion string
-	Build           BuildInfo
-}
-
-type BuildInfo struct {
-	BuildNumber    string
-	ImageTag       string
-	NodejsVersion  string
-	YarnVersion    string
-	WebpackVersion string
-	GoVersion      string
+	Build           build.BuildInfo
+	Dependencies    build.DependenciesInfo
+	Runtime         build.RuntimeInfo
 }
 
 // @id systemVersion
@@ -43,19 +41,23 @@ type BuildInfo struct {
 // @produce json
 // @success 200 {object} versionResponse "Success"
 // @router /system/version [get]
-func (handler *Handler) version(w http.ResponseWriter, r *http.Request) {
+func (handler *Handler) version(w http.ResponseWriter, r *http.Request) *httperror.HandlerError {
+	isAdmin, err := security.IsAdmin(r)
+	if err != nil {
+		return httperror.Forbidden("Permission denied to access Portainer", err)
+	}
 
 	result := &versionResponse{
 		ServerVersion:   portainer.APIVersion,
+		VersionSupport:  portainer.APIVersionSupport,
 		DatabaseVersion: portainer.APIVersion,
-		Build: BuildInfo{
-			BuildNumber:    build.BuildNumber,
-			ImageTag:       build.ImageTag,
-			NodejsVersion:  build.NodejsVersion,
-			YarnVersion:    build.YarnVersion,
-			WebpackVersion: build.WebpackVersion,
-			GoVersion:      build.GoVersion,
-		},
+		ServerEdition:   portainer.Edition.GetEditionLabel(),
+		Build:           build.GetBuildInfo(),
+		Dependencies:    build.GetDependenciesInfo(),
+	}
+
+	if isAdmin {
+		result.Runtime = build.GetRuntimeInfo()
 	}
 
 	latestVersion := GetLatestVersion()
@@ -64,14 +66,18 @@ func (handler *Handler) version(w http.ResponseWriter, r *http.Request) {
 		result.LatestVersion = latestVersion
 	}
 
-	response.JSON(w, &result)
+	return response.JSON(w, &result)
 }
 
 func GetLatestVersion() string {
+	if err := libclient.ExternalRequestDisabled(portainer.VersionCheckURL); err != nil {
+		log.Debug().Err(err).Msg("External request disabled: Version check")
+		return ""
+	}
+
 	motd, err := client.Get(portainer.VersionCheckURL, 5)
 	if err != nil {
 		log.Debug().Err(err).Msg("couldn't fetch latest Portainer release version")
-
 		return ""
 	}
 
@@ -79,8 +85,7 @@ func GetLatestVersion() string {
 		TagName string `json:"tag_name"`
 	}
 
-	err = json.Unmarshal(motd, &data)
-	if err != nil {
+	if err := json.Unmarshal(motd, &data); err != nil {
 		log.Debug().Err(err).Msg("couldn't parse latest Portainer version")
 
 		return ""
@@ -105,22 +110,4 @@ func HasNewerVersion(currentVersion, latestVersion string) bool {
 	}
 
 	return currentVersionSemver.LessThan(*latestVersionSemver)
-}
-
-// @id Version
-// @summary Check for portainer updates
-// @deprecated
-// @description Deprecated: use the `/system/version` endpoint instead.
-// @description Check if portainer has an update available
-// @description **Access policy**: authenticated
-// @security ApiKeyAuth
-// @security jwt
-// @tags status
-// @produce json
-// @success 200 {object} versionResponse "Success"
-// @router /status/version [get]
-func (handler *Handler) versionDeprecated(w http.ResponseWriter, r *http.Request) {
-	log.Warn().Msg("The /status/version endpoint is deprecated, please use the /system/version endpoint instead")
-
-	handler.version(w, r)
 }

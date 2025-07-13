@@ -19,8 +19,19 @@ import './portainer/__module';
 
 import { onStartupAngular } from './app';
 import { configApp } from './config';
+import { constantsModule } from './ng-constants';
 
-import { nomadModule } from './nomad';
+// http://localhost:49000 is a docker extension specific url (see /build/docker-extension/docker-compose.yml)
+if (window.origin == 'http://localhost:49000') {
+  // we are loading the app from a local file as in docker extension
+  document.getElementById('base').href = 'http://localhost:49000/';
+
+  window.ddExtension = true;
+} else {
+  var path = window.location.pathname.replace(/^\/+|\/+$/g, '');
+  var basePath = path ? '/' + path + '/' : '/';
+  document.getElementById('base').href = basePath;
+}
 
 initFeatureService(Edition[process.env.PORTAINER_EDITION]);
 
@@ -35,8 +46,6 @@ angular
     'ngResource',
     'angularUtils.directives.dirPagination',
     'LocalStorageModule',
-    'angular-jwt',
-    'angular-json-tree',
     'angular-loading-bar',
     'angular-clipboard',
     'ngFileSaver',
@@ -46,12 +55,12 @@ angular
     azureModule,
     'portainer.docker',
     'portainer.kubernetes',
-    nomadModule,
     'portainer.edge',
     'rzModule',
     'moment-picker',
     'angulartics',
     analyticsModule,
+    constantsModule,
   ])
   .run(onStartupAngular)
   .config(configApp);

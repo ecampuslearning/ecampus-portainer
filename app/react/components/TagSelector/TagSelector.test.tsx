@@ -1,6 +1,11 @@
+import { http, HttpResponse } from 'msw';
+import { Mock } from 'vitest';
+import { render } from '@testing-library/react';
+
 import { Tag, TagId } from '@/portainer/tags/types';
-import { renderWithQueryClient } from '@/react-tools/test-utils';
-import { server, rest } from '@/setup-tests/server';
+import { server } from '@/setup-tests/server';
+import { withTestRouter } from '@/react/test-utils/withRouter';
+import { withTestQueryProvider } from '@/react/test-utils/withTestQuery';
 
 import { TagSelector } from './TagSelector';
 
@@ -19,10 +24,12 @@ test('should show the selected tags', async () => {
     {
       ID: 1,
       Name: 'tag1',
+      Endpoints: {},
     },
     {
       ID: 2,
       Name: 'tag2',
+      Endpoints: {},
     },
   ];
 
@@ -39,18 +46,20 @@ async function renderComponent(
   {
     value = [],
     allowCreate = false,
-    onChange = jest.fn(),
+    onChange = vi.fn(),
   }: {
     value?: TagId[];
     allowCreate?: boolean;
-    onChange?: jest.Mock;
+    onChange?: Mock;
   } = {},
   tags: Tag[] = []
 ) {
-  server.use(rest.get('/api/tags', (_req, res, ctx) => res(ctx.json(tags))));
+  server.use(http.get('/api/tags', () => HttpResponse.json(tags)));
 
-  const queries = renderWithQueryClient(
-    <TagSelector value={value} allowCreate={allowCreate} onChange={onChange} />
+  const Wrapped = withTestQueryProvider(withTestRouter(TagSelector));
+
+  const queries = render(
+    <Wrapped value={value} allowCreate={allowCreate} onChange={onChange} />
   );
 
   const tagElement = await queries.findAllByText('tags', { exact: false });

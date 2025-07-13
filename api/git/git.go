@@ -6,14 +6,16 @@ import (
 	"path/filepath"
 	"strings"
 
+	gittypes "github.com/portainer/portainer/api/git/types"
+
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/config"
 	"github.com/go-git/go-git/v5/plumbing"
+	"github.com/go-git/go-git/v5/plumbing/filemode"
 	"github.com/go-git/go-git/v5/plumbing/object"
 	githttp "github.com/go-git/go-git/v5/plumbing/transport/http"
 	"github.com/go-git/go-git/v5/storage/memory"
 	"github.com/pkg/errors"
-	gittypes "github.com/portainer/portainer/api/git/types"
 )
 
 type gitClient struct {
@@ -28,9 +30,11 @@ func NewGitClient(preserveGitDir bool) *gitClient {
 
 func (c *gitClient) download(ctx context.Context, dst string, opt cloneOption) error {
 	gitOptions := git.CloneOptions{
-		URL:   opt.repositoryUrl,
-		Depth: opt.depth,
-		Auth:  getAuth(opt.username, opt.password),
+		URL:             opt.repositoryUrl,
+		Depth:           opt.depth,
+		InsecureSkipTLS: opt.tlsSkipVerify,
+		Auth:            getAuth(opt.username, opt.password),
+		Tags:            git.NoTags,
 	}
 
 	if opt.referenceName != "" {
@@ -60,7 +64,8 @@ func (c *gitClient) latestCommitID(ctx context.Context, opt fetchOption) (string
 	})
 
 	listOptions := &git.ListOptions{
-		Auth: getAuth(opt.username, opt.password),
+		Auth:            getAuth(opt.username, opt.password),
+		InsecureSkipTLS: opt.tlsSkipVerify,
 	}
 
 	refs, err := remote.List(listOptions)
@@ -110,7 +115,8 @@ func (c *gitClient) listRefs(ctx context.Context, opt baseOption) ([]string, err
 	})
 
 	listOptions := &git.ListOptions{
-		Auth: getAuth(opt.username, opt.password),
+		Auth:            getAuth(opt.username, opt.password),
+		InsecureSkipTLS: opt.tlsSkipVerify,
 	}
 
 	refs, err := rem.List(listOptions)
@@ -132,12 +138,14 @@ func (c *gitClient) listRefs(ctx context.Context, opt baseOption) ([]string, err
 // listFiles list all filenames under the specific repository
 func (c *gitClient) listFiles(ctx context.Context, opt fetchOption) ([]string, error) {
 	cloneOption := &git.CloneOptions{
-		URL:           opt.repositoryUrl,
-		NoCheckout:    true,
-		Depth:         1,
-		SingleBranch:  true,
-		ReferenceName: plumbing.ReferenceName(opt.referenceName),
-		Auth:          getAuth(opt.username, opt.password),
+		URL:             opt.repositoryUrl,
+		NoCheckout:      true,
+		Depth:           1,
+		SingleBranch:    true,
+		ReferenceName:   plumbing.ReferenceName(opt.referenceName),
+		Auth:            getAuth(opt.username, opt.password),
+		InsecureSkipTLS: opt.tlsSkipVerify,
+		Tags:            git.NoTags,
 	}
 
 	repo, err := git.Clone(memory.NewStorage(), nil, cloneOption)
@@ -161,10 +169,21 @@ func (c *gitClient) listFiles(ctx context.Context, opt fetchOption) ([]string, e
 	}
 
 	var allPaths []string
-	tree.Files().ForEach(func(f *object.File) error {
-		allPaths = append(allPaths, f.Name)
-		return nil
-	})
+
+	w := object.NewTreeWalker(tree, true, nil)
+	defer w.Close()
+
+	for {
+		name, entry, err := w.Next()
+		if err != nil {
+			break
+		}
+
+		isDir := entry.Mode == filemode.Dir
+		if opt.dirOnly == isDir {
+			allPaths = append(allPaths, name)
+		}
+	}
 
 	return allPaths, nil
 }

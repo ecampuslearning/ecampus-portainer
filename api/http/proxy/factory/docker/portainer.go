@@ -15,27 +15,33 @@ func init() {
 	portainerContainerId, _ = os.Hostname()
 }
 
-func (transport *Transport) applyPortainerContainers(resources []interface{}) ([]interface{}, error) {
-	decoratedResourceData := make([]interface{}, 0)
+func (transport *Transport) applyPortainerContainers(resources []any) ([]any, error) {
+	decoratedResourceData := make([]any, 0)
+
 	for _, resource := range resources {
-		responseObject, ok := resource.(map[string]interface{})
+		responseObject, ok := resource.(map[string]any)
 		if !ok {
 			decoratedResourceData = append(decoratedResourceData, resource)
+
 			continue
 		}
+
 		responseObject, _ = transport.applyPortainerContainer(responseObject)
 		decoratedResourceData = append(decoratedResourceData, responseObject)
 	}
+
 	return decoratedResourceData, nil
 }
 
-func (transport *Transport) applyPortainerContainer(resourceObject map[string]interface{}) (map[string]interface{}, error) {
+func (transport *Transport) applyPortainerContainer(resourceObject map[string]any) (map[string]any, error) {
 	resourceId, ok := resourceObject["Id"].(string)
 	if !ok {
 		return resourceObject, nil
 	}
+
 	if len(resourceId) >= 12 && resourceId[0:12] == portainerContainerId {
 		resourceObject["IsPortainer"] = true
 	}
+
 	return resourceObject, nil
 }

@@ -1,4 +1,4 @@
-import { Bell, Trash2 } from 'lucide-react';
+import { Bell } from 'lucide-react';
 import { useStore } from 'zustand';
 import { useCurrentStateAndParams } from '@uirouter/react';
 
@@ -10,9 +10,9 @@ import { withReactQuery } from '@/react-tools/withReactQuery';
 
 import { PageHeader } from '@@/PageHeader';
 import { Datatable } from '@@/datatables';
-import { Button } from '@@/buttons';
 import { createPersistedStore } from '@@/datatables/types';
-import { useSearchBarState } from '@@/datatables/SearchBar';
+import { useTableState } from '@@/datatables/useTableState';
+import { DeleteButton } from '@@/buttons/DeleteButton';
 
 import { notificationsStore } from './notifications-store';
 import { ToastNotification } from './types';
@@ -32,8 +32,7 @@ export function NotificationsView() {
     [];
 
   const breadcrumbs = 'Notifications';
-  const settings = useStore(settingsStore);
-  const [search, setSearch] = useSearchBarState(storageKey);
+  const tableState = useTableState(settingsStore, storageKey);
 
   const {
     params: { id: activeItemId },
@@ -47,19 +46,13 @@ export function NotificationsView() {
         title="Notifications"
         titleIcon={Bell}
         dataset={userNotifications}
-        emptyContentLabel="No notifications found"
-        totalCount={userNotifications.length}
+        settingsManager={tableState}
         renderTableActions={(selectedRows) => (
           <TableActions selectedRows={selectedRows} />
         )}
-        initialPageSize={settings.pageSize}
-        onPageSizeChange={settings.setPageSize}
-        initialSortBy={settings.sortBy}
-        onSortByChange={settings.setSortBy}
-        searchValue={search}
-        onSearchChange={setSearch}
         getRowId={(row) => row.id}
         highlightedItemId={activeItemId}
+        data-cy="notifications-datatable"
       />
     </>
   );
@@ -69,14 +62,12 @@ function TableActions({ selectedRows }: { selectedRows: ToastNotification[] }) {
   const { user } = useUser();
   const notificationsStoreState = useStore(notificationsStore);
   return (
-    <Button
-      icon={Trash2}
-      color="dangerlight"
-      onClick={() => handleRemove()}
+    <DeleteButton
+      onConfirmed={() => handleRemove()}
       disabled={selectedRows.length === 0}
-    >
-      Remove
-    </Button>
+      data-cy="remove-notifications-button"
+      confirmMessage="Are you sure you want to remove the selected notifications?"
+    />
   );
 
   function handleRemove() {

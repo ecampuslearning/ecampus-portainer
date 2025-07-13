@@ -1,20 +1,19 @@
 import { Formik, Form } from 'formik';
 import { Laptop } from 'lucide-react';
 
-import { EdgeCheckinIntervalField } from '@/react/edge/components/EdgeCheckInIntervalField';
+import { Settings } from '@/react/portainer/settings/types';
+import { PortainerUrlField } from '@/react/portainer/common/PortainerUrlField';
+import { PortainerTunnelAddrField } from '@/react/portainer/common/PortainerTunnelAddrField';
+import { isBE } from '@/react/portainer/feature-flags/feature-flags.service';
 
 import { Switch } from '@@/form-components/SwitchField/Switch';
 import { FormControl } from '@@/form-components/FormControl';
 import { Widget, WidgetBody, WidgetTitle } from '@@/Widget';
 import { LoadingButton } from '@@/buttons/LoadingButton';
 import { TextTip } from '@@/Tip/TextTip';
-import { FormSectionTitle } from '@@/form-components/FormSectionTitle';
-
-import { Settings } from '../types';
 
 import { validationSchema } from './EdgeComputeSettings.validation';
 import { FormValues } from './types';
-import { AddDeviceButton } from './AddDeviceButton';
 
 interface Props {
   settings?: Settings;
@@ -26,22 +25,23 @@ export function EdgeComputeSettings({ settings, onSubmit }: Props) {
     return null;
   }
 
+  const initialValues: FormValues = {
+    EnableEdgeComputeFeatures: settings.EnableEdgeComputeFeatures,
+    EdgePortainerUrl: settings.EdgePortainerUrl,
+    Edge: {
+      TunnelServerAddress: settings.Edge?.TunnelServerAddress,
+    },
+    EnforceEdgeID: settings.EnforceEdgeID,
+  };
+
   return (
     <div className="row">
       <Widget>
-        <WidgetTitle
-          icon={Laptop}
-          title={
-            <>
-              <span className="mr-3">Edge Compute settings</span>
-              {settings.EnableEdgeComputeFeatures && <AddDeviceButton />}
-            </>
-          }
-        />
+        <WidgetTitle icon={Laptop} title="Edge Compute settings" />
 
         <WidgetBody>
           <Formik
-            initialValues={settings}
+            initialValues={initialValues}
             enableReinitialize
             validationSchema={() => validationSchema()}
             onSubmit={onSubmit}
@@ -69,6 +69,7 @@ export function EdgeComputeSettings({ settings, onSubmit }: Props) {
                 >
                   <Switch
                     id="edge_enable"
+                    data-cy="edge-enable-switch"
                     name="edge_enable"
                     className="space-right"
                     checked={values.EnableEdgeComputeFeatures}
@@ -78,10 +79,21 @@ export function EdgeComputeSettings({ settings, onSubmit }: Props) {
                   />
                 </FormControl>
 
-                <TextTip color="blue">
-                  When enabled, this will enable Portainer to execute Edge
-                  Device features.
+                <TextTip color="blue" className="mb-2">
+                  Enable this setting to use Portainer Edge Compute
+                  capabilities.
                 </TextTip>
+
+                {isBE && values.EnableEdgeComputeFeatures && (
+                  <>
+                    <PortainerUrlField
+                      fieldName="EdgePortainerUrl"
+                      tooltip="URL of this Portainer instance that will be used by Edge agents to initiate the communications."
+                    />
+
+                    <PortainerTunnelAddrField fieldName="Edge.TunnelServerAddress" />
+                  </>
+                )}
 
                 <FormControl
                   inputId="edge_enforce_id"
@@ -92,6 +104,7 @@ export function EdgeComputeSettings({ settings, onSubmit }: Props) {
                 >
                   <Switch
                     id="edge_enforce_id"
+                    data-cy="edge-enforce-id-switch"
                     name="edge_enforce_id"
                     className="space-right"
                     checked={values.EnforceEdgeID}
@@ -100,18 +113,6 @@ export function EdgeComputeSettings({ settings, onSubmit }: Props) {
                     }
                   />
                 </FormControl>
-
-                <FormSectionTitle>Check-in Intervals</FormSectionTitle>
-
-                <EdgeCheckinIntervalField
-                  value={values.EdgeAgentCheckinInterval}
-                  onChange={(value) =>
-                    setFieldValue('EdgeAgentCheckinInterval', value)
-                  }
-                  isDefaultHidden
-                  label="Edge agent default poll frequency"
-                  tooltip="Interval used by default by each Edge agent to check in with the Portainer instance. Affects Edge environment management and Edge compute features."
-                />
 
                 <div className="form-group mt-5">
                   <div className="col-sm-12">

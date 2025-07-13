@@ -5,14 +5,16 @@ import { SwitchField } from '@@/form-components/SwitchField';
 export const switchField = r2a(SwitchField, [
   'tooltip',
   'checked',
+  'index',
   'label',
   'name',
   'labelClass',
   'fieldClass',
-  'dataCy',
+  'data-cy',
   'disabled',
   'onChange',
   'featureId',
   'switchClass',
   'setTooltipHtmlMessage',
+  'valueExplanation',
 ]);

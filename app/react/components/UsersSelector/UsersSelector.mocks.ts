@@ -5,8 +5,8 @@ export function createMockUser(id: number, username: string): UserViewModel {
     Id: id,
     Username: username,
     Role: 2,
-    UserTheme: '',
     EndpointAuthorizations: {},
+    UseCache: false,
     PortainerAuthorizations: {
       PortainerDockerHubInspect: true,
       PortainerEndpointGroupInspect: true,
@@ -25,5 +25,8 @@ export function createMockUser(id: number, username: string): UserViewModel {
     RoleName: 'user',
     Checked: false,
     AuthenticationMethod: '',
+    ThemeSettings: {
+      color: 'auto',
+    },
   };
 }

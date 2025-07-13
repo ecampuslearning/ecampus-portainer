@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { Info } from 'lucide-react';
 
 import { getAgentShortVersion } from '@/portainer/views/endpoints/helpers';
@@ -9,8 +8,9 @@ import { Code } from '@@/Code';
 import { FormSectionTitle } from '@@/form-components/FormSectionTitle';
 import { NavTabs } from '@@/NavTabs';
 import { Icon } from '@@/Icon';
+import { NavContainer } from '@@/NavTabs/NavContainer';
 
-const deployments = [
+export const deployments = [
   {
     id: 'k8sLoadBalancer',
     label: 'Kubernetes via load balancer',
@@ -25,9 +25,13 @@ const deployments = [
   },
 ];
 
-export function DeploymentScripts() {
-  const [deployType, setDeployType] = useState(deployments[0].id);
-
+export function DeploymentScripts({
+  deployType,
+  setDeployType,
+}: {
+  deployType: string;
+  setDeployType: (id: string) => void;
+}) {
   const agentDetailsQuery = useAgentDetails();
 
   if (!agentDetailsQuery) {
@@ -63,11 +67,13 @@ export function DeploymentScripts() {
         </span>
       </div>
 
-      <NavTabs
-        options={options}
-        onSelect={(id: string) => setDeployType(id)}
-        selectedId={deployType}
-      />
+      <NavContainer>
+        <NavTabs
+          options={options}
+          onSelect={(id: string) => setDeployType(id)}
+          selectedId={deployType}
+        />
+      </NavContainer>
     </>
   );
 }
@@ -106,7 +112,11 @@ function DeployCode({
         </p>
       )}
       <Code>{code}</Code>
-      <CopyButton copyText={code}>Copy command</CopyButton>
+      <div className="mt-2">
+        <CopyButton copyText={code} data-cy="copy-deploy-agent-command-button">
+          Copy command
+        </CopyButton>
+      </div>
     </>
   );
 }

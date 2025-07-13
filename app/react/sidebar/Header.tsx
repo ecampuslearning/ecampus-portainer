@@ -2,12 +2,13 @@ import { ChevronsLeft, ChevronsRight } from 'lucide-react';
 import clsx from 'clsx';
 
 import { isBE } from '@/react/portainer/feature-flags/feature-flags.service';
-import smallLogo from '@/assets/ico/logomark.svg';
 
 import { Link } from '@@/Link';
 
 import fullLogoBE from './portainer_logo-BE.svg';
 import fullLogoCE from './portainer_logo-CE.svg';
+import smallLogoBE from './logomark-BE.svg';
+import smallLogoCE from './logomark-CE.svg';
 import { useSidebarState } from './useSidebarState';
 import styles from './Header.module.css';
 
@@ -20,18 +21,18 @@ export function Header({ logo: customLogo }: Props) {
 
   return (
     <div className="flex">
-      <div>
+      <div className={clsx('pr-5 w-full flex', { 'justify-center': !isOpen })}>
         <Link
           to="portainer.home"
           data-cy="portainerSidebar-homeImage"
-          className="text-2xl text-white no-underline hover:no-underline hover:text-white focus:no-underline focus:text-white focus:outline-none"
+          className="text-2xl text-white no-underline hover:text-white hover:no-underline focus:text-white focus:no-underline focus:outline-none"
         >
           <Logo customLogo={customLogo} isOpen={isOpen} />
         </Link>
         {isOpen && customLogo && (
           <div
             className={clsx(
-              'uppercase text-[9.4px] space-x-1 tracking-[.28em] pt-3',
+              'space-x-1 pt-3 text-[9.4px] uppercase tracking-[.28em]',
               'text-gray-3',
               'th-dark:text-gray-warm-6'
             )}
@@ -62,11 +63,10 @@ export function Header({ logo: customLogo }: Props) {
         onClick={() => toggle()}
         className={clsx(
           styles.collapseBtn,
-          'w-6 h-6 flex justify-center items-center border-0 rounded',
+          'flex h-6 w-6 items-center justify-center rounded border-0',
           'transition-all duration-200',
-          'text-sm text-gray-4 be:text-gray-5 hover:text-white be:hover:text-white',
-          'bg-blue-11 be:bg-gray-10',
-          'th-dark:bg-gray-warm-11',
+          'text-sm text-gray-4',
+          'bg-graphite-900 hover:bg-graphite-500',
           'absolute',
           { '-right-[10px]': !isOpen, 'right-6': isOpen }
         )}
@@ -85,7 +85,7 @@ function getLogo(isOpen: boolean, customLogo?: string) {
   }
 
   if (!isOpen) {
-    return smallLogo;
+    return isBE ? smallLogoBE : smallLogoCE;
   }
 
   return isBE ? fullLogoBE : fullLogoCE;
@@ -103,7 +103,9 @@ function Logo({
   return (
     <img
       src={logo}
-      className={clsx('img-responsive', styles.logo)}
+      className={clsx('img-responsive', styles.logo, {
+        '!max-h-[27px]': !isOpen,
+      })}
       alt="Logo"
     />
   );

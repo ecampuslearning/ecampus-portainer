@@ -1,8 +1,12 @@
+import { http, HttpResponse } from 'msw';
+import { render } from '@testing-library/react';
+
 import { Environment } from '@/react/portainer/environments/types';
-import { UserContext } from '@/react/hooks/useUser';
 import { UserViewModel } from '@/portainer/models/user';
-import { renderWithQueryClient } from '@/react-tools/test-utils';
-import { rest, server } from '@/setup-tests/server';
+import { server } from '@/setup-tests/server';
+import { withUserProvider } from '@/react/test-utils/withUserProvider';
+import { withTestRouter } from '@/react/test-utils/withRouter';
+import { withTestQueryProvider } from '@/react/test-utils/withTestQuery';
 
 import { EnvironmentList } from './EnvironmentList';
 
@@ -37,19 +41,22 @@ async function renderComponent(
   const user = new UserViewModel({ Username: 'test', Role: isAdmin ? 1 : 2 });
 
   server.use(
-    rest.get('/api/endpoints', (req, res, ctx) =>
-      res(
-        ctx.set('x-total-available', environments.length.toString()),
-        ctx.set('x-total-count', environments.length.toString()),
-        ctx.json(environments)
-      )
+    http.get('/api/endpoints', () =>
+      HttpResponse.json(environments, {
+        headers: {
+          'x-total-available': environments.length.toString(),
+          'x-total-count': environments.length.toString(),
+        },
+      })
     )
   );
 
-  const queries = renderWithQueryClient(
-    <UserContext.Provider value={{ user }}>
-      <EnvironmentList onClickBrowse={jest.fn()} onRefresh={jest.fn()} />
-    </UserContext.Provider>
+  const Wrapped = withTestQueryProvider(
+    withUserProvider(withTestRouter(EnvironmentList), user)
+  );
+
+  const queries = render(
+    <Wrapped onClickBrowse={vi.fn()} onRefresh={vi.fn()} />
   );
 
   await expect(queries.findByText('Environments')).resolves.toBeVisible();

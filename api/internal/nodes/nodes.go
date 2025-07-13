@@ -2,13 +2,17 @@ package status
 
 import (
 	portainer "github.com/portainer/portainer/api"
+	"github.com/portainer/portainer/api/internal/endpointutils"
 )
 
 // NodesCount returns the total node number of all environments
 func NodesCount(endpoints []portainer.Endpoint) int {
 	nodes := 0
+
 	for _, env := range endpoints {
-		nodes += countNodes(&env)
+		if !endpointutils.IsEdgeEndpoint(&env) || env.UserTrusted {
+			nodes += countNodes(&env)
+		}
 	}
 
 	return nodes
@@ -24,12 +28,4 @@ func countNodes(endpoint *portainer.Endpoint) int {
 	}
 
 	return 1
-}
-
-func max(a, b int) int {
-	if a > b {
-		return a
-	}
-
-	return b
 }

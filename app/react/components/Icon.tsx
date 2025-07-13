@@ -7,6 +7,7 @@ import Svg, { SvgIcons } from './Svg';
 
 export interface IconProps {
   icon: ReactNode | ComponentType<unknown>;
+  iconClass?: string;
 }
 
 export type IconMode =
@@ -29,15 +30,15 @@ interface Props {
   className?: string;
   size?: IconSize;
   mode?: IconMode;
+  spin?: boolean;
 }
 
-export function Icon({ icon, className, mode, size }: Props) {
-  const classes = clsx(
-    className,
-    'icon inline-flex',
-    { [`icon-${mode}`]: mode },
-    { [`icon-${size}`]: size }
-  );
+export function Icon({ icon, className, mode, size, spin }: Props) {
+  const classes = clsx(className, 'icon inline-flex', {
+    [`icon-${mode}`]: mode,
+    [`icon-${size}`]: size,
+    'animate-spin-slow': spin,
+  });
 
   if (typeof icon !== 'string') {
     const Icon = isValidElementType(icon) ? icon : null;

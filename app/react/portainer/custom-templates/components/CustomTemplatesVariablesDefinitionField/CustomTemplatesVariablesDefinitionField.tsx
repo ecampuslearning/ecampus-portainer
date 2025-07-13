@@ -1,9 +1,9 @@
-import { FormikErrors } from 'formik';
+import { SchemaOf, array, object, string } from 'yup';
 
 import { FormError } from '@@/form-components/FormError';
 import { Input } from '@@/form-components/Input';
 import { InputList } from '@@/form-components/InputList';
-import { ItemProps } from '@@/form-components/InputList/InputList';
+import { ArrayError, ItemProps } from '@@/form-components/InputList/InputList';
 
 export interface VariableDefinition {
   name: string;
@@ -12,10 +12,12 @@ export interface VariableDefinition {
   description: string;
 }
 
+export type Values = VariableDefinition[];
+
 interface Props {
-  value: VariableDefinition[];
-  onChange: (value: VariableDefinition[]) => void;
-  errors?: FormikErrors<VariableDefinition>[];
+  value: Values;
+  onChange: (value: Values) => void;
+  errors?: ArrayError<Values>;
   isVariablesNamesFromParent?: boolean;
 }
 
@@ -30,11 +32,12 @@ export function CustomTemplatesVariablesDefinitionField({
       label="Variables definition"
       onChange={onChange}
       value={value}
-      renderItem={(item, onChange, error) => (
+      renderItem={(item, onChange, index, error) => (
         <Item
           item={item}
           onChange={onChange}
           error={error}
+          index={index}
           isNameReadonly={isVariablesNamesFromParent}
         />
       )}
@@ -47,6 +50,7 @@ export function CustomTemplatesVariablesDefinitionField({
       errors={errors}
       textTip="List should map the mustache variables in the template file, if default value is empty, the variable will be required."
       isAddButtonHidden={isVariablesNamesFromParent}
+      data-cy="custom-templates-variables-field"
     />
   );
 }
@@ -55,7 +59,13 @@ interface DefinitionItemProps extends ItemProps<VariableDefinition> {
   isNameReadonly?: boolean;
 }
 
-function Item({ item, onChange, error, isNameReadonly }: DefinitionItemProps) {
+function Item({
+  item,
+  onChange,
+  error,
+  isNameReadonly,
+  index,
+}: DefinitionItemProps) {
   const errorObj = typeof error === 'object' ? error : {};
 
   return (
@@ -67,6 +77,7 @@ function Item({ item, onChange, error, isNameReadonly }: DefinitionItemProps) {
           onChange={handleChange}
           placeholder="Name (e.g var_name)"
           readOnly={isNameReadonly}
+          data-cy={`custom-templates-item-name-field_${index}`}
         />
         {errorObj?.name && <FormError>{errorObj.name}</FormError>}
       </div>
@@ -76,6 +87,7 @@ function Item({ item, onChange, error, isNameReadonly }: DefinitionItemProps) {
           onChange={handleChange}
           placeholder="Label"
           name="label"
+          data-cy={`custom-templates-item-label-field_${index}`}
         />
         {errorObj?.label && <FormError>{errorObj.label}</FormError>}
       </div>
@@ -85,6 +97,7 @@ function Item({ item, onChange, error, isNameReadonly }: DefinitionItemProps) {
           value={item.description}
           onChange={handleChange}
           placeholder="Description"
+          data-cy={`custom-templates-item-description-field_${index}`}
         />
         {errorObj?.description && <FormError>{errorObj.description}</FormError>}
       </div>
@@ -94,6 +107,7 @@ function Item({ item, onChange, error, isNameReadonly }: DefinitionItemProps) {
           onChange={handleChange}
           placeholder="Default Value"
           name="defaultValue"
+          data-cy={`custom-templates-item-default-value-field_${index}`}
         />
         {errorObj?.defaultValue && (
           <FormError>{errorObj.defaultValue}</FormError>
@@ -105,4 +119,17 @@ function Item({ item, onChange, error, isNameReadonly }: DefinitionItemProps) {
   function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
     onChange({ ...item, [e.target.name]: e.target.value });
   }
+}
+
+function itemValidation(): SchemaOf<VariableDefinition> {
+  return object().shape({
+    name: string().required('Name is required'),
+    label: string().required('Label is required'),
+    defaultValue: string().default(''),
+    description: string().default(''),
+  });
+}
+
+export function validation(): SchemaOf<Values> {
+  return array().of(itemValidation());
 }

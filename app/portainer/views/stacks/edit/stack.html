@@ -109,24 +109,27 @@
                 </form>
               </div>
               <!-- !associate -->
-              <stack-redeploy-git-form
-                ng-if="stack.GitConfig && !stack.FromAppTemplate && !state.actionInProgress"
-                model="stack.GitConfig"
-                stack="stack"
-                authorization="PortainerStackUpdate"
-                endpoint="applicationState.endpoint"
-              >
-              </stack-redeploy-git-form>
-              <stack-duplication-form
-                ng-if="regular && endpoints.length > 0"
-                endpoints="endpoints"
-                groups="groups"
-                current-endpoint-id="endpoint.Id"
-                on-duplicate="duplicateStack(name, endpointId)"
-                on-migrate="migrateStack(name, endpointId)"
-                yaml-error="state.yamlError"
-              >
-              </stack-duplication-form>
+
+              <div ng-if="!orphaned">
+                <stack-redeploy-git-form
+                  ng-if="stack.GitConfig && !stack.FromAppTemplate && !state.actionInProgress"
+                  model="stack.GitConfig"
+                  stack="stack"
+                  authorization="PortainerStackUpdate"
+                  endpoint="applicationState.endpoint"
+                >
+                </stack-redeploy-git-form>
+                <stack-duplication-form
+                  ng-if="regular && endpoints.length > 0"
+                  endpoints="endpoints"
+                  groups="groups"
+                  current-endpoint-id="endpoint.Id"
+                  on-duplicate="duplicateStack(name, endpointId)"
+                  on-migrate="migrateStack(name, endpointId)"
+                  yaml-error="state.yamlError"
+                >
+                </stack-duplication-form>
+              </div>
             </div>
           </uib-tab>
           <!-- !tab-info -->
@@ -147,8 +150,9 @@
                 <span class="col-sm-12 text-muted small">
                   You can get more information about Compose file format in the <a href="https://docs.docker.com/compose/compose-file/" target="_blank">official documentation</a>.
                 </span>
-                <div class="col-sm-12" ng-if="state.yamlError">
-                  <span class="text-danger small">{{ state.yamlError }}</span>
+                <!-- opacity-0 with &nbsp; fixes the layout shift causing tooltips to go over hovered text -->
+                <div class="col-sm-12" ng-class="{ 'opacity-100': state.yamlError, 'opacity-0': !state.yamlError }">
+                  <span class="text-danger small">{{ state.yamlError || '&nbsp;' }}</span>
                 </div>
               </div>
               <div class="form-group">
@@ -156,38 +160,40 @@
                   <code-editor
                     read-only="orphaned"
                     identifier="stack-editor"
-                    placeholder="# Define or paste the content of your docker compose file here"
+                    text-tip="Define or paste the content of your docker compose file here"
                     yml="true"
                     on-change="(editorUpdate)"
                     value="stackFileContent"
+                    schema="dockerComposeSchema"
                   ></code-editor>
-                </div>
-              </div>
-
-              <div ng-if="isAdmin && applicationState.endpoint.type !== 4">
-                <div class="col-sm-12 form-section-title">
-                  Webhooks
-                  <por-switch-field
-                    name="EnableWebhook"
-                    checked="formValues.EnableWebhook"
-                    label-class="'col-sm-2'"
-                    tooltip="'Create a webhook (or callback URI) to automate the update of this stack. Sending a POST request to this callback URI (without requiring any authentication) will pull the most up-to-date version of the associated image and re-deploy this stack.'"
-                    label="'Create a Stack webhook'"
-                    feature-id="'stack-webhook'"
-                  ></por-switch-field>
                 </div>
               </div>
 
               <!-- environment-variables -->
               <div ng-if="stack">
-                <environment-variables-panel
-                  ng-model="formValues.Env"
-                  explanation="These values will be used as substitutions in the stack file"
+                <stack-environment-variables-panel
+                  values="formValues.Env"
                   on-change="(handleEnvVarChange)"
                   show-help-message="true"
-                ></environment-variables-panel>
+                  is-foldable="true"
+                ></stack-environment-variables-panel>
               </div>
               <!-- !environment-variables -->
+
+              <!-- webhook -->
+              <div ng-if="isAdmin && applicationState.endpoint.type !== 4">
+                <div class="form-section-title"> Webhooks</div>
+                <por-switch-field
+                  name="EnableWebhook"
+                  checked="formValues.EnableWebhook"
+                  label-class="'col-sm-2'"
+                  tooltip="'Create a webhook (or callback URI) to automate the update of this stack. Sending a POST request to this callback URI (without requiring any authentication) will pull the most up-to-date version of the associated image and re-deploy this stack.'"
+                  label="'Create a Stack webhook'"
+                  feature-id="'stack-webhook'"
+                ></por-switch-field>
+              </div>
+              <!-- !webhook -->
+
               <!-- options -->
               <div ng-if="stack.Type === 1 && applicationState.endpoint.apiVersion >= 1.27" authorization="PortainerStackUpdate">
                 <div class="col-sm-12 form-section-title"> Options </div>
@@ -237,27 +243,13 @@
   environment="endpoint"
 ></stack-containers-datatable>
 
-<div class="row" ng-if="services && (!orphaned || orphanedRunning)">
-  <div class="col-sm-12">
-    <services-datatable
-      title-text="Services"
-      title-icon="list"
-      dataset="services"
-      table-key="stack-services"
-      order-by="Name"
-      nodes="nodes"
-      agent-proxy="applicationState.endpoint.mode.agentProxy && applicationState.endpoint.mode.provider === 'DOCKER_SWARM_MODE'"
-      show-ownership-column="false"
-      show-update-action="applicationState.endpoint.apiVersion >= 1.25"
-      show-task-logs-button="applicationState.endpoint.apiVersion >= 1.30"
-      show-add-action="false"
-      show-stack-column="false"
-      not-auto-focus="true"
-      endpoint-public-url="endpoint.PublicURL"
-      endpoint-id="endpoint.Id"
-    ></services-datatable>
-  </div>
-</div>
+<docker-services-datatable
+  ng-if="services && (!orphaned || orphanedRunning)"
+  dataset="services"
+  title-icon="list"
+  on-refresh="(getServices)"
+  table-key="'stack-services'"
+></docker-services-datatable>
 
 <!-- access-control-panel -->
 <access-control-panel

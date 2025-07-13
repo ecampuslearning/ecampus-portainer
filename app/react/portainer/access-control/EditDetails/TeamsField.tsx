@@ -30,7 +30,7 @@ export function TeamsField({
             'You can select which team(s) will be able to manage this resource.'
           : undefined
       }
-      inputId="teams-selector"
+      inputId="authorized-teams-selector"
       errors={errors}
     >
       {teams.length > 0 ? (
@@ -39,12 +39,16 @@ export function TeamsField({
           teams={teams}
           onChange={onChange}
           value={value}
-          inputId="teams-selector"
+          inputId="authorized-teams-selector"
+          dataCy="teams-selector"
         />
       ) : (
         <span className="small text-muted">
-          You have not yet created any teams. Head over to the
-          <Link to="portainer.teams">Teams view</Link> to manage teams.
+          You have not yet created any teams. Head over to the{' '}
+          <Link to="portainer.teams" data-cy="teams-view-link">
+            Teams view
+          </Link>{' '}
+          to manage teams.
         </span>
       )}
     </FormControl>

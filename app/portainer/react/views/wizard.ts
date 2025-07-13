@@ -10,6 +10,7 @@ import {
 import { withCurrentUser } from '@/react-tools/withCurrentUser';
 import { withReactQuery } from '@/react-tools/withReactQuery';
 import { withUIRouter } from '@/react-tools/withUIRouter';
+import { AccessHeaders } from '@/portainer/authorization-guard';
 
 export const wizardModule = angular
   .module('portainer.app.react.views.wizard', [])
@@ -42,11 +43,14 @@ function config($stateRegistryProvider: StateRegistry) {
         component: 'wizardMainView',
       },
     },
+    data: {
+      access: AccessHeaders.Admin,
+    },
   });
 
   $stateRegistryProvider.register({
     name: 'portainer.wizard.endpoints',
-    url: '/endpoints?edgeDevice',
+    url: '/endpoints?referrer',
     views: {
       'content@': {
         component: 'wizardEnvironmentTypeSelectView',
@@ -54,6 +58,9 @@ function config($stateRegistryProvider: StateRegistry) {
     },
     params: {
       localEndpointId: 0,
+    },
+    data: {
+      docs: '/admin/environments/add',
     },
   });
 

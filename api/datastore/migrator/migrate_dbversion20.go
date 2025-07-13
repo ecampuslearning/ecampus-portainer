@@ -10,7 +10,7 @@ import (
 func (m *Migrator) updateResourceControlsToDBVersion22() error {
 	log.Info().Msg("updating resource controls")
 
-	legacyResourceControls, err := m.resourceControlService.ResourceControls()
+	legacyResourceControls, err := m.resourceControlService.ReadAll()
 	if err != nil {
 		return err
 	}
@@ -18,8 +18,7 @@ func (m *Migrator) updateResourceControlsToDBVersion22() error {
 	for _, resourceControl := range legacyResourceControls {
 		resourceControl.AdministratorsOnly = false
 
-		err := m.resourceControlService.UpdateResourceControl(resourceControl.ID, &resourceControl)
-		if err != nil {
+		if err := m.resourceControlService.Update(resourceControl.ID, &resourceControl); err != nil {
 			return err
 		}
 	}
@@ -30,7 +29,7 @@ func (m *Migrator) updateResourceControlsToDBVersion22() error {
 func (m *Migrator) updateUsersAndRolesToDBVersion22() error {
 	log.Info().Msg("updating users and roles")
 
-	legacyUsers, err := m.userService.Users()
+	legacyUsers, err := m.userService.ReadAll()
 	if err != nil {
 		return err
 	}
@@ -42,48 +41,57 @@ func (m *Migrator) updateUsersAndRolesToDBVersion22() error {
 
 	for _, user := range legacyUsers {
 		user.PortainerAuthorizations = authorization.DefaultPortainerAuthorizations()
-		err = m.userService.UpdateUser(user.ID, &user)
-		if err != nil {
+
+		if err := m.userService.Update(user.ID, &user); err != nil {
 			return err
 		}
 	}
 
-	endpointAdministratorRole, err := m.roleService.Role(portainer.RoleID(1))
+	endpointAdministratorRole, err := m.roleService.Read(portainer.RoleID(1))
 	if err != nil {
 		return err
 	}
+
 	endpointAdministratorRole.Priority = 1
 	endpointAdministratorRole.Authorizations = authorization.DefaultEndpointAuthorizationsForEndpointAdministratorRole()
 
-	err = m.roleService.UpdateRole(endpointAdministratorRole.ID, endpointAdministratorRole)
+	if err := m.roleService.Update(endpointAdministratorRole.ID, endpointAdministratorRole); err != nil {
+		return err
+	}
 
-	helpDeskRole, err := m.roleService.Role(portainer.RoleID(2))
+	helpDeskRole, err := m.roleService.Read(portainer.RoleID(2))
 	if err != nil {
 		return err
 	}
+
 	helpDeskRole.Priority = 2
 	helpDeskRole.Authorizations = authorization.DefaultEndpointAuthorizationsForHelpDeskRole(settings.AllowVolumeBrowserForRegularUsers)
 
-	err = m.roleService.UpdateRole(helpDeskRole.ID, helpDeskRole)
+	if err := m.roleService.Update(helpDeskRole.ID, helpDeskRole); err != nil {
+		return err
+	}
 
-	standardUserRole, err := m.roleService.Role(portainer.RoleID(3))
+	standardUserRole, err := m.roleService.Read(portainer.RoleID(3))
 	if err != nil {
 		return err
 	}
+
 	standardUserRole.Priority = 3
 	standardUserRole.Authorizations = authorization.DefaultEndpointAuthorizationsForStandardUserRole(settings.AllowVolumeBrowserForRegularUsers)
 
-	err = m.roleService.UpdateRole(standardUserRole.ID, standardUserRole)
+	if err := m.roleService.Update(standardUserRole.ID, standardUserRole); err != nil {
+		return err
+	}
 
-	readOnlyUserRole, err := m.roleService.Role(portainer.RoleID(4))
+	readOnlyUserRole, err := m.roleService.Read(portainer.RoleID(4))
 	if err != nil {
 		return err
 	}
+
 	readOnlyUserRole.Priority = 4
 	readOnlyUserRole.Authorizations = authorization.DefaultEndpointAuthorizationsForReadOnlyUserRole(settings.AllowVolumeBrowserForRegularUsers)
 
-	err = m.roleService.UpdateRole(readOnlyUserRole.ID, readOnlyUserRole)
-	if err != nil {
+	if err := m.roleService.Update(readOnlyUserRole.ID, readOnlyUserRole); err != nil {
 		return err
 	}
 

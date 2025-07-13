@@ -20,7 +20,9 @@ export function mockExampleData() {
       Id: 10,
       Username: 'user1',
       Role: 2,
-      UserTheme: '',
+      ThemeSettings: {
+        color: 'auto',
+      },
       EndpointAuthorizations: {},
       PortainerAuthorizations: {
         PortainerDockerHubInspect: true,
@@ -40,12 +42,15 @@ export function mockExampleData() {
       RoleName: 'user',
       Checked: false,
       AuthenticationMethod: '',
+      UseCache: false,
     },
     {
       Id: 13,
       Username: 'user2',
       Role: 2,
-      UserTheme: '',
+      ThemeSettings: {
+        color: 'auto',
+      },
       EndpointAuthorizations: {},
       PortainerAuthorizations: {
         PortainerDockerHubInspect: true,
@@ -65,6 +70,7 @@ export function mockExampleData() {
       RoleName: 'user',
       Checked: false,
       AuthenticationMethod: '',
+      UseCache: false,
     },
   ];
 

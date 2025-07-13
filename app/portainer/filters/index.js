@@ -1,9 +1,9 @@
 import angular from 'angular';
 import _ from 'lodash-es';
 
+import { ownershipIcon } from '@/react/docker/components/datatable/createOwnershipColumn';
 import {
   arrayToStr,
-  environmentTypeIcon,
   endpointTypeName,
   getPairKey,
   getPairValue,
@@ -12,7 +12,6 @@ import {
   isoDate,
   isoDateFromTimestamp,
   labelsToStr,
-  ownershipIcon,
   stripProtocol,
   truncate,
   truncateLeftRight,
@@ -34,5 +33,4 @@ angular
   .filter('arraytostr', () => arrayToStr)
   .filter('labelsToStr', () => labelsToStr)
   .filter('endpointtypename', () => endpointTypeName)
-  .filter('endpointtypeicon', () => environmentTypeIcon)
   .filter('ownershipicon', () => ownershipIcon);

@@ -42,11 +42,13 @@
       <div class="col-sm-12 col-lg-12">
         <code-editor
           identifier="{{ $ctrl.identifier }}"
-          placeholder="{{ $ctrl.placeholder }}"
+          text-tip="{{ $ctrl.textTip }}"
           read-only="$ctrl.readOnly"
           yml="$ctrl.yml"
           value="$ctrl.value"
-          on-change="($ctrl.editorUpdate)"
+          on-change="($ctrl.onChange)"
+          height="{{ $ctrl.height }}"
+          schema="$ctrl.schema"
         ></code-editor>
       </div>
     </div>

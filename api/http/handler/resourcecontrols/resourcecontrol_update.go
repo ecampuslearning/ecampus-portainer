@@ -4,12 +4,12 @@ import (
 	"errors"
 	"net/http"
 
-	httperror "github.com/portainer/libhttp/error"
-	"github.com/portainer/libhttp/request"
-	"github.com/portainer/libhttp/response"
 	portainer "github.com/portainer/portainer/api"
 	httperrors "github.com/portainer/portainer/api/http/errors"
 	"github.com/portainer/portainer/api/http/security"
+	httperror "github.com/portainer/portainer/pkg/libhttp/error"
+	"github.com/portainer/portainer/pkg/libhttp/request"
+	"github.com/portainer/portainer/pkg/libhttp/response"
 )
 
 type resourceControlUpdatePayload struct {
@@ -31,6 +31,7 @@ func (payload *resourceControlUpdatePayload) Validate(r *http.Request) error {
 	if payload.Public && payload.AdministratorsOnly {
 		return errors.New("invalid payload: cannot set public and administrators only")
 	}
+
 	return nil
 }
 
@@ -58,16 +59,15 @@ func (handler *Handler) resourceControlUpdate(w http.ResponseWriter, r *http.Req
 	}
 
 	var payload resourceControlUpdatePayload
-	err = request.DecodeAndValidateJSONPayload(r, &payload)
-	if err != nil {
+	if err := request.DecodeAndValidateJSONPayload(r, &payload); err != nil {
 		return httperror.BadRequest("Invalid request payload", err)
 	}
 
-	resourceControl, err := handler.DataStore.ResourceControl().ResourceControl(portainer.ResourceControlID(resourceControlID))
+	resourceControl, err := handler.DataStore.ResourceControl().Read(portainer.ResourceControlID(resourceControlID))
 	if handler.DataStore.IsErrObjectNotFound(err) {
 		return httperror.NotFound("Unable to find a resource control with the specified identifier inside the database", err)
 	} else if err != nil {
-		return httperror.InternalServerError("Unable to find a resource control with with the specified identifier inside the database", err)
+		return httperror.InternalServerError("Unable to find a resource control with the specified identifier inside the database", err)
 	}
 
 	securityContext, err := security.RetrieveRestrictedRequestContext(r)
@@ -106,8 +106,7 @@ func (handler *Handler) resourceControlUpdate(w http.ResponseWriter, r *http.Req
 		return httperror.Forbidden("Permission denied to update the resource control", httperrors.ErrResourceAccessDenied)
 	}
 
-	err = handler.DataStore.ResourceControl().UpdateResourceControl(resourceControl.ID, resourceControl)
-	if err != nil {
+	if err := handler.DataStore.ResourceControl().Update(resourceControl.ID, resourceControl); err != nil {
 		return httperror.InternalServerError("Unable to persist resource control changes inside the database", err)
 	}
 

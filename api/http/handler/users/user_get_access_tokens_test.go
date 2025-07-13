@@ -1,8 +1,6 @@
 package users
 
 import (
-	"encoding/json"
-	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -13,15 +11,17 @@ import (
 	"github.com/portainer/portainer/api/apikey"
 	"github.com/portainer/portainer/api/datastore"
 	"github.com/portainer/portainer/api/http/security"
+	"github.com/portainer/portainer/api/internal/testhelpers"
 	"github.com/portainer/portainer/api/jwt"
+
+	"github.com/segmentio/encoding/json"
 	"github.com/stretchr/testify/assert"
 )
 
 func Test_userGetAccessTokens(t *testing.T) {
 	is := assert.New(t)
 
-	_, store, teardown := datastore.MustNewTestStore(t, true, true)
-	defer teardown()
+	_, store := datastore.MustNewTestStore(t, true, true)
 
 	// create admin and standard user(s)
 	adminUser := &portainer.User{ID: 1, Username: "admin", Role: portainer.AdministratorRole}
@@ -40,19 +40,19 @@ func Test_userGetAccessTokens(t *testing.T) {
 	rateLimiter := security.NewRateLimiter(10, 1*time.Second, 1*time.Hour)
 	passwordChecker := security.NewPasswordStrengthChecker(store.SettingsService)
 
-	h := NewHandler(requestBouncer, rateLimiter, apiKeyService, nil, passwordChecker)
+	h := NewHandler(requestBouncer, rateLimiter, apiKeyService, passwordChecker)
 	h.DataStore = store
 
 	// generate standard and admin user tokens
-	adminJWT, _ := jwtService.GenerateToken(&portainer.TokenData{ID: adminUser.ID, Username: adminUser.Username, Role: adminUser.Role})
-	jwt, _ := jwtService.GenerateToken(&portainer.TokenData{ID: user.ID, Username: user.Username, Role: user.Role})
+	adminJWT, _, _ := jwtService.GenerateToken(&portainer.TokenData{ID: adminUser.ID, Username: adminUser.Username, Role: adminUser.Role})
+	jwt, _, _ := jwtService.GenerateToken(&portainer.TokenData{ID: user.ID, Username: user.Username, Role: user.Role})
 
 	t.Run("standard user can successfully retrieve API key", func(t *testing.T) {
 		_, apiKey, err := apiKeyService.GenerateApiKey(*user, "test-get-token")
 		is.NoError(err)
 
 		req := httptest.NewRequest(http.MethodGet, "/users/2/tokens", nil)
-		req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", jwt))
+		testhelpers.AddTestSecurityCookie(req, jwt)
 
 		rr := httptest.NewRecorder()
 		h.ServeHTTP(rr, req)
@@ -68,7 +68,7 @@ func Test_userGetAccessTokens(t *testing.T) {
 
 		is.Len(resp, 1)
 		if len(resp) == 1 {
-			is.Nil(resp[0].Digest)
+			is.Equal(resp[0].Digest, "")
 			is.Equal(apiKey.ID, resp[0].ID)
 			is.Equal(apiKey.UserID, resp[0].UserID)
 			is.Equal(apiKey.Prefix, resp[0].Prefix)
@@ -81,7 +81,7 @@ func Test_userGetAccessTokens(t *testing.T) {
 		is.NoError(err)
 
 		req := httptest.NewRequest(http.MethodGet, "/users/2/tokens", nil)
-		req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", adminJWT))
+		testhelpers.AddTestSecurityCookie(req, adminJWT)
 
 		rr := httptest.NewRecorder()
 		h.ServeHTTP(rr, req)
@@ -129,10 +129,10 @@ func Test_hideAPIKeyFields(t *testing.T) {
 		UserID:      2,
 		Prefix:      "abc",
 		Description: "test",
-		Digest:      nil,
+		Digest:      "",
 	}
 
 	hideAPIKeyFields(apiKey)
 
-	is.Nil(apiKey.Digest, "digest should be cleared when hiding api key fields")
+	is.Equal(apiKey.Digest, "", "digest should be cleared when hiding api key fields")
 }

@@ -1,16 +1,17 @@
 package stackbuilders
 
 import (
+	"fmt"
 	"strconv"
 	"time"
 
-	httperror "github.com/portainer/libhttp/error"
 	portainer "github.com/portainer/portainer/api"
 	"github.com/portainer/portainer/api/filesystem"
 	gittypes "github.com/portainer/portainer/api/git/types"
 	"github.com/portainer/portainer/api/scheduler"
 	"github.com/portainer/portainer/api/stacks/deployments"
 	"github.com/portainer/portainer/api/stacks/stackutils"
+	httperror "github.com/portainer/portainer/pkg/libhttp/error"
 )
 
 type GitMethodStackBuildProcess interface {
@@ -22,7 +23,7 @@ type GitMethodStackBuildProcess interface {
 	Deploy(payload *StackPayload, endpoint *portainer.Endpoint) GitMethodStackBuildProcess
 	// Save the stack information to database and return the stack object
 	SaveStack() (*portainer.Stack, *httperror.HandlerError)
-	// Get reponse from http request. Use if it is needed
+	// Get response from HTTP request. Use if it is needed
 	GetResponse() string
 	// Set git repository configuration
 	SetGitRepository(payload *StackPayload) GitMethodStackBuildProcess
@@ -44,11 +45,11 @@ func (b *GitMethodStackBuilder) SetGeneralInfo(payload *StackPayload, endpoint *
 	b.stack.Status = portainer.StackStatusActive
 	b.stack.CreationDate = time.Now().Unix()
 	b.stack.AutoUpdate = payload.AutoUpdate
+
 	return b
 }
 
 func (b *GitMethodStackBuilder) SetUniqueInfo(payload *StackPayload) GitMethodStackBuildProcess {
-
 	return b
 }
 
@@ -67,10 +68,13 @@ func (b *GitMethodStackBuilder) SetGitRepository(payload *StackPayload) GitMetho
 
 	repoConfig.URL = payload.URL
 	repoConfig.ReferenceName = payload.ReferenceName
+	repoConfig.TLSSkipVerify = payload.TLSSkipVerify
+
 	repoConfig.ConfigFilePath = payload.ComposeFile
 	if payload.ComposeFile == "" {
 		repoConfig.ConfigFilePath = filesystem.ComposeFileDefaultName
 	}
+
 	// If a manifest file is specified (for kube git apps), then use it instead of the default compose file name
 	if payload.ManifestFile != "" {
 		repoConfig.ConfigFilePath = payload.ManifestFile
@@ -80,7 +84,12 @@ func (b *GitMethodStackBuilder) SetGitRepository(payload *StackPayload) GitMetho
 	// Set the project path on the disk
 	b.stack.ProjectPath = b.fileService.GetStackProjectPath(stackFolder)
 
-	commitHash, err := stackutils.DownloadGitRepository(b.stack.ID, repoConfig, b.gitService, b.fileService)
+	getProjectPath := func() string {
+		stackFolder := fmt.Sprintf("%d", b.stack.ID)
+		return b.fileService.GetStackProjectPath(stackFolder)
+	}
+
+	commitHash, err := stackutils.DownloadGitRepository(repoConfig, b.gitService, getProjectPath)
 	if err != nil {
 		b.err = httperror.InternalServerError(err.Error(), err)
 		return b
@@ -89,6 +98,7 @@ func (b *GitMethodStackBuilder) SetGitRepository(payload *StackPayload) GitMetho
 	// Update the latest commit id
 	repoConfig.ConfigHash = commitHash
 	b.stack.GitConfig = &repoConfig
+
 	return b
 }
 
@@ -126,6 +136,7 @@ func (b *GitMethodStackBuilder) SetAutoUpdate(payload *StackPayload) GitMethodSt
 
 		b.stack.AutoUpdate.JobID = jobID
 	}
+
 	return b
 }
 

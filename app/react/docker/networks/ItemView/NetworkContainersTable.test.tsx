@@ -1,6 +1,11 @@
-import { renderWithQueryClient } from '@/react-tools/test-utils';
-import { UserContext } from '@/react/hooks/useUser';
+import { render } from '@testing-library/react';
+import { http, HttpResponse } from 'msw';
+
 import { UserViewModel } from '@/portainer/models/user';
+import { withUserProvider } from '@/react/test-utils/withUserProvider';
+import { withTestRouter } from '@/react/test-utils/withRouter';
+import { withTestQueryProvider } from '@/react/test-utils/withTestQuery';
+import { server } from '@/setup-tests/server';
 
 import { NetworkContainer } from '../types';
 
@@ -18,24 +23,29 @@ const networkContainers: NetworkContainer[] = [
   },
 ];
 
-jest.mock('@uirouter/react', () => ({
-  ...jest.requireActual('@uirouter/react'),
-  useCurrentStateAndParams: jest.fn(() => ({
+vi.mock('@uirouter/react', async (importOriginal: () => Promise<object>) => ({
+  ...(await importOriginal()),
+  useCurrentStateAndParams: vi.fn(() => ({
     params: { endpointId: 1 },
   })),
 }));
 
 test('Network container values should be visible and the link should be valid', async () => {
+  server.use(http.get('/api/endpoints/1', () => HttpResponse.json({})));
+
   const user = new UserViewModel({ Username: 'test', Role: 1 });
-  const { findByText } = renderWithQueryClient(
-    <UserContext.Provider value={{ user }}>
-      <NetworkContainersTable
-        networkContainers={networkContainers}
-        nodeName=""
-        environmentId={1}
-        networkId="pc8xc9s6ot043vl1q5iz4zhfs"
-      />
-    </UserContext.Provider>
+
+  const Wrapped = withTestQueryProvider(
+    withUserProvider(withTestRouter(NetworkContainersTable), user)
+  );
+
+  const { findByText } = render(
+    <Wrapped
+      networkContainers={networkContainers}
+      nodeName=""
+      environmentId={1}
+      networkId="pc8xc9s6ot043vl1q5iz4zhfs"
+    />
   );
 
   await expect(findByText('Containers in network')).resolves.toBeVisible();

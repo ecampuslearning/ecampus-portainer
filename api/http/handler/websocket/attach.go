@@ -3,14 +3,14 @@ package websocket
 import (
 	"net"
 	"net/http"
-	"net/http/httputil"
 	"time"
 
-	httperror "github.com/portainer/libhttp/error"
-	"github.com/portainer/libhttp/request"
 	portainer "github.com/portainer/portainer/api"
+	"github.com/portainer/portainer/api/ws"
+	httperror "github.com/portainer/portainer/pkg/libhttp/error"
+	"github.com/portainer/portainer/pkg/libhttp/request"
+	"github.com/portainer/portainer/pkg/validate"
 
-	"github.com/asaskevich/govalidator"
 	"github.com/gorilla/websocket"
 )
 
@@ -38,7 +38,7 @@ func (handler *Handler) websocketAttach(w http.ResponseWriter, r *http.Request) 
 	if err != nil {
 		return httperror.BadRequest("Invalid query parameter: id", err)
 	}
-	if !govalidator.IsHexadecimal(attachID) {
+	if !validate.IsHexadecimal(attachID) {
 		return httperror.BadRequest("Invalid query parameter: id (must be hexadecimal identifier)", err)
 	}
 
@@ -74,7 +74,6 @@ func (handler *Handler) websocketAttach(w http.ResponseWriter, r *http.Request) 
 }
 
 func (handler *Handler) handleAttachRequest(w http.ResponseWriter, r *http.Request, params *webSocketRequestParams) error {
-
 	r.Header.Del("Origin")
 
 	if params.endpoint.Type == portainer.AgentOnDockerEnvironment {
@@ -92,8 +91,12 @@ func (handler *Handler) handleAttachRequest(w http.ResponseWriter, r *http.Reque
 	return hijackAttachStartOperation(websocketConn, params.endpoint, params.ID)
 }
 
-func hijackAttachStartOperation(websocketConn *websocket.Conn, endpoint *portainer.Endpoint, attachID string) error {
-	dial, err := initDial(endpoint)
+func hijackAttachStartOperation(
+	websocketConn *websocket.Conn,
+	endpoint *portainer.Endpoint,
+	attachID string,
+) error {
+	conn, err := initDial(endpoint)
 	if err != nil {
 		return err
 	}
@@ -103,24 +106,20 @@ func hijackAttachStartOperation(websocketConn *websocket.Conn, endpoint *portain
 	// network setups may cause ECONNTIMEOUT, leaving the client in an unknown
 	// state. Setting TCP KeepAlive on the socket connection will prohibit
 	// ECONNTIMEOUT unless the socket connection truly is broken
-	if tcpConn, ok := dial.(*net.TCPConn); ok {
+	if tcpConn, ok := conn.(*net.TCPConn); ok {
 		tcpConn.SetKeepAlive(true)
 		tcpConn.SetKeepAlivePeriod(30 * time.Second)
 	}
-
-	httpConn := httputil.NewClientConn(dial, nil)
-	defer httpConn.Close()
 
 	attachStartRequest, err := createAttachStartRequest(attachID)
 	if err != nil {
 		return err
 	}
 
-	return hijackRequest(websocketConn, httpConn, attachStartRequest)
+	return ws.HijackRequest(websocketConn, conn, attachStartRequest)
 }
 
 func createAttachStartRequest(attachID string) (*http.Request, error) {
-
 	request, err := http.NewRequest("POST", "/containers/"+attachID+"/attach?stdin=1&stdout=1&stderr=1&stream=1", nil)
 	if err != nil {
 		return nil, err

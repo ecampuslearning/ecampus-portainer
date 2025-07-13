@@ -4,11 +4,12 @@ import (
 	"net/http"
 
 	portainer "github.com/portainer/portainer/api"
+	"github.com/portainer/portainer/api/http/security"
+	httperror "github.com/portainer/portainer/pkg/libhttp/error"
+	"github.com/portainer/portainer/pkg/libhttp/request"
+	"github.com/portainer/portainer/pkg/libhttp/response"
 
-	httperror "github.com/portainer/libhttp/error"
-	"github.com/portainer/libhttp/request"
-	"github.com/portainer/libhttp/response"
-	httperrors "github.com/portainer/portainer/api/http/errors"
+	"github.com/rs/zerolog/log"
 )
 
 // @id RegistryInspect
@@ -27,26 +28,29 @@ import (
 // @failure 500 "Server error"
 // @router /registries/{id} [get]
 func (handler *Handler) registryInspect(w http.ResponseWriter, r *http.Request) *httperror.HandlerError {
-	hasAccess, isAdmin, err := handler.userHasRegistryAccess(r)
-	if err != nil {
-		return httperror.InternalServerError("Unable to retrieve info from request context", err)
-	}
-	if !hasAccess {
-		return httperror.Forbidden("Access denied to resource", httperrors.ErrResourceAccessDenied)
-	}
-
 	registryID, err := request.RetrieveNumericRouteVariableValue(r, "id")
 	if err != nil {
 		return httperror.BadRequest("Invalid registry identifier route variable", err)
 	}
 
-	registry, err := handler.DataStore.Registry().Registry(portainer.RegistryID(registryID))
+	log.Debug().
+		Int("registry_id", registryID).
+		Str("context", "RegistryInspectHandler").
+		Msg("Starting registry inspection")
+
+	registry, err := handler.DataStore.Registry().Read(portainer.RegistryID(registryID))
 	if handler.DataStore.IsErrObjectNotFound(err) {
 		return httperror.NotFound("Unable to find a registry with the specified identifier inside the database", err)
 	} else if err != nil {
 		return httperror.InternalServerError("Unable to find a registry with the specified identifier inside the database", err)
 	}
 
-	hideFields(registry, !isAdmin)
+	// Check if user is admin to determine if we should hide sensitive fields
+	securityContext, err := security.RetrieveRestrictedRequestContext(r)
+	if err != nil {
+		return httperror.InternalServerError("Unable to retrieve info from request context", err)
+	}
+
+	hideFields(registry, !securityContext.IsAdmin)
 	return response.JSON(w, registry)
 }

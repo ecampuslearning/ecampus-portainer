@@ -1,14 +1,17 @@
 import { baseHref } from '@/portainer/helpers/pathHelper';
-import { isLimitedToBE } from '@/react/portainer/feature-flags/feature-flags.service';
 import { FeatureId } from '@/react/portainer/feature-flags/enums';
+import { isLimitedToBE } from '@/react/portainer/feature-flags/feature-flags.service';
+import { ModalType } from '@@/modals';
+import { confirm } from '@@/modals/confirm';
+import { buildConfirmButton } from '@@/modals/utils';
 import providers, { getProviderByUrl } from './providers';
 
 const MS_TENANT_ID_PLACEHOLDER = 'TENANT_ID';
 
 export default class OAuthSettingsController {
   /* @ngInject */
-  constructor($scope) {
-    Object.assign(this, { $scope });
+  constructor($scope, $async) {
+    Object.assign(this, { $scope, $async });
 
     this.limitedFeature = FeatureId.HIDE_INTERNAL_AUTH;
     this.limitedFeatureClass = 'limited-be';
@@ -27,6 +30,7 @@ export default class OAuthSettingsController {
     this.addTeamMembershipMapping = this.addTeamMembershipMapping.bind(this);
     this.removeTeamMembership = this.removeTeamMembership.bind(this);
     this.onToggleAutoTeamMembership = this.onToggleAutoTeamMembership.bind(this);
+    this.onChangeAuthStyle = this.onChangeAuthStyle.bind(this);
   }
 
   onMicrosoftTenantIDChange() {
@@ -50,6 +54,7 @@ export default class OAuthSettingsController {
       this.settings.LogoutURI = provider.logoutUrl;
       this.settings.UserIdentifier = provider.userIdentifier;
       this.settings.Scopes = provider.scopes;
+      this.settings.AuthStyle = provider.authStyle;
 
       if (providerId === 'microsoft' && this.state.microsoftTenantID !== '') {
         this.onMicrosoftTenantIDChange();
@@ -69,15 +74,36 @@ export default class OAuthSettingsController {
   updateSSO(checked) {
     this.$scope.$evalAsync(() => {
       this.settings.SSO = checked;
-      this.onChangeHideInternalAuth(checked);
+      this.settings.HideInternalAuth = false;
     });
   }
 
-  onChangeHideInternalAuth(checked) {
+  onChangeAuthStyle(val) {
     this.$scope.$evalAsync(() => {
-      if (!this.isLimitedToBE) {
-        this.settings.HideInternalAuth = checked;
+      this.settings.AuthStyle = val;
+    });
+  }
+
+  async onChangeHideInternalAuth(checked) {
+    this.$async(async () => {
+      if (this.isLimitedToBE) {
+        return;
       }
+
+      if (checked) {
+        const confirmed = await confirm({
+          title: 'Hide internal authentication prompt',
+          message: 'By hiding internal authentication prompt, you will only be able to login via SSO. Are you sure?',
+          confirmButton: buildConfirmButton('Confirm', 'danger'),
+          modalType: ModalType.Warn,
+        });
+
+        if (!confirmed) {
+          return;
+        }
+      }
+
+      this.settings.HideInternalAuth = checked;
     });
   }
 

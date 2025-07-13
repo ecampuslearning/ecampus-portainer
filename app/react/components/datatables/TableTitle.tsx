@@ -5,9 +5,10 @@ import { Icon } from '@@/Icon';
 
 interface Props {
   icon?: ReactNode | ComponentType<unknown>;
-  label: string;
+  label: React.ReactNode;
   description?: ReactNode;
   className?: string;
+  id?: string;
 }
 
 export function TableTitle({
@@ -16,22 +17,25 @@ export function TableTitle({
   children,
   description,
   className,
+  id,
 }: PropsWithChildren<Props>) {
   return (
-    <div className={clsx('toolBar flex-col', className)}>
-      <div className="flex gap-1 p-0 w-full items-center">
-        <div className="toolBarTitle">
-          {icon && (
-            <div className="widget-icon">
-              <Icon icon={icon} className="space-right" />
-            </div>
-          )}
+    <>
+      <div className={clsx('toolBar flex-col', className)} id={id}>
+        <div className="flex w-full items-center gap-1 p-0">
+          <h2 className="toolBarTitle m-0 text-base">
+            {icon && (
+              <div className="widget-icon">
+                <Icon icon={icon} className="space-right" />
+              </div>
+            )}
 
-          {label}
+            {label}
+          </h2>
+          {children}
         </div>
-        {children}
       </div>
-      {description}
-    </div>
+      {!!description && <div className="toolBar !pt-0">{description}</div>}
+    </>
   );
 }

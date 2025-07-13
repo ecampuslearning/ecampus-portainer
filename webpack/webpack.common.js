@@ -2,11 +2,9 @@ const path = require('path');
 const { ProvidePlugin, IgnorePlugin } = require('webpack');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
 const WebpackBuildNotifierPlugin = require('webpack-build-notifier');
-const CleanTerminalPlugin = require('clean-terminal-webpack-plugin');
 const MiniCssExtractPlugin = require('mini-css-extract-plugin');
 const { CleanWebpackPlugin } = require('clean-webpack-plugin');
 const LodashModuleReplacementPlugin = require('lodash-webpack-plugin');
-const ESLintPlugin = require('eslint-webpack-plugin');
 const TsconfigPathsPlugin = require('tsconfig-paths-webpack-plugin');
 const Dotenv = require('dotenv-webpack');
 
@@ -22,6 +20,7 @@ module.exports = {
   output: {
     filename: '[name].[contenthash].js',
     path: path.resolve(projectRoot, 'dist/public'),
+    pathinfo: false,
   },
   module: {
     rules: [
@@ -29,17 +28,8 @@ module.exports = {
         test: /\.js$/,
         type: 'javascript/auto',
         enforce: 'pre',
-        use: [
-          {
-            loader: 'source-map-loader',
-            options: {
-              filterSourceMappingUrl: (_, resourcePath) => {
-                // ignores pkgs missing sourcemaps
-                return ['chardet', 'tokenize-ansi'].every((pkg) => !resourcePath.includes(pkg));
-              },
-            },
-          },
-        ],
+        exclude: /node_modules/,
+        use: ['source-map-loader'],
       },
       {
         test: /\.(js|ts)(x)?$/,
@@ -99,6 +89,12 @@ module.exports = {
           },
         ],
       },
+      {
+        test: /\.m?js/,
+        resolve: {
+          fullySpecified: false,
+        },
+      },
     ],
   },
   devServer: {
@@ -117,7 +113,6 @@ module.exports = {
   },
   plugins: [
     new Dotenv({ defaults: true }),
-    new ESLintPlugin(),
     new HtmlWebpackPlugin({
       template: './app/index.html',
       templateParameters: {
@@ -139,7 +134,6 @@ module.exports = {
       logo: path.resolve('./assets/favicon-32x32.png'),
       suppressSuccess: true,
     }),
-    new CleanTerminalPlugin(),
     new ProvidePlugin({
       $: 'jquery',
       jQuery: 'jquery',
@@ -186,6 +180,10 @@ module.exports = {
       },
     },
   },
+  watchOptions: {
+    ignored: /node_modules/,
+    aggregateTimeout: 200,
+  },
   resolve: {
     alias: {
       '@@': path.resolve(projectRoot, 'app/react/components'),
@@ -196,6 +194,7 @@ module.exports = {
       Kubernetes: path.resolve(projectRoot, 'app/kubernetes'),
       Portainer: path.resolve(projectRoot, 'app/portainer'),
       'lodash-es': 'lodash',
+      'yaml-schema': path.resolve(projectRoot, 'node_modules/codemirror-json-schema/dist/yaml'),
     },
     extensions: ['.js', '.ts', '.tsx'],
     plugins: [

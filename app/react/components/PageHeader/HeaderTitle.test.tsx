@@ -1,18 +1,22 @@
-import { UserContext } from '@/react/hooks/useUser';
+import { render } from '@testing-library/react';
+
 import { UserViewModel } from '@/portainer/models/user';
-import { render } from '@/react-tools/test-utils';
+import { withUserProvider } from '@/react/test-utils/withUserProvider';
+import { withTestRouter } from '@/react/test-utils/withRouter';
+import { withTestQueryProvider } from '@/react/test-utils/withTestQuery';
 
 import { HeaderContainer } from './HeaderContainer';
 import { HeaderTitle } from './HeaderTitle';
 
 test('should not render without a wrapping HeaderContainer', async () => {
-  const consoleErrorFn = jest
+  const consoleErrorFn = vi
     .spyOn(console, 'error')
-    .mockImplementation(() => jest.fn());
+    .mockImplementation(() => vi.fn());
 
   const title = 'title';
   function renderComponent() {
-    return render(<HeaderTitle title={title} />);
+    const Wrapped = withTestQueryProvider(HeaderTitle);
+    return render(<Wrapped title={title} />);
   }
 
   expect(renderComponent).toThrowErrorMatchingSnapshot();
@@ -25,13 +29,19 @@ test('should display a HeaderTitle', async () => {
   const user = new UserViewModel({ Username: username });
 
   const title = 'title';
-  const { queryByText } = render(
-    <UserContext.Provider value={{ user }}>
-      <HeaderContainer>
-        <HeaderTitle title={title} />
-      </HeaderContainer>
-    </UserContext.Provider>
+
+  const Wrapped = withTestQueryProvider(
+    withUserProvider(
+      withTestRouter(() => (
+        <HeaderContainer>
+          <HeaderTitle title={title} />
+        </HeaderContainer>
+      )),
+      user
+    )
   );
+
+  const { queryByText } = render(<Wrapped />);
 
   const heading = queryByText(title);
   expect(heading).toBeVisible();

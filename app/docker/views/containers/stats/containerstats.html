@@ -5,7 +5,7 @@
     {
       label:(container.Name | trimcontainername),
       link: 'docker.containers.container',
-      linkParams:container.Id
+      linkParams: { id: container.Id },
     }, 'Stats']"
 >
 </page-header>
@@ -27,7 +27,7 @@
           <div class="form-group">
             <label for="refreshRate" class="col-sm-3 col-md-2 col-lg-2 margin-sm-top control-label text-left"> Refresh rate </label>
             <div class="col-sm-3 col-md-2">
-              <select id="refreshRate" ng-model="state.refreshRate" ng-change="changeUpdateRepeater()" class="form-control">
+              <select id="refreshRate" ng-model="state.refreshRate" ng-change="changeUpdateRepeater()" class="form-control" data-cy="docker-containers-stats-refresh-rate">
                 <option value="1">1s</option>
                 <option value="3">3s</option>
                 <option value="5">5s</option>
@@ -108,14 +108,4 @@
   </div>
 </div>
 
-<div class="row">
-  <div class="col-sm-12">
-    <container-processes-datatable
-      title-text="Processes"
-      title-icon="list"
-      dataset="processInfo.Processes"
-      headerset="processInfo.Titles"
-      table-key="container-processes"
-    ></container-processes-datatable>
-  </div>
-</div>
+<docker-container-processes-datatable></docker-container-processes-datatable>

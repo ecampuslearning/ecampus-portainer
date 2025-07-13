@@ -5,6 +5,8 @@ import { object, SchemaOf } from 'yup';
 
 import { notifySuccess } from '@/portainer/services/notifications';
 import { withLimitToBE } from '@/react/hooks/useLimitToBE';
+import { useEdgeGroups } from '@/react/edge/edge-groups/queries/useEdgeGroups';
+import { EdgeGroup } from '@/react/edge/edge-groups/types';
 
 import { PageHeader } from '@@/PageHeader';
 import { Widget } from '@@/Widget';
@@ -32,6 +34,7 @@ function ItemView() {
   } = useCurrentStateAndParams();
 
   const id = parseInt(idParam, 10);
+  const edgeGroupsQuery = useEdgeGroups();
 
   if (!idParam || Number.isNaN(id)) {
     throw new Error('id is a required path param');
@@ -75,19 +78,32 @@ function ItemView() {
           { label: 'Edge agent update and rollback', link: '^' },
           item.name,
         ]}
+        reload
       />
 
-      <BetaAlert />
+      <BetaAlert
+        className="mb-2 ml-[15px]"
+        message="Beta feature - currently limited to standalone Linux edge devices."
+      />
 
       <div className="row">
         <div className="col-sm-12">
           <Widget>
             <Widget.Title title="Update & Rollback Scheduler" icon={Settings} />
             <Widget.Body>
-              <TextTip color="blue">
+              <TextTip color="blue" className="mb-2">
                 Devices need to be allocated to an Edge group, visit the{' '}
-                <Link to="edge.groups">Edge Groups</Link> page to assign
-                environments and create groups.
+                <Link
+                  to="edge.groups"
+                  data-cy="update-schedules-edge-groups-link"
+                >
+                  Edge Groups
+                </Link>{' '}
+                page to assign environments and create groups.
+                <br />
+                You can upgrade from any agent version to 2.17 or later only.
+                You can not upgrade to an agent version prior to 2.17 . The
+                ability to rollback to originating version is for 2.15.0+ only.
               </TextTip>
 
               <Formik
@@ -110,7 +126,12 @@ function ItemView() {
                 }}
                 validateOnMount
                 validationSchema={() =>
-                  updateValidation(item.id, schedules, isScheduleActive)
+                  updateValidation(
+                    item.id,
+                    schedules,
+                    edgeGroupsQuery.data,
+                    isScheduleActive
+                  )
                 }
               >
                 {({ isValid, setFieldValue, values, handleBlur, errors }) => (
@@ -129,22 +150,25 @@ function ItemView() {
                       error={errors.groupIds}
                     />
 
-                    {isScheduleActive ? (
-                      <InformationPanel>
-                        <TextTip color="blue">
-                          {environmentsCount} environment(s) will be updated to
-                          version {item.version} on {item.scheduledTime} (local
-                          time)
-                        </TextTip>
-                      </InformationPanel>
-                    ) : (
-                      <ScheduleTypeSelector />
-                    )}
+                    <div className="mt-2">
+                      {isScheduleActive ? (
+                        <InformationPanel>
+                          <TextTip color="blue">
+                            {environmentsCount} environment(s) will be updated
+                            to version {item.version} on {item.scheduledTime}{' '}
+                            (local time)
+                          </TextTip>
+                        </InformationPanel>
+                      ) : (
+                        <ScheduleTypeSelector />
+                      )}
+                    </div>
 
                     <div className="form-group">
                       <div className="col-sm-12">
                         <LoadingButton
                           disabled={!isValid}
+                          data-cy="update-schedule-button"
                           isLoading={updateMutation.isLoading}
                           loadingText="Updating..."
                         >
@@ -166,9 +190,10 @@ function ItemView() {
 function updateValidation(
   itemId: EdgeUpdateSchedule['id'],
   schedules: EdgeUpdateSchedule[],
+  edgeGroups: Array<EdgeGroup> | undefined,
   isScheduleActive: boolean
 ): SchemaOf<{ name: string } | FormValues> {
   return !isScheduleActive
-    ? validation(schedules, itemId)
+    ? validation(schedules, edgeGroups, itemId)
     : object({ name: nameValidation(schedules, itemId) });
 }

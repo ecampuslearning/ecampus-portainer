@@ -1,52 +1,121 @@
-import { ReactNode } from 'react';
-import { Icon } from 'lucide-react';
+import { type LucideIcon } from 'lucide-react';
+import clsx from 'clsx';
+import { MouseEventHandler, PropsWithChildren } from 'react';
 
 import { AutomationTestingProps } from '@/types';
 
+import { Icon } from '@@/Icon';
+
+import { useSidebarState } from '../useSidebarState';
+
 import { Wrapper } from './Wrapper';
-import { Menu } from './Menu';
-import { Head } from './Head';
-import { getPathsForChildren } from './utils';
+import { SidebarTooltip } from './SidebarTooltip';
+import { useSidebarSrefActive } from './useSidebarSrefActive';
 
 interface Props extends AutomationTestingProps {
-  icon?: Icon;
+  icon?: LucideIcon;
   to: string;
   params?: object;
   label: string;
-  children?: ReactNode;
-  openOnPaths?: string[];
+  isSubMenu?: boolean;
+  ignorePaths?: string[];
+  includePaths?: string[];
 }
 
 export function SidebarItem({
-  children,
   icon,
   to,
   params,
   label,
-  openOnPaths = [],
+  isSubMenu = false,
+  ignorePaths = [],
+  includePaths = [],
   'data-cy': dataCy,
 }: Props) {
-  const childrenPath = getPathsForChildren(children);
-  const head = (
-    <Head
-      icon={icon}
-      to={to}
-      params={params}
-      label={label}
-      ignorePaths={childrenPath}
-      data-cy={dataCy}
-    />
+  const { isOpen } = useSidebarState();
+  const anchorProps = useSidebarSrefActive(to, undefined, params, undefined, {
+    ignorePaths,
+    includePaths,
+  });
+
+  const sidebarAnchor = (
+    <Wrapper label={label}>
+      <ItemAnchor
+        href={anchorProps.href}
+        onClick={anchorProps.onClick}
+        className={anchorProps.className}
+        dataCy={dataCy}
+        isOpen={isOpen}
+        isSubMenu={isSubMenu}
+      >
+        {!!icon && <Icon icon={icon} className={clsx('flex [&>svg]:w-4')} />}
+        {(isOpen || isSubMenu) && <span>{label}</span>}
+      </ItemAnchor>
+    </Wrapper>
   );
 
+  if (isOpen || isSubMenu) return sidebarAnchor;
+
   return (
-    <Wrapper label={label} className="sidebar">
-      {children ? (
-        <Menu head={head} openOnPaths={[...openOnPaths, ...childrenPath]}>
-          {children}
-        </Menu>
-      ) : (
-        head
+    <SidebarTooltip
+      content={
+        <div className="rounded th-highcontrast:border th-highcontrast:border-solid th-highcontrast:border-white th-highcontrast:bg-black">
+          <Wrapper label={label}>
+            <ItemAnchor
+              href={anchorProps.href}
+              onClick={anchorProps.onClick}
+              className={anchorProps.className}
+              dataCy={dataCy}
+              isOpen={isOpen}
+              isSubMenu={isSubMenu}
+            >
+              <span className="px-3">{label}</span>
+            </ItemAnchor>
+          </Wrapper>
+        </div>
+      }
+    >
+      <span className="w-full">{sidebarAnchor}</span>
+    </SidebarTooltip>
+  );
+}
+
+type ItemAnchorProps = {
+  href?: string;
+  onClick: MouseEventHandler<unknown>;
+  className: string;
+  isOpen: boolean;
+  isSubMenu: boolean;
+  dataCy: string;
+};
+
+function ItemAnchor({
+  href,
+  onClick,
+  className,
+  isOpen,
+  isSubMenu,
+  dataCy,
+  children,
+}: PropsWithChildren<ItemAnchorProps>) {
+  return (
+    <a
+      href={href}
+      onClick={onClick}
+      className={clsx(
+        className,
+        'text-inherit no-underline hover:text-inherit hover:no-underline focus:text-inherit focus:no-underline',
+        'flex h-8 w-full flex-1 items-center space-x-4 rounded-md text-sm',
+        'transition-colors duration-200 hover:bg-graphite-500',
+        {
+          // submenu items are always expanded (in a tooltip or in the sidebar)
+          'w-full justify-start px-3': isOpen || isSubMenu,
+          'w-8 justify-center': !isOpen && !isSubMenu,
+        }
       )}
-    </Wrapper>
+      data-cy={dataCy}
+    >
+      {children}
+    </a>
   );
 }

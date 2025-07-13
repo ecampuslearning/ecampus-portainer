@@ -8,6 +8,8 @@ import { KubernetesNodeLabelFormValues, KubernetesNodeTaintFormValues } from 'Ku
 import { KubernetesNodeTaintEffects, KubernetesNodeAvailabilities } from 'Kubernetes/node/models';
 import KubernetesFormValidationHelper from 'Kubernetes/helpers/formValidationHelper';
 import { KubernetesNodeHelper } from 'Kubernetes/node/helper';
+import { confirmUpdateNode } from '@/react/kubernetes/cluster/NodeView/ConfirmUpdateNode';
+import { getMetricsForNode, getTotalResourcesForAllApplications } from '@/react/kubernetes/metrics/metrics.ts';
 
 class KubernetesNodeController {
   /* @ngInject */
@@ -16,33 +18,28 @@ class KubernetesNodeController {
     $state,
     Notifications,
     LocalStorage,
-    ModalService,
     KubernetesNodeService,
     KubernetesEventService,
     KubernetesPodService,
     KubernetesApplicationService,
     KubernetesEndpointService,
-    KubernetesMetricsService,
     Authentication
   ) {
     this.$async = $async;
     this.$state = $state;
     this.Notifications = Notifications;
     this.LocalStorage = LocalStorage;
-    this.ModalService = ModalService;
     this.KubernetesNodeService = KubernetesNodeService;
     this.KubernetesEventService = KubernetesEventService;
     this.KubernetesPodService = KubernetesPodService;
     this.KubernetesApplicationService = KubernetesApplicationService;
     this.KubernetesEndpointService = KubernetesEndpointService;
-    this.KubernetesMetricsService = KubernetesMetricsService;
     this.Authentication = Authentication;
 
     this.onInit = this.onInit.bind(this);
     this.getNodesAsync = this.getNodesAsync.bind(this);
     this.getEvents = this.getEvents.bind(this);
     this.getEventsAsync = this.getEventsAsync.bind(this);
-    this.getApplicationsAsync = this.getApplicationsAsync.bind(this);
     this.getEndpointsAsync = this.getEndpointsAsync.bind(this);
     this.updateNodeAsync = this.updateNodeAsync.bind(this);
     this.drainNodeAsync = this.drainNodeAsync.bind(this);
@@ -265,51 +262,12 @@ class KubernetesNodeController {
     const cordonWarning = this.computeCordonWarning();
     const drainWarning = this.computeDrainWarning();
 
-    if (taintsWarning && !labelsWarning) {
-      this.ModalService.confirmUpdate(
-        'Changes to taints will immediately deschedule applications running on this node without the corresponding tolerations. Do you wish to continue?',
-        (confirmed) => {
-          if (confirmed) {
-            return this.$async(this.updateNodeAsync);
-          }
+    if (taintsWarning || labelsWarning || cordonWarning || drainWarning) {
+      confirmUpdateNode(taintsWarning, labelsWarning, cordonWarning, drainWarning).then((confirmed) => {
+        if (confirmed) {
+          return this.$async(this.updateNodeAsync);
         }
-      );
-    } else if (!taintsWarning && labelsWarning) {
-      this.ModalService.confirmUpdate(
-        'Removing or changing a label that is used might prevent applications from being scheduled on this node in the future. Do you wish to continue?',
-        (confirmed) => {
-          if (confirmed) {
-            return this.$async(this.updateNodeAsync);
-          }
-        }
-      );
-    } else if (taintsWarning && labelsWarning) {
-      this.ModalService.confirmUpdate(
-        'Changes to taints will immediately deschedule applications running on this node without the corresponding tolerations.<br/></br/>Removing or changing a label that is used might prevent applications from scheduling on this node in the future.\n\nDo you wish to continue?',
-        (confirmed) => {
-          if (confirmed) {
-            return this.$async(this.updateNodeAsync);
-          }
-        }
-      );
-    } else if (cordonWarning) {
-      this.ModalService.confirmUpdate(
-        'Marking this node as unschedulable will effectively cordon the node and prevent any new workload from being scheduled on that node. Are you sure?',
-        (confirmed) => {
-          if (confirmed) {
-            return this.$async(this.updateNodeAsync);
-          }
-        }
-      );
-    } else if (drainWarning) {
-      this.ModalService.confirmUpdate(
-        'Draining this node will cause all workloads to be evicted from that node. This might lead to some service interruption. Are you sure?',
-        (confirmed) => {
-          if (confirmed) {
-            return this.$async(this.updateNodeAsync);
-          }
-        }
-      );
+      });
     } else {
       return this.$async(this.updateNodeAsync);
     }
@@ -318,7 +276,7 @@ class KubernetesNodeController {
   async getNodesAsync() {
     try {
       this.state.dataLoading = true;
-      const nodeName = this.$transition$.params().name;
+      const nodeName = this.$transition$.params().nodeName;
       this.nodes = await this.KubernetesNodeService.get();
       this.node = _.find(this.nodes, { Name: nodeName });
       this.state.isDrainOperation = _.find(this.nodes, { Availability: this.availabilities.DRAIN });
@@ -339,8 +297,10 @@ class KubernetesNodeController {
 
   async getNodeUsageAsync() {
     try {
-      const nodeName = this.$transition$.params().name;
-      const node = await this.KubernetesMetricsService.getNode(nodeName);
+      const nodeName = this.$transition$.params().nodeName;
+      const node = await getMetricsForNode(this.$state.params.endpointId, nodeName);
+      node.CPU = node.usage.cpu;
+      node.Memory = KubernetesResourceReservationHelper.megaBytesValue(node.usage.memory);
       this.resourceUsage = new KubernetesResourceReservation();
       this.resourceUsage.CPU = KubernetesResourceReservationHelper.parseCPU(node.usage.cpu);
       this.resourceUsage.Memory = KubernetesResourceReservationHelper.megaBytesValue(node.usage.memory);
@@ -350,7 +310,9 @@ class KubernetesNodeController {
   }
 
   getNodeUsage() {
-    return this.$async(this.getNodeUsageAsync);
+    if (this.hasResourceUsageAccess()) {
+      return this.$async(this.getNodeUsageAsync);
+    }
   }
 
   hasEventWarnings() {
@@ -361,7 +323,7 @@ class KubernetesNodeController {
     try {
       this.state.eventsLoading = true;
       const events = await this.KubernetesEventService.get();
-      this.events = events.filter((item) => item.Involved.kind === 'Node');
+      this.events = events.filter((item) => item.Involved.uid === this.node.Id);
       this.state.eventWarningCount = KubernetesEventHelper.warningCount(this.events);
     } catch (err) {
       this.Notifications.error('Failure', err, 'Unable to retrieve node events');
@@ -377,43 +339,6 @@ class KubernetesNodeController {
   showEditor() {
     this.state.showEditorTab = true;
     this.selectTab(2);
-  }
-
-  async getApplicationsAsync() {
-    try {
-      this.state.applicationsLoading = true;
-      this.applications = await this.KubernetesApplicationService.get();
-
-      this.resourceReservation = new KubernetesResourceReservation();
-      this.applications = _.map(this.applications, (app) => {
-        app.Pods = _.filter(app.Pods, (pod) => pod.Node === this.node.Name);
-        return app;
-      });
-      this.applications = _.filter(this.applications, (app) => app.Pods.length !== 0);
-      this.applications = _.map(this.applications, (app) => {
-        const resourceReservation = KubernetesResourceReservationHelper.computeResourceReservation(app.Pods);
-        app.CPU = resourceReservation.CPU;
-        app.Memory = resourceReservation.Memory;
-        this.resourceReservation.CPU += resourceReservation.CPU;
-        this.resourceReservation.Memory += resourceReservation.Memory;
-        return app;
-      });
-      this.resourceReservation.Memory = KubernetesResourceReservationHelper.megaBytesValue(this.resourceReservation.Memory);
-      this.memoryLimit = KubernetesResourceReservationHelper.megaBytesValue(this.node.Memory);
-      this.state.isContainPortainer = _.find(this.applications, { ApplicationName: 'portainer' });
-
-      if (this.hasResourceUsageAccess()) {
-        await this.getNodeUsage();
-      }
-    } catch (err) {
-      this.Notifications.error('Failure', err, 'Unable to retrieve applications');
-    } finally {
-      this.state.applicationsLoading = false;
-    }
-  }
-
-  getApplications() {
-    return this.$async(this.getApplicationsAsync);
   }
 
   async onInit() {
@@ -438,15 +363,18 @@ class KubernetesNodeController {
       useServerMetrics: this.endpoint.Kubernetes.Configuration.UseServerMetrics,
     };
 
+    // getEvents depends on nodes, so get nodes first
     await this.getNodes();
-    await this.getEvents();
-    await this.getApplications();
-    await this.getEndpoints();
+    await Promise.allSettled([this.getEvents(), this.getEndpoints(), this.getNodeUsage()]);
 
     this.availableEffects = _.values(KubernetesNodeTaintEffects);
     this.formValues = KubernetesNodeConverter.nodeToFormValues(this.node);
     this.formValues.Labels = KubernetesNodeHelper.computeUsedLabels(this.applications, this.formValues.Labels);
     this.formValues.Labels = KubernetesNodeHelper.reorderLabels(this.formValues.Labels);
+
+    this.resourceReservation = await getTotalResourcesForAllApplications(this.$state.params.endpointId, this.node.Name);
+    this.resourceReservation.MemoryRequest = KubernetesResourceReservationHelper.megaBytesValue(this.resourceReservation.MemoryRequest);
+    this.node.Memory = KubernetesResourceReservationHelper.megaBytesValue(this.node.Memory);
 
     this.state.viewReady = true;
   }

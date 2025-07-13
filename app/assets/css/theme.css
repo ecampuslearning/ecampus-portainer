@@ -3,6 +3,16 @@
   --black-color: var(--ui-black);
   --white-color: var(--ui-white);
 
+  --graphite-600: #3a3b3f;
+  --graphite-700: #2e2f33;
+  --graphite-800: #222326;
+  --graphite-900: #161719;
+
+  --mist-50: #fcfbfa;
+  --mist-100: #f7f6f3;
+  --mist-200: #f0f0ec;
+  --mist-300: #e8e7e2;
+
   --grey-1: #212121;
   --grey-2: #181818;
   --grey-3: #383838;
@@ -58,6 +68,8 @@
   --grey-58: #ebf4f8;
   --grey-59: #e6e6e6;
   --grey-61: rgb(231, 231, 231);
+  --grey-62: #fdfdfd;
+  --grey-63: #121212;
 
   --blue-1: #219;
   --blue-2: #337ab7;
@@ -72,6 +84,7 @@
   --blue-11: #3ea5ff;
   --blue-12: #41a6ff;
   --blue-14: #357ebd;
+  --blue-15: #36bffa;
 
   --red-1: #a94442;
   --red-2: #c7254e;
@@ -86,7 +99,7 @@
 
   --orange-1: #e86925;
 
-  --BE-only: var(--ui-warning-7);
+  --BE-only: var(--ui-gray-6);
 
   --text-log-viewer-color-json-grey: var(--text-log-viewer-color);
   --text-log-viewer-color-json-magenta: var(--text-log-viewer-color);
@@ -98,30 +111,24 @@
   /* Default Theme */
   --bg-card-color: var(--white-color);
   --bg-main-color: var(--white-color);
-  --bg-body-color: var(--grey-9);
+  --bg-body-color: var(--grey-62);
   --bg-checkbox-border-color: var(--grey-49);
-  --bg-sidebar-color: var(--ui-blue-10);
-  --bg-sidebar-nav-color: var(--ui-blue-11);
+  --bg-sidebar-color: var(--graphite-700);
+  --bg-sidebar-nav-color: var(--graphite-600);
   --bg-widget-color: var(--white-color);
   --bg-widget-header-color: var(--grey-10);
   --bg-widget-table-color: var(--ui-gray-3);
   --bg-header-color: var(--white-color);
   --bg-hover-table-color: var(--grey-14);
-  --bg-switch-box-color: var(--ui-gray-5);
   --bg-input-group-addon-color: var(--ui-gray-3);
-  --bg-btn-default-color: var(--ui-blue-10);
   --bg-blocklist-hover-color: var(--ui-blue-2);
-  --bg-boxselector-color: var(--ui-gray-2);
   --bg-table-color: var(--white-color);
   --bg-md-checkbox-color: var(--grey-12);
   --bg-form-control-disabled-color: var(--grey-11);
   --bg-modal-content-color: var(--white-color);
-  --bg-nav-container-color: var(--ui-gray-2);
   --bg-navtabs-hover-color: var(--grey-16);
   --bg-nav-tab-active-color: var(--ui-gray-4);
   --bg-table-selected-color: var(--grey-14);
-  --bg-codemirror-color: var(--white-color);
-  --bg-codemirror-gutters-color: var(--grey-17);
   --bg-dropdown-menu-color: var(--white-color);
   --bg-log-viewer-color: var(--white-color);
   --bg-log-line-selected-color: var(--grey-18);
@@ -132,11 +139,11 @@
   --border-pagination-color: var(--ui-white);
   --bg-pagination-span-color: var(--white-color);
   --bg-pagination-hover-color: var(--ui-blue-3);
-  --bg-motd-body-color: var(--grey-20);
+  --bg-motd-body-color: var(--mist-50);
+  --bg-motd-btn-color: var(--graphite-700);
   --bg-item-highlighted-color: var(--grey-21);
   --bg-item-highlighted-null-color: var(--grey-14);
   --bg-panel-body-color: var(--white-color);
-  --bg-codemirror-selected-color: var(--grey-22);
   --bg-tooltip-color: var(--ui-gray-11);
   --bg-input-sm-color: var(--white-color);
   --bg-app-datatable-thead: var(--grey-23);
@@ -149,9 +156,6 @@
   --bg-daterangepicker-in-range: var(--grey-58);
   --bg-daterangepicker-active: var(--blue-14);
   --bg-input-autofill-color: var(--bg-inputbox);
-  --bg-btn-default-hover-color: var(--ui-blue-9);
-  --bg-btn-focus: var(--grey-59);
-  --bg-boxselector-disabled-color: var(--white-color);
   --bg-small-select-color: var(--white-color);
   --bg-stepper-item-active: var(--white-color);
   --bg-stepper-item-counter: var(--grey-61);
@@ -183,11 +187,6 @@
   --text-navtabs-color: var(--grey-7);
   --text-navtabs-hover-color: var(--grey-6);
   --text-nav-tab-active-color: var(--grey-25);
-  --text-cm-default-color: var(--blue-1);
-  --text-cm-meta-color: var(--black-color);
-  --text-cm-string-color: var(--red-3);
-  --text-cm-number-color: var(--green-1);
-  --text-codemirror-color: var(--black-color);
   --text-dropdown-menu-color: var(--grey-6);
   --text-log-viewer-color: var(--black-color);
   --text-json-tree-color: var(--blue-3);
@@ -199,6 +198,8 @@
   --text-pagination-color: var(--grey-26);
   --text-pagination-span-color: var(--grey-3);
   --text-pagination-span-hover-color: var(--grey-3);
+  --text-motd-body-color: var(--black-color);
+  --text-motd-btn-color: var(--mist-100);
   --text-summary-color: var(--black-color);
   --text-tooltip-color: var(--white-color);
   --text-rzslider-color: var(--grey-36);
@@ -213,7 +214,6 @@
   --text-button-group-color: var(--ui-gray-9);
   --text-button-dangerlight-color: var(--ui-error-5);
   --text-stepper-active-color: var(--ui-blue-8);
-  --text-boxselector-header: var(--ui-black);
 
   --border-color: var(--grey-42);
   --border-widget-color: var(--grey-43);
@@ -222,19 +222,16 @@
   --border-table-color: var(--grey-19);
   --border-table-top-color: var(--grey-19);
   --border-datatable-top-color: var(--grey-10);
-  --border-blocklist-color: var(--grey-44);
   --border-input-group-addon-color: var(--grey-44);
   --border-btn-default-color: var(--grey-44);
-  --border-boxselector-color: var(--grey-6);
   --border-md-checkbox-color: var(--grey-19);
   --border-modal-header-color: var(--grey-45);
   --border-navtabs-color: var(--ui-white);
-  --border-codemirror-cursor-color: var(--black-color);
   --border-pre-color: var(--grey-43);
-  --border-blocklist-item-selected-color: var(--grey-46);
   --border-pagination-span-color: var(--ui-white);
   --border-pagination-hover-color: var(--ui-white);
-  --border-panel-color: var(--white-color);
+  --border-motd-body-color: var(--mist-300);
+  --border-panel-color: var(--mist-300);
   --border-input-sm-color: var(--grey-47);
   --border-daterangepicker-color: var(--grey-19);
   --border-calendar-table: var(--white-color);
@@ -245,8 +242,8 @@
   --border-sortbutton: var(--grey-8);
   --border-bootbox: var(--ui-gray-5);
   --border-blocklist: var(--ui-gray-5);
+  --border-blocklist-item-selected-color: var(--grey-46);
   --border-widget: var(--ui-gray-5);
-  --border-nav-container-color: var(--ui-gray-5);
   --border-stepper-color: var(--ui-gray-4);
 
   --shadow-box-color: 0 3px 10px -2px var(--grey-50);
@@ -272,6 +269,8 @@
 
 /* Dark Theme */
 [theme='dark'] {
+  --BE-only: var(--ui-gray-6);
+
   --text-log-viewer-color-json-grey: var(--text-log-viewer-color);
   --text-log-viewer-color-json-magenta: var(--text-log-viewer-color);
   --text-log-viewer-color-json-yellow: var(--text-log-viewer-color);
@@ -279,32 +278,24 @@
   --text-log-viewer-color-json-red: var(--text-log-viewer-color);
   --text-log-viewer-color-json-blue: var(--text-log-viewer-color);
 
-  --bg-body-color: var(--grey-2);
-  --bg-btn-default-color: var(--grey-3);
+  --bg-body-color: var(--grey-63);
   --bg-blocklist-hover-color: var(--ui-gray-iron-10);
-  --bg-boxselector-color: var(--ui-gray-iron-10);
-  --bg-blocklist-item-selected-color: var(--grey-3);
+  --bg-blocklist-item-selected-color: var(--ui-gray-iron-10);
   --bg-card-color: var(--grey-1);
   --bg-checkbox-border-color: var(--grey-8);
   --bg-code-color: var(--grey-2);
-  --bg-codemirror-color: var(--grey-2);
-  --bg-codemirror-gutters-color: var(--grey-3);
-  --bg-codemirror-selected-color: var(--grey-3);
   --bg-dropdown-menu-color: var(--ui-gray-warm-8);
   --bg-main-color: var(--grey-2);
-  --bg-sidebar-color: var(--grey-1);
-  --bg-sidebar-nav-color: var(--grey-2);
   --bg-widget-color: var(--grey-1);
   --bg-widget-header-color: var(--grey-3);
   --bg-widget-table-color: var(--grey-3);
   --bg-header-color: var(--grey-2);
   --bg-hover-table-color: var(--grey-3);
-  --bg-switch-box-color: var(--grey-53);
   --bg-table-color: var(--grey-1);
   --bg-md-checkbox-color: var(--grey-31);
   --bg-form-control-disabled-color: var(--grey-3);
   --bg-modal-content-color: var(--grey-1);
-  --bg-nav-container-color: var(--ui-gray-iron-10);
+
   --bg-navtabs-hover-color: var(--grey-3);
   --bg-nav-tab-active-color: var(--grey-2);
   --bg-table-selected-color: var(--grey-3);
@@ -315,7 +306,8 @@
   --bg-pagination-color: var(--grey-3);
   --bg-pagination-span-color: var(--grey-1);
   --bg-pagination-hover-color: var(--grey-3);
-  --bg-motd-body-color: var(--grey-1);
+  --bg-motd-body-color: var(--graphite-800);
+  --bg-motd-btn-color: var(--mist-100);
   --bg-item-highlighted-color: var(--grey-2);
   --bg-item-highlighted-null-color: var(--grey-2);
   --bg-panel-body-color: var(--grey-1);
@@ -335,9 +327,6 @@
   --bg-daterangepicker-in-range: var(--ui-gray-warm-11);
   --bg-daterangepicker-active: var(--blue-14);
   --bg-input-autofill-color: var(--bg-inputbox);
-  --bg-btn-default-hover-color: var(--grey-4);
-  --bg-btn-focus: var(--grey-3);
-  --bg-boxselector-disabled-color: var(--grey-54);
   --bg-small-select-color: var(--grey-2);
   --bg-stepper-item-active: var(--grey-1);
   --bg-stepper-item-counter: var(--grey-7);
@@ -368,11 +357,6 @@
   --text-navtabs-color: var(--grey-8);
   --text-navtabs-hover-color: var(--grey-9);
   --text-nav-tab-active-color: var(--white-color);
-  --text-cm-default-color: var(--blue-10);
-  --text-cm-meta-color: var(--white-color);
-  --text-cm-string-color: var(--red-5);
-  --text-cm-number-color: var(--green-2);
-  --text-codemirror-color: var(--white-color);
   --text-dropdown-menu-color: var(--white-color);
   --text-log-viewer-color: var(--white-color);
   --text-json-tree-color: var(--grey-40);
@@ -384,8 +368,9 @@
   --text-pagination-color: var(--white-color);
   --text-pagination-span-color: var(--ui-white);
   --text-pagination-span-hover-color: var(--ui-white);
+  --text-motd-body-color: var(--mist-100);
+  --text-motd-btn-color: var(--graphite-700);
   --text-summary-color: var(--white-color);
-  --text-boxselector-wrapper-color: var(--white-color);
   --text-tooltip-color: var(--white-color);
   --text-rzslider-color: var(--white-color);
   --text-rzslider-limit-color: var(--white-color);
@@ -399,7 +384,6 @@
   --text-button-group-color: var(--ui-white);
   --text-button-dangerlight-color: var(--ui-error-7);
   --text-stepper-active-color: var(--ui-white);
-  --text-boxselector-header: var(--ui-white);
 
   --border-color: var(--grey-3);
   --border-widget-color: var(--grey-1);
@@ -408,18 +392,17 @@
   --border-table-color: var(--grey-3);
   --border-table-top-color: var(--grey-3);
   --border-datatable-top-color: var(--grey-3);
-  --border-blocklist-color: var(--grey-3);
   --border-input-group-addon-color: var(--grey-38);
   --border-btn-default-color: var(--grey-38);
-  --border-boxselector-color: var(--grey-1);
   --border-md-checkbox-color: var(--grey-41);
   --border-modal-header-color: var(--grey-1);
   --border-navtabs-color: var(--grey-38);
-  --border-codemirror-cursor-color: var(--white-color);
   --border-pre-color: var(--grey-3);
-  --border-blocklist-item-selected-color: var(--grey-38);
+  --border-blocklist: var(--ui-gray-9);
+  --border-blocklist-item-selected-color: var(--grey-31);
   --border-pagination-span-color: var(--grey-1);
   --border-pagination-hover-color: var(--grey-3);
+  --border-motd-body-color: var(--graphite-800);
   --border-panel-color: var(--grey-2);
   --border-input-sm-color: var(--grey-3);
   --border-daterangepicker-color: var(--grey-3);
@@ -430,10 +413,8 @@
   --border-modal: 0px;
   --border-sortbutton: var(--grey-3);
   --border-bootbox: var(--ui-gray-9);
-  --border-blocklist: var(--ui-gray-9);
   --border-widget: var(--grey-3);
   --border-pagination-color: var(--grey-1);
-  --border-nav-container-color: var(--ui-gray-neutral-8);
   --border-stepper-color: var(--ui-gray-warm-9);
 
   --blue-color: var(--blue-2);
@@ -459,6 +440,7 @@
 
 /* High Contrast Theme */
 [theme='highcontrast'] {
+  --BE-only: var(--ui-gray-6);
   --text-log-viewer-color-json-grey: var(--text-log-viewer-color);
   --text-log-viewer-color-json-magenta: var(--text-log-viewer-color);
   --text-log-viewer-color-json-yellow: var(--text-log-viewer-color);
@@ -477,18 +459,15 @@
   --bg-widget-table-color: var(--black-color);
   --bg-header-color: var(--black-color);
   --bg-hover-table-color: var(--grey-3);
-  --bg-switch-box-color: var(--grey-53);
   --bg-panel-body-color: var(--black-color);
   --bg-dropdown-menu-color: var(--ui-gray-warm-8);
-  --bg-codemirror-selected-color: var(--grey-3);
   --bg-motd-body-color: var(--black-color);
+  --bg-motd-btn-color: var(--white-color);
   --bg-blocklist-hover-color: var(--black-color);
   --bg-blocklist-item-selected-color: var(--black-color);
   --bg-input-group-addon-color: var(--grey-3);
   --bg-table-color: var(--black-color);
-  --bg-codemirror-gutters-color: var(--ui-gray-warm-11);
-  --bg-codemirror-color: var(--black-color);
-  --bg-codemirror-selected-color: var(--grey-3);
+
   --bg-log-viewer-color: var(--black-color);
   --bg-log-line-selected-color: var(--grey-3);
   --bg-modal-content-color: var(--black-color);
@@ -512,16 +491,11 @@
   --bg-tooltip-color: var(--black-color);
   --bg-table-selected-color: var(--grey-3);
   --bg-pre-color: var(--grey-2);
-  --bg-nav-container-color: var(--ui-black);
+
   --bg-navtabs-hover-color: var(--grey-3);
   --bg-nav-tab-active-color: var(--ui-black);
-  --bg-btn-default-color: var(--black-color);
   --bg-input-autofill-color: var(--bg-inputbox);
   --bg-code-color: var(--ui-black);
-  --bg-btn-default-hover-color: var(--grey-4);
-  --bg-btn-focus: var(--black-color);
-  --bg-boxselector-color: var(--black-color);
-  --bg-boxselector-disabled-color: var(--black-color);
   --bg-small-select-color: var(--black-color);
   --bg-stepper-item-active: var(--black-color);
   --bg-stepper-item-counter: var(--grey-3);
@@ -545,13 +519,11 @@
   --text-code-color: var(--red-7);
   --text-form-control-color: var(--white-color);
   --text-blocklist-hover-color: var(--blue-11);
-  --text-boxselector-wrapper-color: var(--white-color);
   --text-dashboard-item-color: var(--blue-12);
   --text-muted-color: var(--white-color);
   --text-tooltip-color: var(--white-color);
   --text-blocklist-item-selected-color: var(--blue-9);
   --text-input-group-addon-color: var(--white-color);
-  --text-codemirror-color: var(--white-color);
   --text-dropdown-menu-color: var(--white-color);
   --text-log-viewer-color: var(--white-color);
   --text-summary-color: var(--white-color);
@@ -561,6 +533,8 @@
   --text-daterangepicker-end-date: var(--ui-white);
   --text-daterangepicker-in-range: var(--white-color);
   --text-daterangepicker-active: var(--white-color);
+  --text-motd-body-color: var(--white-color);
+  --text-motd-btn-color: var(--black-color);
   --text-json-tree-color: var(--white-color);
   --text-json-tree-leaf-color: var(--white-color);
   --text-json-tree-branch-preview-color: var(--white-color);
@@ -575,7 +549,6 @@
   --text-bootbox: var(--white-color);
   --text-pagination-span-hover-color: var(--ui-white);
   --text-stepper-active-color: var(--ui-white);
-  --text-boxselector-header: var(--ui-white);
 
   --border-color: var(--grey-55);
   --border-widget-color: var(--white-color);
@@ -592,30 +565,30 @@
   --border-input-sm-color: var(--white-color);
   --border-pagination-color: var(--grey-1);
   --border-pagination-span-color: var(--grey-1);
+  --border-motd-body-color: var(--white-color);
   --border-daterangepicker-color: var(--white-color);
   --border-calendar-table: var(--black-color);
   --border-daterangepicker: var(--black-color);
   --border-pre-next-month: var(--white-color);
   --border-daterangepicker-after: var(--black-color);
   --border-pre-color: var(--grey-3);
-  --border-codemirror-cursor-color: var(--white-color);
   --border-modal: 1px solid var(--white-color);
-  --border-blocklist-color: var(--white-color);
   --border-sortbutton: var(--black-color);
   --border-bootbox: var(--black-color);
   --border-blocklist: var(--white-color);
   --border-widget: var(--white-color);
-  --border-nav-container-color: var(--ui-white);
   --border-stepper-color: var(--ui-gray-warm-9);
+
+  --button-close-color: var(--white-color);
+  --button-opacity: 1;
+  --button-opacity-hover: 0.7;
 
   --shadow-box-color: none;
   --shadow-boxselector-color: none;
 
   --text-input-textarea: var(--black-color);
   --bg-item-highlighted-null-color: var(--grey-2);
-  --text-cm-default-color: var(--blue-9);
-  --text-cm-meta-color: var(--white-color);
-  --text-cm-string-color: var(--red-7);
+
   --text-progress-bar-color: var(--black-color);
 
   --user-menu-icon-color: var(--white-color);

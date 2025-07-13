@@ -1,12 +1,5 @@
 import { TeamId } from '@/react/portainer/users/teams/types';
 
-export interface FDOConfiguration {
-  enabled: boolean;
-  ownerURL: string;
-  ownerUsername: string;
-  ownerPassword: string;
-}
-
 export interface TLSConfiguration {
   TLS: boolean;
   TLSSkipVerify: boolean;
@@ -41,7 +34,7 @@ export interface LDAPSettings {
 
 export interface Pair {
   name: string;
-  value: string;
+  value?: string;
 }
 
 export interface OpenAMTConfiguration {
@@ -72,11 +65,11 @@ export interface OAuthSettings {
   KubeSecretKey: string;
 }
 
-enum AuthenticationMethod {
+export enum AuthenticationMethod {
   /**
    * Internal represents the internal authentication method (authentication against Portainer API)
    */
-  Internal,
+  Internal = 1,
   /**
    * LDAP represents the LDAP authentication method (authentication against a LDAP server)
    */
@@ -85,6 +78,19 @@ enum AuthenticationMethod {
    * OAuth represents the OAuth authentication method (authentication against a authorization server)
    */
   OAuth,
+  /**
+   * AD represents the Active Directory authentication method (authentication against a Microsoft Active Directory server)
+   */
+  AD,
+}
+
+/**
+ * The definition are based on oauth2 lib definition @https://pkg.go.dev/golang.org/x/oauth2#AuthStyle
+ */
+export enum OAuthStyle {
+  AutoDetect = 0,
+  InParams,
+  InHeader,
 }
 
 type Feature = string;
@@ -93,15 +99,19 @@ export interface DefaultRegistry {
   Hide: boolean;
 }
 
+export interface ExperimentalFeatures {
+  OpenAIIntegration: boolean;
+}
+
 export interface Settings {
   LogoURL: string;
+  CustomLoginBanner: string;
   BlackListedLabels: Pair[];
   AuthenticationMethod: AuthenticationMethod;
   InternalAuthSettings: { RequiredPasswordLength: number };
   LDAPSettings: LDAPSettings;
   OAuthSettings: OAuthSettings;
   openAMTConfiguration: OpenAMTConfiguration;
-  fdoConfiguration: FDOConfiguration;
   FeatureFlagSettings: { [key: Feature]: boolean };
   SnapshotInterval: string;
   TemplatesURL: string;
@@ -122,6 +132,7 @@ export interface Settings {
   DisplayDonationHeader: boolean;
   DisplayExternalContributors: boolean;
   EnableHostManagementFeatures: boolean;
+  ExperimentalFeatures?: ExperimentalFeatures;
   AllowVolumeBrowserForRegularUsers: boolean;
   AllowBindMountsForRegularUsers: boolean;
   AllowPrivilegedModeForRegularUsers: boolean;
@@ -129,15 +140,17 @@ export interface Settings {
   AllowStackManagementForRegularUsers: boolean;
   AllowDeviceMappingForRegularUsers: boolean;
   AllowContainerCapabilitiesForRegularUsers: boolean;
+  GlobalDeploymentOptions?: GlobalDeploymentOptions;
   Edge: {
     PingInterval: number;
     SnapshotInterval: number;
     CommandInterval: number;
     AsyncMode: boolean;
+    TunnelServerAddress: string;
   };
 }
 
-interface GlobalDeploymentOptions {
+export interface GlobalDeploymentOptions {
   /** Hide manual deploy forms in portainer */
   hideAddWithForm: boolean;
   /** Configure this per environment or globally */
@@ -146,6 +159,11 @@ interface GlobalDeploymentOptions {
   hideWebEditor: boolean;
   /** Hide the file upload option in the remaining visible forms */
   hideFileUpload: boolean;
+  /** Make note on application add/edit screen required */
+  requireNoteOnApplications: boolean;
+  minApplicationNoteLength: number;
+
+  hideStacksFunctionality: boolean;
 }
 
 export interface PublicSettingsResponse {
@@ -159,8 +177,6 @@ export interface PublicSettingsResponse {
   RequiredPasswordLength: number;
   /** Deployment options for encouraging deployment as code (only on BE) */
   GlobalDeploymentOptions: GlobalDeploymentOptions;
-  /** Show the Kompose build option (discontinued in 2.18) */
-  ShowKomposeBuildOption: boolean;
   /** Whether edge compute features are enabled */
   EnableEdgeComputeFeatures: boolean;
   /** Supported feature flags */
@@ -177,13 +193,10 @@ export interface PublicSettingsResponse {
   KubeconfigExpiry: string;
   /** Whether team sync is enabled */
   TeamSync: boolean;
-  /** Whether FDO is enabled */
-  IsFDOEnabled: boolean;
   /** Whether AMT is enabled */
   IsAMTEnabled: boolean;
-
   /** Whether to hide default registry (only on BE) */
-  DefaultRegistry: {
+  DefaultRegistry?: {
     Hide: boolean;
   };
   Edge: {

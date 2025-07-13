@@ -1,13 +1,48 @@
-import { useQuery } from 'react-query';
+import { useQuery } from '@tanstack/react-query';
 
-import { getEndpoint } from '@/react/portainer/environments/environment.service';
-import { EnvironmentId } from '@/react/portainer/environments/types';
 import { withError } from '@/react-tools/react-query';
 
-export function useEnvironment(id?: EnvironmentId) {
-  return useQuery(['environments', id], () => (id ? getEndpoint(id) : null), {
-    ...withError('Failed loading environment'),
-    staleTime: 50,
-    enabled: !!id,
-  });
+import { getDeploymentOptions, getEndpoint } from '../environment.service';
+import { Environment, EnvironmentId } from '../types';
+
+import { environmentQueryKeys } from './query-keys';
+
+export function useEnvironment<T = Environment>(
+  environmentId?: EnvironmentId,
+  select?: (environment: Environment) => T,
+  options?: {
+    autoRefreshRate?: number;
+    excludeSnapshot?: boolean;
+    excludeSnapshotRaw?: boolean;
+  }
+) {
+  return useQuery(
+    environmentQueryKeys.item(environmentId!),
+    () =>
+      getEndpoint(
+        environmentId!,
+        options?.excludeSnapshot ?? undefined,
+        options?.excludeSnapshotRaw ?? undefined
+      ),
+    {
+      select,
+      ...withError('Failed loading environment'),
+      staleTime: 50,
+      enabled: !!environmentId,
+      refetchInterval() {
+        return options?.autoRefreshRate ?? false;
+      },
+    }
+  );
+}
+
+export function useEnvironmentDeploymentOptions(id: EnvironmentId | undefined) {
+  return useQuery(
+    [...environmentQueryKeys.item(id!), 'deploymentOptions'],
+    () => getDeploymentOptions(id!),
+    {
+      enabled: !!id,
+      ...withError('Failed loading deployment options'),
+    }
+  );
 }

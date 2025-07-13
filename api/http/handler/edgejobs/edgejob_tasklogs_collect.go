@@ -1,14 +1,17 @@
 package edgejobs
 
 import (
+	"errors"
 	"net/http"
+	"slices"
 
-	httperror "github.com/portainer/libhttp/error"
-	"github.com/portainer/libhttp/request"
-	"github.com/portainer/libhttp/response"
 	portainer "github.com/portainer/portainer/api"
+	"github.com/portainer/portainer/api/dataservices"
 	"github.com/portainer/portainer/api/internal/edge"
-	"github.com/portainer/portainer/api/internal/slices"
+	"github.com/portainer/portainer/api/internal/edge/cache"
+	httperror "github.com/portainer/portainer/pkg/libhttp/error"
+	"github.com/portainer/portainer/pkg/libhttp/request"
+	"github.com/portainer/portainer/pkg/libhttp/response"
 )
 
 // @id EdgeJobTasksCollect
@@ -18,8 +21,8 @@ import (
 // @security ApiKeyAuth
 // @security jwt
 // @produce json
-// @param id path string true "EdgeJob Id"
-// @param taskID path string true "Task Id"
+// @param id path int true "EdgeJob Id"
+// @param taskID path int true "Task Id"
 // @success 204
 // @failure 500
 // @failure 400
@@ -36,34 +39,55 @@ func (handler *Handler) edgeJobTasksCollect(w http.ResponseWriter, r *http.Reque
 		return httperror.BadRequest("Invalid Task identifier route variable", err)
 	}
 
-	edgeJob, err := handler.DataStore.EdgeJob().EdgeJob(portainer.EdgeJobID(edgeJobID))
-	if handler.DataStore.IsErrObjectNotFound(err) {
-		return httperror.NotFound("Unable to find an Edge job with the specified identifier inside the database", err)
-	} else if err != nil {
-		return httperror.InternalServerError("Unable to find an Edge job with the specified identifier inside the database", err)
-	}
-
-	endpointID := portainer.EndpointID(taskID)
-	endpointsFromGroups, err := edge.GetEndpointsFromEdgeGroups(edgeJob.EdgeGroups, handler.DataStore)
-	if err != nil {
-		return httperror.InternalServerError("Unable to get Endpoints from EdgeGroups", err)
-	}
-
-	if slices.Contains(endpointsFromGroups, endpointID) {
-		edgeJob.GroupLogsCollection[endpointID] = portainer.EdgeJobEndpointMeta{
-			CollectLogs: true,
-			LogsStatus:  portainer.EdgeJobLogsStatusPending,
+	if err := handler.DataStore.UpdateTx(func(tx dataservices.DataStoreTx) error {
+		edgeJob, err := tx.EdgeJob().Read(portainer.EdgeJobID(edgeJobID))
+		if tx.IsErrObjectNotFound(err) {
+			return httperror.NotFound("Unable to find an Edge job with the specified identifier inside the database", err)
+		} else if err != nil {
+			return httperror.InternalServerError("Unable to find an Edge job with the specified identifier inside the database", err)
 		}
-	} else {
-		meta := edgeJob.Endpoints[endpointID]
-		meta.CollectLogs = true
-		meta.LogsStatus = portainer.EdgeJobLogsStatusPending
-		edgeJob.Endpoints[endpointID] = meta
-	}
 
-	err = handler.DataStore.EdgeJob().UpdateEdgeJob(edgeJob.ID, edgeJob)
-	if err != nil {
-		return httperror.InternalServerError("Unable to persist Edge job changes in the database", err)
+		endpointID := portainer.EndpointID(taskID)
+		endpointsFromGroups, err := edge.GetEndpointsFromEdgeGroups(edgeJob.EdgeGroups, tx)
+		if err != nil {
+			return httperror.InternalServerError("Unable to get Endpoints from EdgeGroups", err)
+		}
+
+		if slices.Contains(endpointsFromGroups, endpointID) {
+			edgeJob.GroupLogsCollection[endpointID] = portainer.EdgeJobEndpointMeta{
+				CollectLogs: true,
+				LogsStatus:  portainer.EdgeJobLogsStatusPending,
+			}
+		} else {
+			meta := edgeJob.Endpoints[endpointID]
+			meta.CollectLogs = true
+			meta.LogsStatus = portainer.EdgeJobLogsStatusPending
+			edgeJob.Endpoints[endpointID] = meta
+		}
+
+		if err := tx.EdgeJob().Update(edgeJob.ID, edgeJob); err != nil {
+			return httperror.InternalServerError("Unable to persist Edge job changes in the database", err)
+		}
+
+		endpoint, err := tx.Endpoint().Endpoint(endpointID)
+		if err != nil {
+			return httperror.InternalServerError("Unable to retrieve environment from the database", err)
+		}
+
+		cache.Del(endpointID)
+
+		if endpoint.Edge.AsyncMode {
+			return httperror.BadRequest("Async Edge Endpoints are not supported in Portainer CE", nil)
+		}
+
+		return nil
+	}); err != nil {
+		var handlerError *httperror.HandlerError
+		if errors.As(err, &handlerError) {
+			return handlerError
+		}
+
+		return httperror.InternalServerError("Unexpected error", err)
 	}
 
 	return response.Empty(w)

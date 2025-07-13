@@ -1,15 +1,15 @@
 package stacks
 
 import (
+	"errors"
 	"net/http"
 
-	httperror "github.com/portainer/libhttp/error"
-	"github.com/portainer/libhttp/request"
-	"github.com/portainer/libhttp/response"
 	"github.com/portainer/portainer/api/stacks/deployments"
+	httperror "github.com/portainer/portainer/pkg/libhttp/error"
+	"github.com/portainer/portainer/pkg/libhttp/request"
+	"github.com/portainer/portainer/pkg/libhttp/response"
 
 	"github.com/gofrs/uuid"
-	"github.com/rs/zerolog/log"
 )
 
 // @id WebhookInvoke
@@ -19,7 +19,7 @@ import (
 // @param webhookID path string true "Stack identifier"
 // @success 200 "Success"
 // @failure 400 "Invalid request"
-// @failure 409 "Conflict"
+// @failure 409 "Autoupdate for the stack isn't available"
 // @failure 500 "Server error"
 // @router /stacks/webhooks/{webhookID} [post]
 func (handler *Handler) webhookInvoke(w http.ResponseWriter, r *http.Request) *httperror.HandlerError {
@@ -35,15 +35,14 @@ func (handler *Handler) webhookInvoke(w http.ResponseWriter, r *http.Request) *h
 			statusCode = http.StatusNotFound
 		}
 
-		return &httperror.HandlerError{StatusCode: statusCode, Message: "Unable to find the stack by webhook ID", Err: err}
+		return httperror.NewError(statusCode, "Unable to find the stack by webhook ID", err)
 	}
 
 	if err = deployments.RedeployWhenChanged(stack.ID, handler.StackDeployer, handler.DataStore, handler.GitService); err != nil {
-		if _, ok := err.(*deployments.StackAuthorMissingErr); ok {
-			return &httperror.HandlerError{StatusCode: http.StatusConflict, Message: "Autoupdate for the stack isn't available", Err: err}
+		var StackAuthorMissingErr *deployments.StackAuthorMissingErr
+		if errors.As(err, &StackAuthorMissingErr) {
+			return httperror.Conflict("Autoupdate for the stack isn't available", err)
 		}
-
-		log.Error().Err(err).Msg("failed to update the stack")
 
 		return httperror.InternalServerError("Failed to update the stack", err)
 	}

@@ -14,7 +14,11 @@ function Template({
   children,
 }: JSX.IntrinsicAttributes & PropsWithChildren<Props>) {
   return (
-    <CopyButton copyText={copyText} displayText={displayText}>
+    <CopyButton
+      copyText={copyText}
+      displayText={displayText}
+      data-cy="copy-button"
+    >
       {children}
     </CopyButton>
   );
@@ -22,13 +26,13 @@ function Template({
 
 export const Primary: Story<PropsWithChildren<Props>> = Template.bind({});
 Primary.args = {
-  children: 'Copy to clipboard',
+  children: 'Copy',
   copyText: 'this will be copied to clipboard',
 };
 
 export const NoCopyText: Story<PropsWithChildren<Props>> = Template.bind({});
 NoCopyText.args = {
-  children: 'Copy to clipboard without copied text',
+  children: 'Copy without copied text',
   copyText: 'clipboard override',
   displayText: '',
 };

@@ -8,21 +8,21 @@ export interface Props extends IconProps {
   size?: BadgeSize;
 }
 
-export function BadgeIcon({ icon, size = '3xl' }: Props) {
+export function BadgeIcon({ icon, size = '3xl', iconClass }: Props) {
   const sizeClasses = iconSizeToClasses(size);
   return (
     <div
       className={clsx(
         sizeClasses,
         `badge-icon
-      bg-blue-3 text-blue-8
-      th-dark:bg-gray-9 th-dark:text-blue-3
-      rounded-full
-      inline-flex items-center justify-center
+      inline-flex items-center
+      justify-center rounded-full
+      bg-blue-3
+      text-blue-8 th-dark:bg-gray-9 th-dark:text-blue-3
    `
       )}
     >
-      <Icon icon={icon} className="!flex" />
+      <Icon icon={icon} className={clsx('!flex', iconClass)} />
     </div>
   );
 }

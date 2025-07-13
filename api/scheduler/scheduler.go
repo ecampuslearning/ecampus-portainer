@@ -17,6 +17,18 @@ type Scheduler struct {
 	mu         sync.Mutex
 }
 
+type PermanentError struct {
+	err error
+}
+
+func NewPermanentError(err error) *PermanentError {
+	return &PermanentError{err: err}
+}
+
+func (e *PermanentError) Error() string {
+	return e.err.Error()
+}
+
 func NewScheduler(ctx context.Context) *Scheduler {
 	crontab := cron.New(cron.WithChain(cron.Recover(cron.DefaultLogger)))
 	crontab.Start()
@@ -55,7 +67,7 @@ func (s *Scheduler) Shutdown() error {
 	s.mu.Unlock()
 
 	err := ctx.Err()
-	if err == context.Canceled {
+	if errors.Is(err, context.Canceled) {
 		return nil
 	}
 	return err
@@ -72,6 +84,7 @@ func (s *Scheduler) StopJob(jobID string) error {
 	s.mu.Lock()
 	if cancel, ok := s.activeJobs[entryID]; ok {
 		cancel()
+		delete(s.activeJobs, entryID)
 	}
 	s.mu.Unlock()
 
@@ -82,26 +95,35 @@ func (s *Scheduler) StopJob(jobID string) error {
 // Returns job id that could be used to stop the given job.
 // When job run returns an error, that job won't be run again.
 func (s *Scheduler) StartJobEvery(duration time.Duration, job func() error) string {
-	ctx, cancel := context.WithCancel(context.Background())
+	entryID := new(cron.EntryID)
 
-	j := cron.FuncJob(func() {
-		if err := job(); err != nil {
-			log.Debug().Msg("job returned an error")
-			cancel()
+	cancelFn := func() {
+		log.Debug().Msg("job cancelled, stopping")
+		s.crontab.Remove(*entryID)
+	}
+
+	jobFn := cron.FuncJob(func() {
+		err := job()
+		if err == nil {
+			return
 		}
+
+		var permErr *PermanentError
+		if errors.As(err, &permErr) {
+			log.Error().Err(permErr).Msg("job returned a permanent error, it will be stopped")
+			cancelFn()
+
+			return
+		}
+
+		log.Error().Err(err).Msg("job returned an error, it will be rescheduled")
 	})
 
-	entryID := s.crontab.Schedule(cron.Every(duration), j)
+	*entryID = s.crontab.Schedule(cron.Every(duration), jobFn)
 
 	s.mu.Lock()
-	s.activeJobs[entryID] = cancel
+	s.activeJobs[*entryID] = cancelFn
 	s.mu.Unlock()
 
-	go func(entryID cron.EntryID) {
-		<-ctx.Done()
-		log.Debug().Msg("job cancelled, stopping")
-		s.crontab.Remove(entryID)
-	}(entryID)
-
-	return strconv.Itoa(int(entryID))
+	return strconv.Itoa(int(*entryID))
 }

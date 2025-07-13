@@ -5,7 +5,9 @@ import { CopyButton } from './CopyButton';
 test('should display a CopyButton with children', async () => {
   const children = 'test button children';
   const { findByText } = render(
-    <CopyButton copyText="">{children}</CopyButton>
+    <CopyButton copyText="" data-cy="copy-button">
+      {children}
+    </CopyButton>
   );
 
   const button = await findByText(children);
@@ -15,7 +17,7 @@ test('should display a CopyButton with children', async () => {
 test('CopyButton should copy text to clipboard', async () => {
   // override navigator.clipboard.writeText (to test copy to clipboard functionality)
   let clipboardText = '';
-  const writeText = jest.fn((text) => {
+  const writeText = vi.fn((text) => {
     clipboardText = text;
   });
   Object.assign(navigator, {
@@ -25,7 +27,9 @@ test('CopyButton should copy text to clipboard', async () => {
   const children = 'button';
   const copyText = 'text successfully copied to clipboard';
   const { findByText } = render(
-    <CopyButton copyText={copyText}>{children}</CopyButton>
+    <CopyButton copyText={copyText} data-cy="copy-button">
+      {children}
+    </CopyButton>
   );
 
   const button = await findByText(children);

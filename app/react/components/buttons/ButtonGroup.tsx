@@ -5,15 +5,21 @@ export type Size = 'xsmall' | 'small' | 'large';
 export interface Props {
   size?: Size;
   className?: string;
+  'aria-label'?: string;
 }
 
 export function ButtonGroup({
-  size = 'small',
+  size,
   children,
   className,
+  'aria-label': ariaLabel,
 }: PropsWithChildren<Props>) {
   return (
-    <div className={clsx('btn-group', sizeClass(size), className)} role="group">
+    <div
+      className={clsx('btn-group', sizeClass(size), className)}
+      role="group"
+      aria-label={ariaLabel}
+    >
       {children}
     </div>
   );
@@ -21,6 +27,8 @@ export function ButtonGroup({
 
 function sizeClass(size: Size | undefined) {
   switch (size) {
+    case 'small':
+      return 'btn-group-sm';
     case 'xsmall':
       return 'btn-group-xs';
     case 'large':

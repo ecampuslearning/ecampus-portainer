@@ -1,11 +1,18 @@
-import { Gpu } from '@/react/portainer/environments/wizard/EnvironmentsCreationView/shared/Hardware/GpusList';
-import axios, { parseAxiosError } from '@/portainer/services/axios';
-import { type EnvironmentGroupId } from '@/react/portainer/environments/environment-groups/types';
+import axios, {
+  parseAxiosError,
+  json2formData,
+  arrayToJson,
+} from '@/portainer/services/axios';
+import {
+  type EnvironmentGroupId,
+  type Environment,
+  ContainerEngine,
+  EnvironmentCreationTypes,
+} from '@/react/portainer/environments/types';
 import { type TagId } from '@/portainer/tags/types';
+import { EdgeAsyncIntervalsValues } from '@/react/edge/components/EdgeAsyncIntervalsForm';
 
-import { type Environment, EnvironmentCreationTypes } from '../types';
-
-import { arrayToJson, buildUrl, json2formData } from './utils';
+import { buildUrl } from './utils';
 
 export interface EnvironmentMetadata {
   groupId?: EnvironmentGroupId;
@@ -17,7 +24,7 @@ interface CreateLocalDockerEnvironment {
   socketPath?: string;
   publicUrl?: string;
   meta?: EnvironmentMetadata;
-  gpus?: Gpu[];
+  containerEngine?: ContainerEngine;
 }
 
 export async function createLocalDockerEnvironment({
@@ -25,7 +32,7 @@ export async function createLocalDockerEnvironment({
   socketPath = '',
   publicUrl = '',
   meta = { tagIds: [] },
-  gpus = [],
+  containerEngine,
 }: CreateLocalDockerEnvironment) {
   const url = prefixPath(socketPath);
 
@@ -36,7 +43,7 @@ export async function createLocalDockerEnvironment({
       url,
       publicUrl,
       meta,
-      gpus,
+      containerEngine,
     }
   );
 
@@ -101,15 +108,20 @@ interface TLSSettings {
   keyFile?: File;
 }
 
+interface EdgeSettings extends EdgeAsyncIntervalsValues {
+  asyncMode: boolean;
+}
+
 export interface EnvironmentOptions {
   url?: string;
   publicUrl?: string;
   meta?: EnvironmentMetadata;
   azure?: AzureSettings;
   tls?: TLSSettings;
-  isEdgeDevice?: boolean;
-  gpus?: Gpu[];
   pollFrequency?: number;
+  edge?: EdgeSettings;
+  tunnelServerAddr?: string;
+  containerEngine?: ContainerEngine;
 }
 
 interface CreateRemoteEnvironment {
@@ -120,6 +132,7 @@ interface CreateRemoteEnvironment {
   >;
   url: string;
   options?: Omit<EnvironmentOptions, 'url'>;
+  containerEngine?: ContainerEngine;
 }
 
 export async function createRemoteEnvironment({
@@ -138,12 +151,13 @@ export interface CreateAgentEnvironmentValues {
   name: string;
   environmentUrl: string;
   meta: EnvironmentMetadata;
-  gpus: Gpu[];
+  containerEngine?: ContainerEngine;
 }
 
 export function createAgentEnvironment({
   name,
   environmentUrl,
+  containerEngine = ContainerEngine.Docker,
   meta = { tagIds: [] },
 }: CreateAgentEnvironmentValues) {
   return createRemoteEnvironment({
@@ -156,6 +170,7 @@ export function createAgentEnvironment({
         skipVerify: true,
         skipClientVerify: true,
       },
+      containerEngine,
     },
   });
 }
@@ -163,19 +178,20 @@ export function createAgentEnvironment({
 interface CreateEdgeAgentEnvironment {
   name: string;
   portainerUrl: string;
+  tunnelServerAddr?: string;
   meta?: EnvironmentMetadata;
   pollFrequency: number;
-  gpus?: Gpu[];
-  isEdgeDevice?: boolean;
+  edge: EdgeSettings;
+  containerEngine: ContainerEngine;
 }
 
 export function createEdgeAgentEnvironment({
   name,
   portainerUrl,
   meta = { tagIds: [] },
-  gpus = [],
-  isEdgeDevice,
   pollFrequency,
+  edge,
+  containerEngine,
 }: CreateEdgeAgentEnvironment) {
   return createEnvironment(
     name,
@@ -186,10 +202,10 @@ export function createEdgeAgentEnvironment({
         skipVerify: true,
         skipClientVerify: true,
       },
-      gpus,
-      isEdgeDevice,
       pollFrequency,
+      edge,
       meta,
+      containerEngine,
     }
   );
 }
@@ -205,7 +221,8 @@ async function createEnvironment(
   };
 
   if (options) {
-    const { groupId, tagIds = [] } = options.meta || {};
+    const { tls, azure, meta, containerEngine } = options;
+    const { groupId, tagIds = [] } = meta || {};
 
     payload = {
       ...payload,
@@ -213,12 +230,9 @@ async function createEnvironment(
       PublicURL: options.publicUrl,
       GroupID: groupId,
       TagIds: arrayToJson(tagIds),
-      CheckinInterval: options.pollFrequency,
-      IsEdgeDevice: options.isEdgeDevice,
-      Gpus: arrayToJson(options.gpus),
+      EdgeCheckinInterval: options.pollFrequency,
+      ContainerEngine: containerEngine,
     };
-
-    const { tls, azure } = options;
 
     if (tls) {
       payload = {
@@ -238,6 +252,16 @@ async function createEnvironment(
         AzureApplicationID: azure.applicationId,
         AzureTenantID: azure.tenantId,
         AzureAuthenticationKey: azure.authenticationKey,
+      };
+    }
+
+    if (options.edge?.asyncMode) {
+      payload = {
+        ...payload,
+        EdgeAsyncMode: true,
+        EdgePingInterval: options.edge?.PingInterval,
+        EdgeSnapshotInterval: options.edge?.SnapshotInterval,
+        EdgeCommandInterval: options.edge?.CommandInterval,
       };
     }
   }

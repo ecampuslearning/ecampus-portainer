@@ -3,12 +3,12 @@ package settings
 import (
 	"net/http"
 
-	"github.com/gorilla/mux"
-	httperror "github.com/portainer/libhttp/error"
 	portainer "github.com/portainer/portainer/api"
 	"github.com/portainer/portainer/api/dataservices"
-	"github.com/portainer/portainer/api/demo"
 	"github.com/portainer/portainer/api/http/security"
+	httperror "github.com/portainer/portainer/pkg/libhttp/error"
+
+	"github.com/gorilla/mux"
 )
 
 func hideFields(settings *portainer.Settings) {
@@ -22,18 +22,17 @@ type Handler struct {
 	*mux.Router
 	DataStore       dataservices.DataStore
 	FileService     portainer.FileService
-	JWTService      dataservices.JWTService
+	JWTService      portainer.JWTService
 	LDAPService     portainer.LDAPService
 	SnapshotService portainer.SnapshotService
-	demoService     *demo.Service
 }
 
 // NewHandler creates a handler to manage settings operations.
-func NewHandler(bouncer *security.RequestBouncer, demoService *demo.Service) *Handler {
+func NewHandler(bouncer security.BouncerService) *Handler {
 	h := &Handler{
-		Router:      mux.NewRouter(),
-		demoService: demoService,
+		Router: mux.NewRouter(),
 	}
+
 	h.Handle("/settings",
 		bouncer.AdminAccess(httperror.LoggerHandler(h.settingsInspect))).Methods(http.MethodGet)
 	h.Handle("/settings",

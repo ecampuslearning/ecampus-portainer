@@ -3,10 +3,10 @@ package endpoints
 import (
 	"net/http"
 
-	httperror "github.com/portainer/libhttp/error"
-	"github.com/portainer/libhttp/request"
-	"github.com/portainer/libhttp/response"
 	portainer "github.com/portainer/portainer/api"
+	httperror "github.com/portainer/portainer/pkg/libhttp/error"
+	"github.com/portainer/portainer/pkg/libhttp/request"
+	"github.com/portainer/portainer/pkg/libhttp/response"
 )
 
 type endpointSettingsUpdatePayload struct {
@@ -28,6 +28,10 @@ type endpointSettingsUpdatePayload struct {
 	AllowSysctlSettingForRegularUsers *bool `json:"allowSysctlSettingForRegularUsers" example:"true"`
 	// Whether host management features are enabled
 	EnableHostManagementFeatures *bool `json:"enableHostManagementFeatures" example:"true"`
+
+	EnableGPUManagement *bool `json:"enableGPUManagement" example:"false"`
+
+	Gpus []portainer.Pair `json:"gpus"`
 }
 
 func (payload *endpointSettingsUpdatePayload) Validate(r *http.Request) error {
@@ -105,6 +109,14 @@ func (handler *Handler) endpointSettingsUpdate(w http.ResponseWriter, r *http.Re
 
 	if payload.EnableHostManagementFeatures != nil {
 		securitySettings.EnableHostManagementFeatures = *payload.EnableHostManagementFeatures
+	}
+
+	if payload.EnableGPUManagement != nil {
+		endpoint.EnableGPUManagement = *payload.EnableGPUManagement
+	}
+
+	if payload.Gpus != nil {
+		endpoint.Gpus = payload.Gpus
 	}
 
 	endpoint.SecuritySettings = securitySettings

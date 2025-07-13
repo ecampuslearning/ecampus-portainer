@@ -6,9 +6,9 @@ import (
 	"strconv"
 	"strings"
 
-	httperror "github.com/portainer/libhttp/error"
-	"github.com/portainer/libhttp/request"
 	portainer "github.com/portainer/portainer/api"
+	httperror "github.com/portainer/portainer/pkg/libhttp/error"
+	"github.com/portainer/portainer/pkg/libhttp/request"
 )
 
 func (handler *Handler) proxyRequestsToDockerAPI(w http.ResponseWriter, r *http.Request) *httperror.HandlerError {
@@ -34,7 +34,7 @@ func (handler *Handler) proxyRequestsToDockerAPI(w http.ResponseWriter, r *http.
 			return httperror.InternalServerError("No Edge agent registered with the environment", errors.New("No agent available"))
 		}
 
-		_, err := handler.ReverseTunnelService.GetActiveTunnel(endpoint)
+		_, err := handler.ReverseTunnelService.TunnelAddr(endpoint)
 		if err != nil {
 			return httperror.InternalServerError("Unable to get the active tunnel", err)
 		}

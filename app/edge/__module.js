@@ -1,10 +1,10 @@
 import angular from 'angular';
 
-import edgeStackModule from './views/edge-stacks';
+import { AccessHeaders } from '@/portainer/authorization-guard';
 import { reactModule } from './react';
 
 angular
-  .module('portainer.edge', [edgeStackModule, reactModule])
+  .module('portainer.edge', [reactModule])
 
   .config(function config($stateRegistryProvider) {
     const edge = {
@@ -12,6 +12,9 @@ angular
       url: '/edge',
       parent: 'root',
       abstract: true,
+      data: {
+        access: AccessHeaders.EdgeAdmin,
+      },
     };
 
     const groups = {
@@ -22,6 +25,9 @@ angular
           component: 'edgeGroupsView',
         },
       },
+      data: {
+        docs: '/user/edge/groups',
+      },
     };
 
     const groupsNew = {
@@ -29,7 +35,7 @@ angular
       url: '/new',
       views: {
         'content@': {
-          component: 'createEdgeGroupView',
+          component: 'edgeGroupsCreateView',
         },
       },
     };
@@ -39,7 +45,7 @@ angular
       url: '/:groupId',
       views: {
         'content@': {
-          component: 'editEdgeGroupView',
+          component: 'edgeGroupsItemView',
         },
       },
     };
@@ -52,28 +58,40 @@ angular
           component: 'edgeStacksView',
         },
       },
+      data: {
+        docs: '/user/edge/stacks',
+      },
     };
 
     const stacksNew = {
       name: 'edge.stacks.new',
-      url: '/new',
+      url: '/new?templateId&templateType',
       views: {
         'content@': {
-          component: 'createEdgeStackView',
+          component: 'edgeStacksCreateView',
         },
+      },
+      data: {
+        docs: '/user/edge/stacks/add',
+      },
+      params: {
+        templateId: { dynamic: true },
+        templateType: { dynamic: true },
       },
     };
 
     const stacksEdit = {
       name: 'edge.stacks.edit',
-      url: '/:stackId',
+      url: '/:stackId?tab&status',
       views: {
         'content@': {
-          component: 'editEdgeStackView',
+          component: 'edgeStacksItemView',
         },
       },
       params: {
-        tab: 0,
+        status: {
+          dynamic: true,
+        },
       },
     };
 
@@ -85,18 +103,18 @@ angular
           component: 'edgeJobsView',
         },
       },
+      data: {
+        docs: '/user/edge/jobs',
+      },
     };
 
     const edgeJob = {
       name: 'edge.jobs.job',
-      url: '/:id',
+      url: '/:id?tab',
       views: {
         'content@': {
-          component: 'edgeJobView',
+          component: 'edgeJobsItemView',
         },
-      },
-      params: {
-        tab: 0,
       },
     };
 
@@ -105,7 +123,7 @@ angular
       url: '/new',
       views: {
         'content@': {
-          component: 'createEdgeJobView',
+          component: 'edgeJobsCreateView',
         },
       },
     };
@@ -125,8 +143,59 @@ angular
             component: 'waitingRoomView',
           },
         },
+        data: {
+          docs: '/user/edge/waiting-room',
+        },
       });
     }
+
+    $stateRegistryProvider.register({
+      name: 'edge.templates',
+      url: '/templates?template',
+      views: {
+        'content@': {
+          component: 'appTemplatesView',
+        },
+      },
+      data: {
+        docs: '/user/edge/templates/application',
+      },
+    });
+
+    $stateRegistryProvider.register({
+      name: 'edge.templates.custom',
+      url: '/custom',
+      views: {
+        'content@': {
+          component: 'customTemplatesView',
+        },
+      },
+      data: {
+        docs: '/user/edge/templates/custom',
+      },
+    });
+
+    $stateRegistryProvider.register({
+      name: 'edge.templates.custom.new',
+      url: '/new?appTemplateId&type',
+
+      views: {
+        'content@': {
+          component: 'createCustomTemplatesView',
+        },
+      },
+    });
+
+    $stateRegistryProvider.register({
+      name: 'edge.templates.custom.edit',
+      url: '/:id',
+
+      views: {
+        'content@': {
+          component: 'editCustomTemplatesView',
+        },
+      },
+    });
 
     $stateRegistryProvider.register(edge);
 

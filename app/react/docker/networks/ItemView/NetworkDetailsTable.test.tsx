@@ -1,14 +1,18 @@
-import { render } from '@/react-tools/test-utils';
-import { UserContext } from '@/react/hooks/useUser';
+import { HttpResponse, http } from 'msw';
+import { render, screen } from '@testing-library/react';
+
 import { UserViewModel } from '@/portainer/models/user';
+import { server } from '@/setup-tests/server';
+import { withUserProvider } from '@/react/test-utils/withUserProvider';
+import { withTestQueryProvider } from '@/react/test-utils/withTestQuery';
 
 import { DockerNetwork } from '../types';
 
 import { NetworkDetailsTable } from './NetworkDetailsTable';
 
-jest.mock('@uirouter/react', () => ({
-  ...jest.requireActual('@uirouter/react'),
-  useCurrentStateAndParams: jest.fn(() => ({
+vi.mock('@uirouter/react', async (importOriginal: () => Promise<object>) => ({
+  ...(await importOriginal()),
+  useCurrentStateAndParams: vi.fn(() => ({
     params: { endpointId: 1 },
   })),
 }));
@@ -23,7 +27,9 @@ test('Network details values should be visible', async () => {
   await expect(findByText(network.Driver)).resolves.toBeVisible();
   await expect(findByText(network.Scope)).resolves.toBeVisible();
   await expect(
-    findByText(network.IPAM?.Config[0].Gateway || 'not found', { exact: false })
+    findByText(network.IPAM?.Config[0].Gateway || 'not found', {
+      exact: false,
+    })
   ).resolves.toBeVisible();
   await expect(
     findByText(network.IPAM?.Config[0].Subnet || 'not found', { exact: false })
@@ -32,31 +38,30 @@ test('Network details values should be visible', async () => {
 
 test(`System networks shouldn't show a delete button`, async () => {
   const systemNetwork = getNetwork('bridge');
-  const { queryByText } = await renderComponent(true, systemNetwork);
+  await renderComponent(true, systemNetwork);
 
-  const deleteButton = queryByText('Delete this network');
-  expect(deleteButton).toBeNull();
+  expect(screen.queryByText('Delete this network')).toBeNull();
 });
 
 test('Non system networks should have a delete button', async () => {
   const nonSystemNetwork = getNetwork('non system network');
 
-  const { queryByText } = await renderComponent(true, nonSystemNetwork);
+  await renderComponent(true, nonSystemNetwork);
 
-  const button = queryByText('Delete this network');
-  expect(button).toBeVisible();
+  await expect(screen.findByText('Delete this network')).resolves.toBeVisible();
 });
 
 async function renderComponent(isAdmin: boolean, network: DockerNetwork) {
+  server.use(http.get('/api/endpoints/1', () => HttpResponse.json({})));
+
   const user = new UserViewModel({ Username: 'test', Role: isAdmin ? 1 : 2 });
 
+  const Wrapped = withTestQueryProvider(
+    withUserProvider(NetworkDetailsTable, user)
+  );
+
   const queries = render(
-    <UserContext.Provider value={{ user }}>
-      <NetworkDetailsTable
-        network={network}
-        onRemoveNetworkClicked={() => {}}
-      />
-    </UserContext.Provider>
+    <Wrapped network={network} onRemoveNetworkClicked={() => {}} />
   );
 
   await expect(queries.findByText('Network details')).resolves.toBeVisible();

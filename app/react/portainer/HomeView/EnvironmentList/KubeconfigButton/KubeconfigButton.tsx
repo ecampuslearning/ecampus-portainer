@@ -7,6 +7,7 @@ import { trackEvent } from '@/angulartics.matomo/analytics-services';
 import { Query } from '@/react/portainer/environments/queries/useEnvironmentList';
 
 import { Button } from '@@/buttons';
+import { TooltipWithChildren } from '@@/Tip/TooltipWithChildren';
 
 import { KubeconfigPrompt } from './KubeconfigPrompt';
 
@@ -19,24 +20,45 @@ export interface Props {
 export function KubeconfigButton({ environments, envQueryParams }: Props) {
   const [isOpen, setIsOpen] = useState(false);
 
-  if (!isKubeconfigButtonVisible(environments)) {
-    return null;
+  const kubeEnvs = environments.filter((env) =>
+    isKubernetesEnvironment(env.Type)
+  );
+
+  const isHttp = window.location.protocol === 'http:';
+  const noKubeEnvs = kubeEnvs.length === 0;
+  const isDisabled = noKubeEnvs || isHttp;
+
+  let tooltipMessage = '';
+  if (isHttp) {
+    tooltipMessage =
+      'Kubeconfig download is not available when Portainer is accessed via HTTP. Please use HTTPS';
+  } else if (noKubeEnvs) {
+    tooltipMessage = 'No Kubernetes environments detected';
   }
+
+  const button = (
+    <Button
+      onClick={handleClick}
+      data-cy="download-kubeconfig-button"
+      size="medium"
+      className="!m-0"
+      icon={Download}
+      disabled={isDisabled}
+      color="light"
+    >
+      Kubeconfig
+    </Button>
+  );
 
   return (
     <>
-      <Button
-        onClick={handleClick}
-        size="medium"
-        className="!m-0"
-        disabled={environments.some(
-          (env) => !isKubernetesEnvironment(env.Type)
-        )}
-        icon={Download}
-        color="light"
-      >
-        Kubeconfig
-      </Button>
+      {isDisabled ? (
+        <TooltipWithChildren message={tooltipMessage}>
+          <span className="!m-0">{button}</span>
+        </TooltipWithChildren>
+      ) : (
+        button
+      )}
       {prompt()}
     </>
   );
@@ -57,20 +79,13 @@ export function KubeconfigButton({ environments, envQueryParams }: Props) {
     setIsOpen(false);
   }
 
-  function isKubeconfigButtonVisible(environments: Environment[]) {
-    if (window.location.protocol !== 'https:') {
-      return false;
-    }
-    return environments.some((env) => isKubernetesEnvironment(env.Type));
-  }
-
   function prompt() {
     return (
       isOpen && (
         <KubeconfigPrompt
           envQueryParams={envQueryParams}
           onClose={handleClose}
-          selectedItems={environments.map((env) => env.Id)}
+          selectedItems={kubeEnvs.map((env) => env.Id)}
         />
       )
     );

@@ -3,10 +3,10 @@ package teams
 import (
 	"net/http"
 
-	httperror "github.com/portainer/libhttp/error"
-	"github.com/portainer/libhttp/request"
-	"github.com/portainer/libhttp/response"
 	portainer "github.com/portainer/portainer/api"
+	httperror "github.com/portainer/portainer/pkg/libhttp/error"
+	"github.com/portainer/portainer/pkg/libhttp/request"
+	"github.com/portainer/portainer/pkg/libhttp/response"
 )
 
 type teamUpdatePayload struct {
@@ -30,12 +30,11 @@ func (payload *teamUpdatePayload) Validate(r *http.Request) error {
 // @param id path int true "Team identifier"
 // @param body body teamUpdatePayload true "Team details"
 // @success 200 {object} portainer.Team "Success"
-// @success 204 "Success"
 // @failure 400 "Invalid request"
 // @failure 403 "Permission denied"
 // @failure 404 "Team not found"
 // @failure 500 "Server error"
-// @router /team/{id} [put]
+// @router /teams/{id} [put]
 func (handler *Handler) teamUpdate(w http.ResponseWriter, r *http.Request) *httperror.HandlerError {
 	teamID, err := request.RetrieveNumericRouteVariableValue(r, "id")
 	if err != nil {
@@ -43,12 +42,11 @@ func (handler *Handler) teamUpdate(w http.ResponseWriter, r *http.Request) *http
 	}
 
 	var payload teamUpdatePayload
-	err = request.DecodeAndValidateJSONPayload(r, &payload)
-	if err != nil {
+	if err := request.DecodeAndValidateJSONPayload(r, &payload); err != nil {
 		return httperror.BadRequest("Invalid request payload", err)
 	}
 
-	team, err := handler.DataStore.Team().Team(portainer.TeamID(teamID))
+	team, err := handler.DataStore.Team().Read(portainer.TeamID(teamID))
 	if handler.DataStore.IsErrObjectNotFound(err) {
 		return httperror.NotFound("Unable to find a team with the specified identifier inside the database", err)
 	} else if err != nil {
@@ -59,8 +57,7 @@ func (handler *Handler) teamUpdate(w http.ResponseWriter, r *http.Request) *http
 		team.Name = payload.Name
 	}
 
-	err = handler.DataStore.Team().UpdateTeam(team.ID, team)
-	if err != nil {
+	if err := handler.DataStore.Team().Update(team.ID, team); err != nil {
 		return httperror.NotFound("Unable to persist team changes inside the database", err)
 	}
 

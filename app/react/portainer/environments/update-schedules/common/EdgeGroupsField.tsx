@@ -30,7 +30,7 @@ export function EdgeGroupsField({
   );
 
   return (
-    <>
+    <div>
       <FormControl
         label="Groups"
         required
@@ -53,11 +53,13 @@ export function EdgeGroupsField({
           getOptionValue={(group) => group.Id.toString()}
           closeMenuOnSelect={false}
           isDisabled={disabled}
+          data-cy="update-schedules-edge-groups-select"
+          id="update-schedules-edge-groups-select"
         />
       </FormControl>
       <TextTip color="blue">
         Select groups of Edge environments to update
       </TextTip>
-    </>
+    </div>
   );
 }

@@ -17,26 +17,22 @@ import (
 type Service struct{}
 
 var (
-	errInvalidEndpointProtocol       = errors.New("Invalid environment protocol: Portainer only supports unix://, npipe:// or tcp://")
-	errSocketOrNamedPipeNotFound     = errors.New("Unable to locate Unix socket or named pipe")
-	errInvalidSnapshotInterval       = errors.New("Invalid snapshot interval")
-	errAdminPassExcludeAdminPassFile = errors.New("Cannot use --admin-password with --admin-password-file")
+	ErrInvalidEndpointProtocol       = errors.New("Invalid environment protocol: Portainer only supports unix://, npipe:// or tcp://")
+	ErrSocketOrNamedPipeNotFound     = errors.New("Unable to locate Unix socket or named pipe")
+	ErrInvalidSnapshotInterval       = errors.New("Invalid snapshot interval")
+	ErrAdminPassExcludeAdminPassFile = errors.New("Cannot use --admin-password with --admin-password-file")
 )
 
-// ParseFlags parse the CLI flags and return a portainer.Flags struct
-func (*Service) ParseFlags(version string) (*portainer.CLIFlags, error) {
-	kingpin.Version(version)
-
-	flags := &portainer.CLIFlags{
+func CLIFlags() *portainer.CLIFlags {
+	return &portainer.CLIFlags{
 		Addr:                      kingpin.Flag("bind", "Address and port to serve Portainer").Default(defaultBindAddress).Short('p').String(),
 		AddrHTTPS:                 kingpin.Flag("bind-https", "Address and port to serve Portainer via https").Default(defaultHTTPSBindAddress).String(),
 		TunnelAddr:                kingpin.Flag("tunnel-addr", "Address to serve the tunnel server").Default(defaultTunnelServerAddress).String(),
 		TunnelPort:                kingpin.Flag("tunnel-port", "Port to serve the tunnel server").Default(defaultTunnelServerPort).String(),
 		Assets:                    kingpin.Flag("assets", "Path to the assets").Default(defaultAssetsDirectory).Short('a').String(),
 		Data:                      kingpin.Flag("data", "Path to the folder where the data is stored").Default(defaultDataDirectory).Short('d').String(),
-		DemoEnvironment:           kingpin.Flag("demo", "Demo environment").Bool(),
 		EndpointURL:               kingpin.Flag("host", "Environment URL").Short('H').String(),
-		FeatureFlags:              BoolPairs(kingpin.Flag("feat", "List of feature flags").Hidden()),
+		FeatureFlags:              kingpin.Flag("feat", "List of feature flags").Strings(),
 		EnableEdgeComputeFeatures: kingpin.Flag("edge-compute", "Enable Edge Compute features").Bool(),
 		NoAnalytics:               kingpin.Flag("no-analytics", "Disable Analytics in app (deprecated)").Bool(),
 		TLS:                       kingpin.Flag("tlsverify", "TLS support").Default(defaultTLS).Bool(),
@@ -49,7 +45,7 @@ func (*Service) ParseFlags(version string) (*portainer.CLIFlags, error) {
 		SSL:                       kingpin.Flag("ssl", "Secure Portainer instance using SSL (deprecated)").Default(defaultSSL).Bool(),
 		SSLCert:                   kingpin.Flag("sslcert", "Path to the SSL certificate used to secure the Portainer instance").String(),
 		SSLKey:                    kingpin.Flag("sslkey", "Path to the SSL key used to secure the Portainer instance").String(),
-		Rollback:                  kingpin.Flag("rollback", "Rollback the database store to the previous version").Bool(),
+		Rollback:                  kingpin.Flag("rollback", "Rollback the database to the previous backup").Bool(),
 		SnapshotInterval:          kingpin.Flag("snapshot-interval", "Duration between each environment snapshot job").String(),
 		AdminPassword:             kingpin.Flag("admin-password", "Set admin password with provided hash").String(),
 		AdminPasswordFile:         kingpin.Flag("admin-password-file", "Path to the file containing the password for the admin user").String(),
@@ -62,8 +58,19 @@ func (*Service) ParseFlags(version string) (*portainer.CLIFlags, error) {
 		MaxBatchDelay:             kingpin.Flag("max-batch-delay", "Maximum delay before a batch starts").Duration(),
 		SecretKeyName:             kingpin.Flag("secret-key-name", "Secret key name for encryption and will be used as /run/secrets/<secret-key-name>.").Default(defaultSecretKeyName).String(),
 		LogLevel:                  kingpin.Flag("log-level", "Set the minimum logging level to show").Default("INFO").Enum("DEBUG", "INFO", "WARN", "ERROR"),
-		LogMode:                   kingpin.Flag("log-mode", "Set the logging output mode").Default("PRETTY").Enum("PRETTY", "JSON"),
+		LogMode:                   kingpin.Flag("log-mode", "Set the logging output mode").Default("PRETTY").Enum("NOCOLOR", "PRETTY", "JSON"),
+		KubectlShellImage:         kingpin.Flag("kubectl-shell-image", "Kubectl shell image").Envar(portainer.KubectlShellImageEnvVar).Default(portainer.DefaultKubectlShellImage).String(),
+		PullLimitCheckDisabled:    kingpin.Flag("pull-limit-check-disabled", "Pull limit check").Envar(portainer.PullLimitCheckDisabledEnvVar).Default(defaultPullLimitCheckDisabled).Bool(),
+		TrustedOrigins:            kingpin.Flag("trusted-origins", "List of trusted origins for CSRF protection. Separate multiple origins with a comma.").Envar(portainer.TrustedOriginsEnvVar).String(),
+		CSP:                       kingpin.Flag("csp", "Content Security Policy (CSP) header").Envar(portainer.CSPEnvVar).Default("true").Bool(),
 	}
+}
+
+// ParseFlags parse the CLI flags and return a portainer.Flags struct
+func (*Service) ParseFlags(version string) (*portainer.CLIFlags, error) {
+	kingpin.Version(version)
+
+	flags := CLIFlags()
 
 	kingpin.Parse()
 
@@ -72,6 +79,7 @@ func (*Service) ParseFlags(version string) (*portainer.CLIFlags, error) {
 		if err != nil {
 			panic(err)
 		}
+
 		*flags.Assets = filepath.Join(filepath.Dir(ex), *flags.Assets)
 	}
 
@@ -80,21 +88,18 @@ func (*Service) ParseFlags(version string) (*portainer.CLIFlags, error) {
 
 // ValidateFlags validates the values of the flags.
 func (*Service) ValidateFlags(flags *portainer.CLIFlags) error {
-
 	displayDeprecationWarnings(flags)
 
-	err := validateEndpointURL(*flags.EndpointURL)
-	if err != nil {
+	if err := validateEndpointURL(*flags.EndpointURL); err != nil {
 		return err
 	}
 
-	err = validateSnapshotInterval(*flags.SnapshotInterval)
-	if err != nil {
+	if err := validateSnapshotInterval(*flags.SnapshotInterval); err != nil {
 		return err
 	}
 
 	if *flags.AdminPassword != "" && *flags.AdminPasswordFile != "" {
-		return errAdminPassExcludeAdminPassFile
+		return ErrAdminPassExcludeAdminPassFile
 	}
 
 	return nil
@@ -111,31 +116,38 @@ func displayDeprecationWarnings(flags *portainer.CLIFlags) {
 }
 
 func validateEndpointURL(endpointURL string) error {
-	if endpointURL != "" {
-		if !strings.HasPrefix(endpointURL, "unix://") && !strings.HasPrefix(endpointURL, "tcp://") && !strings.HasPrefix(endpointURL, "npipe://") {
-			return errInvalidEndpointProtocol
-		}
+	if endpointURL == "" {
+		return nil
+	}
 
-		if strings.HasPrefix(endpointURL, "unix://") || strings.HasPrefix(endpointURL, "npipe://") {
-			socketPath := strings.TrimPrefix(endpointURL, "unix://")
-			socketPath = strings.TrimPrefix(socketPath, "npipe://")
-			if _, err := os.Stat(socketPath); err != nil {
-				if os.IsNotExist(err) {
-					return errSocketOrNamedPipeNotFound
-				}
-				return err
+	if !strings.HasPrefix(endpointURL, "unix://") && !strings.HasPrefix(endpointURL, "tcp://") && !strings.HasPrefix(endpointURL, "npipe://") {
+		return ErrInvalidEndpointProtocol
+	}
+
+	if strings.HasPrefix(endpointURL, "unix://") || strings.HasPrefix(endpointURL, "npipe://") {
+		socketPath := strings.TrimPrefix(endpointURL, "unix://")
+		socketPath = strings.TrimPrefix(socketPath, "npipe://")
+
+		if _, err := os.Stat(socketPath); err != nil {
+			if os.IsNotExist(err) {
+				return ErrSocketOrNamedPipeNotFound
 			}
+
+			return err
 		}
 	}
+
 	return nil
 }
 
 func validateSnapshotInterval(snapshotInterval string) error {
-	if snapshotInterval != "" {
-		_, err := time.ParseDuration(snapshotInterval)
-		if err != nil {
-			return errInvalidSnapshotInterval
-		}
+	if snapshotInterval == "" {
+		return nil
 	}
+
+	if _, err := time.ParseDuration(snapshotInterval); err != nil {
+		return ErrInvalidSnapshotInterval
+	}
+
 	return nil
 }

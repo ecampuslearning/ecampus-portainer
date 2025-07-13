@@ -3,12 +3,12 @@ import { useReducer } from 'react';
 import { Plug2 } from 'lucide-react';
 
 import { useCreateRemoteEnvironmentMutation } from '@/react/portainer/environments/queries/useCreateEnvironmentMutation';
-import { Hardware } from '@/react/portainer/environments/wizard/EnvironmentsCreationView/shared/Hardware/Hardware';
 import { notifySuccess } from '@/portainer/services/notifications';
 import {
   Environment,
   EnvironmentCreationTypes,
 } from '@/react/portainer/environments/types';
+import { TLSFieldset } from '@/react/components/TLSFieldset/TLSFieldset';
 
 import { LoadingButton } from '@@/buttons/LoadingButton';
 import { FormControl } from '@@/form-components/FormControl';
@@ -19,7 +19,6 @@ import { MoreSettingsSection } from '../../shared/MoreSettingsSection';
 
 import { useValidation } from './APIForm.validation';
 import { FormValues } from './types';
-import { TLSFieldset } from './TLSFieldset';
 
 interface Props {
   onCreate(environment: Environment): void;
@@ -30,12 +29,14 @@ export function APIForm({ onCreate }: Props) {
   const initialValues: FormValues = {
     url: '',
     name: '',
-    tls: false,
+    tlsConfig: {
+      tls: false,
+      skipVerify: false,
+    },
     meta: {
       groupId: 1,
       tagIds: [],
     },
-    gpus: [],
   };
 
   const mutation = useCreateRemoteEnvironmentMutation(
@@ -52,7 +53,7 @@ export function APIForm({ onCreate }: Props) {
       validateOnMount
       key={formKey}
     >
-      {({ isValid, dirty }) => (
+      {({ values, errors, setFieldValue, isValid, dirty }) => (
         <Form>
           <NameField />
 
@@ -70,16 +71,23 @@ export function APIForm({ onCreate }: Props) {
             />
           </FormControl>
 
-          <TLSFieldset />
+          <TLSFieldset
+            values={values.tlsConfig}
+            onChange={(value) =>
+              Object.entries(value).forEach(([key, value]) =>
+                setFieldValue(`tlsConfig.${key}`, value)
+              )
+            }
+            errors={errors.tlsConfig}
+          />
 
-          <MoreSettingsSection>
-            <Hardware />
-          </MoreSettingsSection>
+          <MoreSettingsSection />
 
           <div className="form-group">
             <div className="col-sm-12">
               <LoadingButton
                 className="wizard-connect-button vertical-center"
+                data-cy="docker-aconnect-button"
                 loadingText="Connecting environment..."
                 isLoading={mutation.isLoading}
                 disabled={!dirty || !isValid}
@@ -104,7 +112,6 @@ export function APIForm({ onCreate }: Props) {
         options: {
           tls,
           meta: values.meta,
-          gpus: values.gpus,
         },
       },
       {
@@ -116,24 +123,24 @@ export function APIForm({ onCreate }: Props) {
       }
     );
     function getTlsValues() {
-      if (!values.tls) {
+      if (!values.tlsConfig.tls) {
         return undefined;
       }
 
       return {
-        skipVerify: values.skipVerify,
+        skipVerify: values.tlsConfig.skipVerify,
         ...getCertFiles(),
       };
 
       function getCertFiles() {
-        if (values.skipVerify) {
+        if (values.tlsConfig.skipVerify) {
           return {};
         }
 
         return {
-          caCertFile: values.caCertFile,
-          certFile: values.certFile,
-          keyFile: values.keyFile,
+          caCertFile: values.tlsConfig.caCertFile,
+          certFile: values.tlsConfig.certFile,
+          keyFile: values.tlsConfig.keyFile,
         };
       }
     }

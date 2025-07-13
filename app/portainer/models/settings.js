@@ -6,7 +6,6 @@ export function SettingsViewModel(data) {
   this.LDAPSettings = data.LDAPSettings;
   this.OAuthSettings = new OAuthSettingsViewModel(data.OAuthSettings);
   this.openAMTConfiguration = data.openAMTConfiguration;
-  this.fdoConfiguration = data.fdoConfiguration;
   this.SnapshotInterval = data.SnapshotInterval;
   this.TemplatesURL = data.TemplatesURL;
   this.EdgeAgentCheckinInterval = data.EdgeAgentCheckinInterval;
@@ -20,7 +19,6 @@ export function SettingsViewModel(data) {
   this.EnforceEdgeID = data.EnforceEdgeID;
   this.AgentSecret = data.AgentSecret;
   this.EdgePortainerUrl = data.EdgePortainerUrl;
-  this.ShowKomposeBuildOption = data.ShowKomposeBuildOption;
 }
 
 export function PublicSettingsViewModel(settings) {
@@ -37,9 +35,7 @@ export function PublicSettingsViewModel(settings) {
   this.Features = settings.Features;
   this.Edge = new EdgeSettingsViewModel(settings.Edge);
   this.DefaultRegistry = settings.DefaultRegistry;
-  this.ShowKomposeBuildOption = settings.ShowKomposeBuildOption;
   this.IsAMTEnabled = settings.IsAMTEnabled;
-  this.IsFDOEnabled = settings.IsFDOEnabled;
 }
 
 export function InternalAuthSettingsViewModel(data) {
@@ -80,6 +76,7 @@ export function OAuthSettingsViewModel(data) {
   this.DefaultTeamID = data.DefaultTeamID;
   this.SSO = data.SSO;
   this.LogoutURI = data.LogoutURI;
+  this.AuthStyle = data.AuthStyle;
 }
 
 export function EdgeSettingsViewModel(data = {}) {
@@ -87,5 +84,4 @@ export function EdgeSettingsViewModel(data = {}) {
   this.PingInterval = data.PingInterval;
   this.SnapshotInterval = data.SnapshotInterval;
   this.CommandInterval = data.CommandInterval;
-  this.AsyncMode = data.AsyncMode;
 }

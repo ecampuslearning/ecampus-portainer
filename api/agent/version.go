@@ -4,12 +4,13 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"strconv"
 	"time"
 
 	portainer "github.com/portainer/portainer/api"
-	"github.com/portainer/portainer/api/internal/url"
+	"github.com/portainer/portainer/api/url"
 )
 
 // GetAgentVersionAndPlatform returns the agent version and platform
@@ -42,7 +43,9 @@ func GetAgentVersionAndPlatform(endpointUrl string, tlsConfig *tls.Config) (port
 	if err != nil {
 		return 0, "", err
 	}
-	defer resp.Body.Close()
+
+	io.Copy(io.Discard, resp.Body)
+	resp.Body.Close()
 
 	if resp.StatusCode != http.StatusNoContent {
 		return 0, "", fmt.Errorf("Failed request with status %d", resp.StatusCode)

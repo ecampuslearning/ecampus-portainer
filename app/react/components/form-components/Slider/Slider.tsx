@@ -1,6 +1,11 @@
+import { ReactElement } from 'react';
 import RcSlider from 'rc-slider';
+import { HandleProps } from 'rc-slider/lib/Handles/Handle';
+
+import { SliderTooltip } from '@@/Tip/SliderTooltip';
 
 import styles from './Slider.module.css';
+
 import 'rc-slider/assets/index.css';
 
 export interface Props {
@@ -8,10 +13,11 @@ export interface Props {
   max: number;
   step: number;
   value: number;
-  onChange: (value: number) => void;
-  // true if you want to always show the tooltip
+  onChange: (value: number | number[]) => void;
   dataCy: string;
+  // true if you want to always show the tooltip
   visibleTooltip?: boolean;
+  disabled?: boolean;
 }
 
 export function Slider({
@@ -22,30 +28,24 @@ export function Slider({
   onChange,
   dataCy,
   visibleTooltip: visible,
+  disabled,
 }: Props) {
-  const SliderWithTooltip = RcSlider.createSliderWithTooltip(RcSlider);
-  // if the tooltip is always visible, hide the marks when tooltip value gets close to the edges
   const marks = {
     [min]: visible && value / max < 0.1 ? '' : translateMinValue(min),
     [max]: visible && value / max > 0.9 ? '' : max.toString(),
   };
 
   return (
-    <div className={styles.root}>
-      <SliderWithTooltip
-        tipFormatter={translateMinValue}
+    <div className={styles.root} data-cy={dataCy}>
+      <RcSlider
+        handleRender={visible ? sliderTooltip : undefined}
         min={min}
         max={max}
-        step={step}
         marks={marks}
-        defaultValue={value}
-        onAfterChange={onChange}
-        className={styles.slider}
-        tipProps={{ visible }}
-        railStyle={{ height: 8 }}
-        trackStyle={{ height: 8 }}
-        dotStyle={{ visibility: 'hidden' }}
-        data-cy={dataCy}
+        step={step}
+        disabled={disabled}
+        value={value}
+        onChange={onChange}
       />
     </div>
   );
@@ -56,4 +56,17 @@ function translateMinValue(value: number) {
     return 'unlimited';
   }
   return value.toString();
+}
+
+function sliderTooltip(
+  node: ReactElement<HandleProps>,
+  handleProps: { value: number }
+) {
+  return (
+    <SliderTooltip
+      value={translateMinValue(handleProps.value)}
+      child={node}
+      delay={0}
+    />
+  );
 }

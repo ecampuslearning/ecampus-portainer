@@ -2,7 +2,6 @@ package openamt
 
 import (
 	"encoding/base64"
-	"encoding/json"
 	"encoding/pem"
 	"fmt"
 	"io"
@@ -11,6 +10,8 @@ import (
 	"strings"
 
 	portainer "github.com/portainer/portainer/api"
+
+	"github.com/segmentio/encoding/json"
 )
 
 type CIRAConfig struct {
@@ -122,12 +123,13 @@ func (service *Service) getCIRACertificate(configuration portainer.OpenAMTConfig
 	if err != nil {
 		return "", err
 	}
-	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", configuration.MPSToken))
+	req.Header.Set("Authorization", "Bearer "+configuration.MPSToken)
 
 	response, err := service.httpsClient.Do(req)
 	if err != nil {
 		return "", err
 	}
+	defer response.Body.Close()
 
 	if response.StatusCode != http.StatusOK {
 		return "", fmt.Errorf("unexpected status code %s", response.Status)
@@ -137,6 +139,8 @@ func (service *Service) getCIRACertificate(configuration portainer.OpenAMTConfig
 	if err != nil {
 		return "", err
 	}
+
 	block, _ := pem.Decode(certificate)
+
 	return base64.StdEncoding.EncodeToString(block.Bytes), nil
 }

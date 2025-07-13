@@ -2,12 +2,13 @@ package openamt
 
 import (
 	"bytes"
-	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 
 	portainer "github.com/portainer/portainer/api"
+
+	"github.com/segmentio/encoding/json"
 )
 
 type authenticationResponse struct {
@@ -33,10 +34,13 @@ func (service *Service) Authorization(configuration portainer.OpenAMTConfigurati
 	if err != nil {
 		return "", err
 	}
+	defer response.Body.Close()
+
 	responseBody, readErr := io.ReadAll(response.Body)
 	if readErr != nil {
 		return "", readErr
 	}
+
 	errorResponse := parseError(responseBody)
 	if errorResponse != nil {
 		return "", errorResponse

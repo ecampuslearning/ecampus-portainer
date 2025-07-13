@@ -17,10 +17,11 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-const rwxr__r__ os.FileMode = 0744
+const rwxr__r__ os.FileMode = 0o744
 
 var filesToBackup = []string{
 	"certs",
+	"chisel",
 	"compose",
 	"config.json",
 	"custom_templates",
@@ -34,35 +35,9 @@ var filesToBackup = []string{
 
 // Creates a tar.gz system archive and encrypts it if password is not empty. Returns a path to the archive file.
 func CreateBackupArchive(password string, gate *offlinegate.OfflineGate, datastore dataservices.DataStore, filestorePath string) (string, error) {
-	unlock := gate.Lock()
-	defer unlock()
-
-	backupDirPath := filepath.Join(filestorePath, "backup", time.Now().Format("2006-01-02_15-04-05"))
-	if err := os.MkdirAll(backupDirPath, rwxr__r__); err != nil {
-		return "", errors.Wrap(err, "Failed to create backup dir")
-	}
-
-	{
-		// new export
-		exportFilename := path.Join(backupDirPath, fmt.Sprintf("export-%d.json", time.Now().Unix()))
-
-		err := datastore.Export(exportFilename)
-		if err != nil {
-			log.Error().Err(err).Str("filename", exportFilename).Msg("failed to export")
-		} else {
-			log.Debug().Str("filename", exportFilename).Msg("file exported")
-		}
-	}
-
-	if err := backupDb(backupDirPath, datastore); err != nil {
-		return "", errors.Wrap(err, "Failed to backup database")
-	}
-
-	for _, filename := range filesToBackup {
-		err := filesystem.CopyPath(filepath.Join(filestorePath, filename), backupDirPath)
-		if err != nil {
-			return "", errors.Wrap(err, "Failed to create backup file")
-		}
+	backupDirPath, err := backupDatabaseAndFilesystem(gate, datastore, filestorePath)
+	if err != nil {
+		return "", err
 	}
 
 	archivePath, err := archive.TarGzDir(backupDirPath)
@@ -80,15 +55,41 @@ func CreateBackupArchive(password string, gate *offlinegate.OfflineGate, datasto
 	return archivePath, nil
 }
 
+func backupDatabaseAndFilesystem(gate *offlinegate.OfflineGate, datastore dataservices.DataStore, filestorePath string) (string, error) {
+	unlock := gate.Lock()
+	defer unlock()
+
+	backupDirPath := filepath.Join(filestorePath, "backup", time.Now().Format("2006-01-02_15-04-05"))
+	if err := os.MkdirAll(backupDirPath, rwxr__r__); err != nil {
+		return "", errors.Wrap(err, "Failed to create backup dir")
+	}
+
+	// new export
+	exportFilename := path.Join(backupDirPath, fmt.Sprintf("export-%d.json", time.Now().Unix()))
+
+	if err := datastore.Export(exportFilename); err != nil {
+		log.Error().Err(err).Str("filename", exportFilename).Msg("failed to export")
+	} else {
+		log.Debug().Str("filename", exportFilename).Msg("file exported")
+	}
+
+	if err := backupDb(backupDirPath, datastore); err != nil {
+		return "", errors.Wrap(err, "Failed to backup database")
+	}
+
+	for _, filename := range filesToBackup {
+		if err := filesystem.CopyPath(filepath.Join(filestorePath, filename), backupDirPath); err != nil {
+			return "", errors.Wrap(err, "Failed to create backup file")
+		}
+	}
+
+	return backupDirPath, nil
+}
+
 func backupDb(backupDirPath string, datastore dataservices.DataStore) error {
-	backupWriter, err := os.Create(filepath.Join(backupDirPath, "portainer.db"))
-	if err != nil {
-		return err
-	}
-	if err = datastore.BackupTo(backupWriter); err != nil {
-		return err
-	}
-	return backupWriter.Close()
+	dbFileName := datastore.Connection().GetDatabaseFileName()
+	_, err := datastore.Backup(filepath.Join(backupDirPath, dbFileName))
+	return err
 }
 
 func encrypt(path string, passphrase string) (string, error) {
@@ -98,7 +99,7 @@ func encrypt(path string, passphrase string) (string, error) {
 	}
 	defer in.Close()
 
-	outFileName := fmt.Sprintf("%s.encrypted", path)
+	outFileName := path + ".encrypted"
 	out, err := os.Create(outFileName)
 	if err != nil {
 		return "", err

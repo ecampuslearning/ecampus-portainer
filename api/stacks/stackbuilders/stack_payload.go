@@ -17,14 +17,12 @@ type StackPayload struct {
 	Webhook          string
 	// A list of environment(endpoint) variables used during stack deployment
 	Env []portainer.Pair
-	// Optional auto update configuration
-	AutoUpdate *portainer.StackAutoUpdate
+	// Optional GitOps update configuration
+	AutoUpdate *portainer.AutoUpdateSettings
 	// Whether the stack is from a app template
 	FromAppTemplate bool `example:"false"`
 	// Kubernetes stack name
 	StackName string
-	// Whether the kubernetes stack config file is compose format
-	ComposeFormat bool
 	// Kubernetes stack namespace
 	Namespace string
 	// Path to the k8s Stack file. Used by k8s git repository method
@@ -52,4 +50,6 @@ type RepositoryConfigPayload struct {
 	// Password used in basic authentication. Required when RepositoryAuthentication is true
 	// and RepositoryGitCredentialID is 0
 	Password string `example:"myGitPassword"`
+	// TLSSkipVerify skips SSL verification when cloning the Git repository
+	TLSSkipVerify bool `example:"false"`
 }

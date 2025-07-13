@@ -1,26 +1,30 @@
 import userEvent from '@testing-library/user-event';
+import { HttpResponse, http } from 'msw';
+import { render } from '@testing-library/react';
 
-import { UserContext } from '@/react/hooks/useUser';
 import { UserViewModel } from '@/portainer/models/user';
-import { renderWithQueryClient } from '@/react-tools/test-utils';
+import { withUserProvider } from '@/react/test-utils/withUserProvider';
+import { withTestRouter } from '@/react/test-utils/withRouter';
+import { withTestQueryProvider } from '@/react/test-utils/withTestQuery';
+import { server } from '@/setup-tests/server';
 
 import { CreateContainerInstanceForm } from './CreateContainerInstanceForm';
 
-jest.mock('@uirouter/react', () => ({
-  ...jest.requireActual('@uirouter/react'),
-  useCurrentStateAndParams: jest.fn(() => ({
+vi.mock('@uirouter/react', async (importOriginal: () => Promise<object>) => ({
+  ...(await importOriginal()),
+  useCurrentStateAndParams: vi.fn(() => ({
     params: { endpointId: 5 },
   })),
 }));
 
 test('submit button should be disabled when name or image is missing', async () => {
-  const user = new UserViewModel({ Username: 'user' });
+  server.use(http.get('/api/endpoints/5', () => HttpResponse.json({})));
 
-  const { findByText, getByText, getByLabelText } = renderWithQueryClient(
-    <UserContext.Provider value={{ user }}>
-      <CreateContainerInstanceForm />
-    </UserContext.Provider>
+  const user = new UserViewModel({ Username: 'user' });
+  const Wrapped = withTestQueryProvider(
+    withUserProvider(withTestRouter(CreateContainerInstanceForm), user)
   );
+  const { findByText, getByText, getByLabelText } = render(<Wrapped />);
 
   await expect(findByText(/Azure settings/)).resolves.toBeVisible();
 
@@ -29,15 +33,15 @@ test('submit button should be disabled when name or image is missing', async () 
   expect(button).toBeDisabled();
 
   const nameInput = getByLabelText(/name/i);
-  userEvent.type(nameInput, 'name');
+  await userEvent.type(nameInput, 'name');
 
   const imageInput = getByLabelText(/image/i);
-  userEvent.type(imageInput, 'image');
+  await userEvent.type(imageInput, 'image');
 
   await expect(findByText(/Deploy the container/)).resolves.toBeEnabled();
 
   expect(nameInput).toHaveValue('name');
-  userEvent.clear(nameInput);
+  await userEvent.clear(nameInput);
 
   await expect(findByText(/Deploy the container/)).resolves.toBeDisabled();
 });

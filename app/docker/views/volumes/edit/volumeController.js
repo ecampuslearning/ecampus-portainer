@@ -1,26 +1,29 @@
 import { ResourceControlType } from '@/react/portainer/access-control/types';
+import { confirmDelete } from '@@/modals/confirm';
 
 angular.module('portainer.docker').controller('VolumeController', [
   '$scope',
   '$state',
   '$transition$',
-  '$q',
-  'ModalService',
   'VolumeService',
   'ContainerService',
   'Notifications',
   'HttpRequestHelper',
-  function ($scope, $state, $transition$, $q, ModalService, VolumeService, ContainerService, Notifications, HttpRequestHelper) {
+  'Authentication',
+  'endpoint',
+  function ($scope, $state, $transition$, VolumeService, ContainerService, Notifications, HttpRequestHelper, Authentication, endpoint) {
     $scope.resourceType = ResourceControlType.Volume;
+    $scope.endpoint = endpoint;
+    $scope.showBrowseAction = false;
 
     $scope.onUpdateResourceControlSuccess = function () {
       $state.reload();
     };
 
     $scope.removeVolume = function removeVolume() {
-      ModalService.confirmDeletion('Do you want to remove this volume?', (confirmed) => {
+      confirmDelete('Do you want to remove this volume?').then((confirmed) => {
         if (confirmed) {
-          VolumeService.remove($scope.volume)
+          VolumeService.remove($scope.volume.Id)
             .then(function success() {
               Notifications.success('Volume successfully removed', $transition$.params().id);
               $state.go('docker.volumes', {});
@@ -40,6 +43,7 @@ angular.module('portainer.docker').controller('VolumeController', [
 
     function initView() {
       HttpRequestHelper.setPortainerAgentTargetHeader($transition$.params().nodeName);
+      $scope.showBrowseAction = $scope.applicationState.endpoint.mode.agentProxy && (Authentication.isAdmin() || endpoint.SecuritySettings.allowVolumeBrowserForRegularUsers);
 
       VolumeService.volume($transition$.params().id)
         .then(function success(data) {
@@ -47,13 +51,15 @@ angular.module('portainer.docker').controller('VolumeController', [
           $scope.volume = volume;
           var containerFilter = { volume: [volume.Id] };
 
-          return ContainerService.containers(1, containerFilter);
+          return ContainerService.containers(endpoint.Id, 1, containerFilter);
         })
         .then(function success(data) {
           var dataContainers = $scope.isCioDriver ? data.containers : data;
 
           var containers = dataContainers.map(function (container) {
             container.volumeData = getVolumeDataFromContainer(container, $scope.volume.Id);
+
+            $scope.volume.NodeName = container.NodeName || '';
             return container;
           });
           $scope.containersUsingVolume = containers;

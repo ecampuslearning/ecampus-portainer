@@ -1,6 +1,5 @@
-import { object, SchemaOf, string } from 'yup';
+import { mixed, object, SchemaOf, string } from 'yup';
 
-import { gpusListValidation } from '@/react/portainer/environments/wizard/EnvironmentsCreationView/shared/Hardware/GpusList';
 import { CreateAgentEnvironmentValues } from '@/react/portainer/environments/environment.service/create';
 
 import { metadataValidation } from '../MetadataFieldset/validation';
@@ -11,7 +10,7 @@ export function useValidation(): SchemaOf<CreateAgentEnvironmentValues> {
     name: useNameValidation(),
     environmentUrl: environmentValidation(),
     meta: metadataValidation(),
-    gpus: gpusListValidation(),
+    containerEngine: mixed().oneOf(['docker', 'podman']),
   });
 }
 

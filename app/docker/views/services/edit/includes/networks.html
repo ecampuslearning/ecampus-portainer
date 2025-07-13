@@ -23,12 +23,13 @@
             <td>
               <select
                 ng-if="network.Editable"
-                class="form-control"
+                class="form-control !h-[30px] !rounded !text-[13px]"
                 ng-model="network.Id"
                 ng-change="updateNetwork(service)"
                 ng-options="net.Id as net.Name for net in filterNetworks(swarmNetworks, network)"
                 disable-authorization="DockerServiceUpdate"
                 style="width: initial; min-width: 50%"
+                data-cy="network-selector_{{ network.Name }}"
               >
                 <option disabled value="" selected>Select a network</option>
               </select>
@@ -37,12 +38,10 @@
             <td>
               <a ui-sref="docker.networks.network({id: network.Id})">{{ network.Id }}</a>
             </td>
-            <td>
-              {{ network.Addr }}
-            </td>
+            <td> {{ network.Addr }} </td>
             <td ng-if="network.Editable" authorization="DockerServiceUpdate">
               <span class="input-group-btn">
-                <button class="btn btn-dangerlight" type="button" ng-click="removeNetwork(service, $index)" ng-disabled="isUpdating">
+                <button class="btn btn-sm btn-dangerlight" type="button" ng-click="removeNetwork(service, $index)" ng-disabled="isUpdating">
                   <pr-icon icon="'trash-2'" size="'md'"></pr-icon>
                 </button>
               </span>
@@ -59,7 +58,7 @@
             Apply changes
           </button>
           <button type="button" class="btn btn-default btn-sm dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-            <span class="caret"></span>
+            <pr-icon icon="'chevron-down'"></pr-icon>
           </button>
           <ul class="dropdown-menu">
             <li><a ng-click="cancelChanges(service, ['Networks'])">Reset changes</a></li>

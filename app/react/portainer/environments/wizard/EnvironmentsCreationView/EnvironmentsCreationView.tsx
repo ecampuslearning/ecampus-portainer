@@ -9,7 +9,7 @@ import {
   Environment,
   EnvironmentId,
 } from '@/react/portainer/environments/types';
-import { useAnalytics } from '@/angulartics.matomo/analytics-services';
+import { useAnalytics } from '@/react/hooks/useAnalytics';
 
 import { Stepper } from '@@/Stepper';
 import { Widget, WidgetBody, WidgetTitle } from '@@/Widget';
@@ -17,9 +17,14 @@ import { PageHeader } from '@@/PageHeader';
 import { Button } from '@@/buttons';
 import { FormSection } from '@@/form-components/FormSection';
 import { Icon } from '@@/Icon';
+import { Alert } from '@@/Alert';
 
-import { environmentTypes } from '../EnvironmentTypeSelectView/environment-types';
-import { EnvironmentSelectorValue } from '../EnvironmentTypeSelectView/EnvironmentSelector';
+import {
+  EnvironmentOptionValue,
+  environmentTypes,
+  formTitles,
+  EnvironmentOption,
+} from '../EnvironmentTypeSelectView/environment-types';
 
 import { WizardDocker } from './WizardDocker';
 import { WizardAzure } from './WizardAzure';
@@ -27,10 +32,11 @@ import { WizardKubernetes } from './WizardKubernetes';
 import { AnalyticsState, AnalyticsStateKey } from './types';
 import styles from './EnvironmentsCreationView.module.css';
 import { WizardEndpointsList } from './WizardEndpointsList';
+import { WizardPodman } from './WizardPodman';
 
 export function EnvironmentCreationView() {
   const {
-    params: { localEndpointId: localEndpointIdParam },
+    params: { localEndpointId: localEndpointIdParam, referrer },
   } = useCurrentStateAndParams();
 
   const [environmentIds, setEnvironmentIds] = useState<EnvironmentId[]>(() => {
@@ -68,6 +74,7 @@ export function EnvironmentCreationView() {
       <PageHeader
         title="Quick Setup"
         breadcrumbs={[{ label: 'Environment Wizard' }]}
+        reload
       />
 
       <div className={styles.wizardWrapper}>
@@ -77,10 +84,20 @@ export function EnvironmentCreationView() {
             <Stepper steps={steps} currentStep={currentStepIndex + 1} />
 
             <div className="mt-12">
-              <FormSection
-                title={`Connect to your ${currentStep.title}
-                    environment`}
-              >
+              <FormSection title={formTitles[currentStep.id]}>
+                {currentStep.id === 'kaas' && (
+                  <Alert
+                    color="warn"
+                    title="Deprecated Feature"
+                    className="mb-2"
+                  >
+                    Provisioning a KaaS environment from Portainer is deprecated
+                    and will be removed in a future release. You will still be
+                    able to use any Kubernetes clusters provisioned using this
+                    method but will no longer have access to any of the
+                    KaaS-specific management functionality.
+                  </Alert>
+                )}
                 <Component
                   onCreate={handleCreateEnvironment}
                   isDockerStandalone={isDockerStandalone}
@@ -92,10 +109,17 @@ export function EnvironmentCreationView() {
                     'flex justify-between'
                   )}
                 >
-                  <Button disabled={isFirstStep} onClick={onPreviousClick}>
+                  <Button
+                    disabled={isFirstStep}
+                    onClick={onPreviousClick}
+                    data-cy="environment-wizard-previous-button"
+                  >
                     <Icon icon={ArrowLeft} /> Previous
                   </Button>
-                  <Button onClick={onNextClick}>
+                  <Button
+                    onClick={onNextClick}
+                    data-cy="environment-wizard-next-button"
+                  >
                     {isLastStep ? 'Close' : 'Next'}
                     <Icon icon={ArrowRight} />
                   </Button>
@@ -129,8 +153,7 @@ export function EnvironmentCreationView() {
         ])
       ),
     });
-    if (localStorage.getItem('wizardReferrer') === 'environments') {
-      localStorage.removeItem('wizardReferrer');
+    if (referrer === 'environments') {
       router.stateService.go('portainer.endpoints');
       return;
     }
@@ -138,7 +161,7 @@ export function EnvironmentCreationView() {
   }
 }
 
-function useParamEnvironmentTypes(): EnvironmentSelectorValue[] {
+function useParamEnvironmentTypes(): EnvironmentOptionValue[] {
   const {
     params: { envType },
   } = useCurrentStateAndParams();
@@ -154,7 +177,7 @@ function useParamEnvironmentTypes(): EnvironmentSelectorValue[] {
 }
 
 function useStepper(
-  steps: typeof environmentTypes[number][],
+  steps: EnvironmentOption[][number][],
   onFinish: () => void
 ) {
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
@@ -185,11 +208,13 @@ function useStepper(
     setCurrentStepIndex(currentStepIndex - 1);
   }
 
-  function getComponent(id: EnvironmentSelectorValue) {
+  function getComponent(id: EnvironmentOptionValue) {
     switch (id) {
       case 'dockerStandalone':
       case 'dockerSwarm':
         return WizardDocker;
+      case 'podman':
+        return WizardPodman;
       case 'aci':
         return WizardAzure;
       case 'kubernetes':
@@ -204,13 +229,18 @@ function useAnalyticsState() {
   const [analytics, setAnalyticsState] = useState<AnalyticsState>({
     dockerAgent: 0,
     dockerApi: 0,
+    dockerEdgeAgentAsync: 0,
+    dockerEdgeAgentStandard: 0,
+    podmanAgent: 0,
+    podmanEdgeAgentAsync: 0,
+    podmanEdgeAgentStandard: 0,
+    podmanLocalEnvironment: 0,
     kubernetesAgent: 0,
-    kubernetesEdgeAgent: 0,
+    kubernetesEdgeAgentAsync: 0,
+    kubernetesEdgeAgentStandard: 0,
     kaasAgent: 0,
     aciApi: 0,
     localEndpoint: 0,
-    nomadEdgeAgent: 0,
-    dockerEdgeAgent: 0,
   });
 
   return { analytics, setAnalytics };

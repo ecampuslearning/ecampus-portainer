@@ -11,7 +11,6 @@ import {
 } from '@/react/portainer/environments/types';
 import { getPlatformType } from '@/react/portainer/environments/utils';
 import { useEnvironment } from '@/react/portainer/environments/queries/useEnvironment';
-import { isBE } from '@/react/portainer/feature-flags/feature-flags.service';
 import { environmentStore } from '@/react/hooks/current-environment-store';
 
 import { Icon } from '@@/Icon';
@@ -24,7 +23,6 @@ import { DockerSidebar } from './DockerSidebar';
 import { KubernetesSidebar } from './KubernetesSidebar';
 import { SidebarSection, SidebarSectionTitle } from './SidebarSection';
 import { useSidebarState } from './useSidebarState';
-import { NomadSidebar } from './NomadSidebar';
 
 export function EnvironmentSidebar() {
   const { query: currentEnvironmentQuery, clearEnvironment } =
@@ -38,7 +36,7 @@ export function EnvironmentSidebar() {
   }
 
   return (
-    <div className={clsx(styles.root, 'rounded border border-dotted py-2')}>
+    <div className={clsx(styles.root, 'rounded py-2')}>
       {environment ? (
         <Content environment={environment} onClear={clearEnvironment} />
       ) : (
@@ -46,7 +44,7 @@ export function EnvironmentSidebar() {
           <div className="flex items-center gap-1">
             <span>Environment:</span>
             <Icon icon={Slash} className="text-xl !text-gray-6" />
-            <span className="text-gray-6 text-sm">None selected</span>
+            <span className="text-sm text-gray-6">None selected</span>
           </div>
         </SidebarSectionTitle>
       )}
@@ -66,6 +64,7 @@ function Content({ environment, onClear }: ContentProps) {
   return (
     <SidebarSection
       title={<Title environment={environment} onClear={onClear} />}
+      hoverText={environment.Name}
       aria-label={environment.Name}
       showTitleWhenOpen
     >
@@ -86,8 +85,8 @@ function Content({ environment, onClear }: ContentProps) {
     } = {
       [PlatformType.Azure]: AzureSidebar,
       [PlatformType.Docker]: DockerSidebar,
+      [PlatformType.Podman]: DockerSidebar, // same as docker for now, until pod management is added
       [PlatformType.Kubernetes]: KubernetesSidebar,
-      [PlatformType.Nomad]: isBE ? NomadSidebar : null,
     };
 
     return sidebar[platform];
@@ -126,11 +125,14 @@ interface TitleProps {
 function Title({ environment, onClear }: TitleProps) {
   const { isOpen } = useSidebarState();
 
-  const EnvironmentIcon = getPlatformIcon(environment.Type);
+  const EnvironmentIcon = getPlatformIcon(
+    environment.Type,
+    environment.ContainerEngine
+  );
 
   if (!isOpen) {
     return (
-      <div className="w-8 flex justify-center -ml-3" title={environment.Name}>
+      <div className="-ml-3 flex w-8 justify-center" title={environment.Name}>
         <EnvironmentIcon className="text-2xl" />
       </div>
     );
@@ -138,8 +140,8 @@ function Title({ environment, onClear }: TitleProps) {
 
   return (
     <div className="flex items-center">
-      <EnvironmentIcon className="text-2xl mr-3" />
-      <span className="text-white text-ellipsis overflow-hidden whitespace-nowrap">
+      <EnvironmentIcon className="mr-3 text-2xl" />
+      <span className="overflow-hidden text-ellipsis whitespace-nowrap text-white">
         {environment.Name}
       </span>
 
@@ -149,7 +151,7 @@ function Title({ environment, onClear }: TitleProps) {
         onClick={onClear}
         className={clsx(
           styles.closeBtn,
-          'flex items-center justify-center transition-colors duration-200 rounded border-0 text-sm h-5 w-5 p-1 ml-auto mr-2 text-gray-5 be:text-gray-6 hover:text-white be:hover:text-white'
+          'ml-auto mr-2 flex h-5 w-5 items-center justify-center rounded border-0 p-1 text-sm text-white transition-colors duration-200'
         )}
       >
         <X />

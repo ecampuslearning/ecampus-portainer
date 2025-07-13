@@ -1,10 +1,14 @@
-import { server, rest } from '@/setup-tests/server';
-import { UserContext } from '@/react/hooks/useUser';
+import { http, HttpResponse } from 'msw';
+import { render, within } from '@testing-library/react';
+
+import { server } from '@/setup-tests/server';
 import { UserViewModel } from '@/portainer/models/user';
-import { renderWithQueryClient, within } from '@/react-tools/test-utils';
 import { Team, TeamId } from '@/react/portainer/users/teams/types';
 import { createMockTeams } from '@/react-tools/test-mocks';
 import { UserId } from '@/portainer/users/types';
+import { withUserProvider } from '@/react/test-utils/withUserProvider';
+import { withTestQueryProvider } from '@/react/test-utils/withTestQuery';
+import { withTestRouter } from '@/react/test-utils/withRouter';
 
 import { ResourceControlOwnership, AccessControlFormData } from '../types';
 import { ResourceControlViewModel } from '../models/ResourceControlViewModel';
@@ -46,7 +50,7 @@ test.each([
   async (ownership) => {
     const values = buildFormData(ownership);
 
-    const { findByRole } = await renderComponent(values, jest.fn(), {
+    const { findByRole } = await renderComponent(values, vi.fn(), {
       isAdmin: true,
     });
 
@@ -74,7 +78,7 @@ test.each([
   async (ownership) => {
     const values = buildFormData(ownership);
 
-    const { findByRole } = await renderComponent(values, jest.fn(), {
+    const { findByRole } = await renderComponent(values, vi.fn(), {
       teams: [],
       isAdmin: false,
     });
@@ -97,7 +101,7 @@ test.each([
   async (ownership) => {
     const values = buildFormData(ownership);
 
-    const { findByRole } = await renderComponent(values, jest.fn(), {
+    const { findByRole } = await renderComponent(values, vi.fn(), {
       teams: createMockTeams(1),
       isAdmin: false,
     });
@@ -122,7 +126,7 @@ test('when ownership is public, ownership selector should be hidden', async () =
 test('when hideTitle is true, title should be hidden', async () => {
   const values = buildFormData();
 
-  const { queryByRole } = await renderComponent(values, jest.fn(), {
+  const { queryByRole } = await renderComponent(values, vi.fn(), {
     hideTitle: true,
   });
 
@@ -134,7 +138,7 @@ test('when isAdmin and admin ownership is selected, no extra options are visible
 
   const { findByRole, queryByLabelText } = await renderComponent(
     values,
-    jest.fn(),
+    vi.fn(),
     {
       isAdmin: true,
     }
@@ -160,7 +164,7 @@ test('when isAdmin and restricted ownership is selected, show team and users sel
 
   const { findByRole, findByLabelText } = await renderComponent(
     values,
-    jest.fn(),
+    vi.fn(),
     {
       isAdmin: true,
     }
@@ -198,7 +202,7 @@ test('when user is not an admin, there are more then 1 team and ownership is res
 
   const { findByRole, findByLabelText } = await renderComponent(
     values,
-    jest.fn()
+    vi.fn()
   );
 
   const ownershipSelector = await findByRole('radiogroup');
@@ -229,7 +233,7 @@ test('when user is not an admin, there is 1 team and ownership is restricted, te
 
   const { findByRole, findByLabelText } = await renderComponent(
     values,
-    jest.fn(),
+    vi.fn(),
     {
       teams: createMockTeams(1),
       isAdmin: false,
@@ -264,7 +268,7 @@ test('when user is not an admin, and ownership is restricted, user selector not 
 
   const { findByRole, findByLabelText } = await renderComponent(
     values,
-    jest.fn(),
+    vi.fn(),
     {
       isAdmin: false,
     }
@@ -298,29 +302,31 @@ interface AdditionalProps {
 
 async function renderComponent(
   values: AccessControlFormData,
-  onChange = jest.fn(),
+  onChange = vi.fn(),
   { isAdmin = false, hideTitle = false, teams, users }: AdditionalProps = {}
 ) {
   const user = new UserViewModel({ Username: 'user', Role: isAdmin ? 1 : 2 });
-  const state = { user };
 
   if (teams) {
-    server.use(rest.get('/api/teams', (req, res, ctx) => res(ctx.json(teams))));
+    server.use(http.get('/api/teams', () => HttpResponse.json(teams)));
   }
 
   if (users) {
-    server.use(rest.get('/api/users', (req, res, ctx) => res(ctx.json(users))));
+    server.use(http.get('/api/users', () => HttpResponse.json(users)));
   }
 
-  const renderResult = renderWithQueryClient(
-    <UserContext.Provider value={state}>
-      <AccessControlForm
-        errors={{}}
-        values={values}
-        onChange={onChange}
-        hideTitle={hideTitle}
-      />
-    </UserContext.Provider>
+  const Wrapped = withTestRouter(
+    withTestQueryProvider(withUserProvider(AccessControlForm, user))
+  );
+
+  const renderResult = render(
+    <Wrapped
+      environmentId={1}
+      errors={{}}
+      values={values}
+      onChange={onChange}
+      hideTitle={hideTitle}
+    />
   );
 
   await expect(

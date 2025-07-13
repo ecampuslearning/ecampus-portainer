@@ -1,10 +1,16 @@
 {
+  "api_key": null,
+  "customtemplates": null,
   "dockerhub": [
     {
       "Authentication": false,
       "Username": ""
     }
   ],
+  "edge_stack": null,
+  "edge_stack_status": null,
+  "edgegroups": null,
+  "edgejobs": null,
   "endpoint_groups": [
     {
       "AuthorizedTeams": null,
@@ -38,6 +44,7 @@
         "TenantID": ""
       },
       "ComposeSyntaxMaxVersion": "",
+      "ContainerEngine": "",
       "Edge": {
         "AsyncMode": false,
         "CommandInterval": 0,
@@ -48,8 +55,8 @@
       "EdgeKey": "",
       "Gpus": [],
       "GroupId": 1,
+      "Heartbeat": false,
       "Id": 1,
-      "IsEdgeDevice": false,
       "Kubernetes": {
         "Configuration": {
           "AllowNoneIngressClass": false,
@@ -62,11 +69,17 @@
           "UseLoadBalancer": false,
           "UseServerMetrics": false
         },
+        "Flags": {
+          "IsServerIngressClassDetected": false,
+          "IsServerMetricsDetected": false,
+          "IsServerStorageDetected": false
+        },
         "Snapshots": []
       },
       "LastCheckInDate": 0,
       "Name": "local",
       "PostInitMigrations": {
+        "MigrateGPUs": true,
         "MigrateIngresses": true
       },
       "PublicURL": "",
@@ -93,10 +106,12 @@
       "TeamAccessPolicies": {},
       "Type": 1,
       "URL": "unix:///var/run/docker.sock",
-      "UserAccessPolicies": {},
-      "UserTrusted": false
+      "UserAccessPolicies": {}
     }
   ],
+  "extension": null,
+  "helm_user_repository": null,
+  "pending_actions": null,
   "registries": [
     {
       "Authentication": true,
@@ -105,6 +120,10 @@
       "BaseURL": "",
       "Ecr": {
         "Region": ""
+      },
+      "Github": {
+        "OrganisationName": "",
+        "UseOrganisation": false
       },
       "Gitlab": {
         "InstanceURL": "",
@@ -116,8 +135,7 @@
       "Name": "canister.io",
       "Password": "MjWbx8A6YK7cw7",
       "Quay": {
-        "OrganisationName": "",
-        "UseOrganisation": false
+        "OrganisationName": ""
       },
       "RegistryAccesses": {
         "1": {
@@ -576,13 +594,9 @@
     "AllowHostNamespaceForRegularUsers": true,
     "AllowPrivilegedModeForRegularUsers": true,
     "AllowStackManagementForRegularUsers": true,
-    "AllowVolumeBrowserForRegularUsers": false,
     "AuthenticationMethod": 1,
     "BlackListedLabels": [],
-    "DisplayDonationHeader": false,
-    "DisplayExternalContributors": false,
     "Edge": {
-      "AsyncMode": false,
       "CommandInterval": 0,
       "PingInterval": 0,
       "SnapshotInterval": 0
@@ -590,16 +604,18 @@
     "EdgeAgentCheckinInterval": 5,
     "EdgePortainerUrl": "",
     "EnableEdgeComputeFeatures": false,
-    "EnableHostManagementFeatures": false,
     "EnableTelemetry": true,
     "EnforceEdgeID": false,
     "FeatureFlagSettings": null,
+    "GlobalDeploymentOptions": {
+      "hideStacksFunctionality": false
+    },
     "HelmRepositoryURL": "https://charts.bitnami.com/bitnami",
     "InternalAuthSettings": {
       "RequiredPasswordLength": 12
     },
     "KubeconfigExpiry": "0",
-    "KubectlShellImage": "portainer/kubectl-shell",
+    "KubectlShellImage": "portainer/kubectl-shell:2.31.0",
     "LDAPSettings": {
       "AnonymousMode": true,
       "AutoCreateUsers": true,
@@ -628,6 +644,7 @@
     "LogoURL": "",
     "OAuthSettings": {
       "AccessTokenURI": "",
+      "AuthStyle": 0,
       "AuthorizationURI": "",
       "ClientID": "",
       "DefaultTeamID": 0,
@@ -640,17 +657,10 @@
       "Scopes": "",
       "UserIdentifier": ""
     },
-    "ShowKomposeBuildOption": false,
     "SnapshotInterval": "5m",
-    "TemplatesURL": "https://raw.githubusercontent.com/portainer/templates/master/templates-2.0.json",
+    "TemplatesURL": "",
     "TrustOnFirstConnect": false,
     "UserSessionTimeout": "8h",
-    "fdoConfiguration": {
-      "enabled": false,
-      "ownerPassword": "",
-      "ownerURL": "",
-      "ownerUsername": ""
-    },
     "openAMTConfiguration": {
       "certFileContent": "",
       "certFileName": "",
@@ -666,18 +676,18 @@
   "snapshots": [
     {
       "Docker": {
+        "ContainerCount": 0,
+        "DiagnosticsData": {},
         "DockerSnapshotRaw": {
           "Containers": null,
           "Images": null,
           "Info": {
             "Architecture": "",
-            "BridgeNfIp6tables": false,
-            "BridgeNfIptables": false,
+            "CDISpecDirs": null,
             "CPUSet": false,
             "CPUShares": false,
             "CgroupDriver": "",
             "ContainerdCommit": {
-              "Expected": "",
               "ID": ""
             },
             "Containers": 0,
@@ -701,12 +711,9 @@
             "IndexServerAddress": "",
             "InitBinary": "",
             "InitCommit": {
-              "Expected": "",
               "ID": ""
             },
             "Isolation": "",
-            "KernelMemory": false,
-            "KernelMemoryTCP": false,
             "KernelVersion": "",
             "Labels": null,
             "LiveRestoreEnabled": false,
@@ -732,7 +739,6 @@
             },
             "RegistryConfig": null,
             "RuncCommit": {
-              "Expected": "",
               "ID": ""
             },
             "Runtimes": null,
@@ -772,7 +778,9 @@
         "GpuUseList": null,
         "HealthyContainerCount": 0,
         "ImageCount": 9,
+        "IsPodman": false,
         "NodeCount": 0,
+        "PerformanceMetrics": null,
         "RunningContainerCount": 5,
         "ServiceCount": 0,
         "StackCount": 2,
@@ -806,7 +814,6 @@
       "FromAppTemplate": false,
       "GitConfig": null,
       "Id": 2,
-      "IsComposeFormat": false,
       "Name": "alpine",
       "Namespace": "",
       "Option": null,
@@ -829,7 +836,6 @@
       "FromAppTemplate": false,
       "GitConfig": null,
       "Id": 5,
-      "IsComposeFormat": false,
       "Name": "redis",
       "Namespace": "",
       "Option": null,
@@ -852,7 +858,6 @@
       "FromAppTemplate": false,
       "GitConfig": null,
       "Id": 6,
-      "IsComposeFormat": false,
       "Name": "nginx",
       "Namespace": "",
       "Option": null,
@@ -865,6 +870,8 @@
       "UpdatedBy": ""
     }
   ],
+  "tags": null,
+  "team_membership": null,
   "teams": [
     {
       "Id": 1,
@@ -872,7 +879,7 @@
     }
   ],
   "tunnel_server": {
-    "PrivateKeySeed": "IvX6ZPRuWtLS5zyg"
+    "PrivateKeySeed": ""
   },
   "users": [
     {
@@ -898,8 +905,11 @@
         "PortainerUserRevokeToken": true
       },
       "Role": 1,
+      "ThemeSettings": {
+        "color": ""
+      },
       "TokenIssueAt": 0,
-      "UserTheme": "",
+      "UseCache": false,
       "Username": "admin"
     },
     {
@@ -925,12 +935,16 @@
         "PortainerUserRevokeToken": true
       },
       "Role": 1,
+      "ThemeSettings": {
+        "color": ""
+      },
       "TokenIssueAt": 0,
-      "UserTheme": "",
+      "UseCache": false,
       "Username": "prabhat"
     }
   ],
   "version": {
-    "VERSION": "{\"SchemaVersion\":\"2.18.0\",\"MigratorCount\":0,\"Edition\":1,\"InstanceID\":\"463d5c47-0ea5-4aca-85b1-405ceefee254\"}"
-  }
+    "VERSION": "{\"SchemaVersion\":\"2.31.0\",\"MigratorCount\":1,\"Edition\":1,\"InstanceID\":\"463d5c47-0ea5-4aca-85b1-405ceefee254\"}"
+  },
+  "webhooks": null
 }

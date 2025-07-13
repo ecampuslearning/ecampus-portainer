@@ -17,12 +17,23 @@
 html {
   font-size: 16px;
   overflow-y: scroll;
+  scroll-behavior: smooth;
+}
+
+html[theme='dark'],
+html[theme='highcontrast'] {
+  /* make the scrollbars dark theme when in the dark modes */
+  color-scheme: dark;
 }
 
 body {
   background: var(--bg-body-color);
   font-family: 'Inter';
   color: var(--text-body-color) !important;
+}
+
+.bg-widget-color {
+  background: var(--bg-widget-color);
 }
 
 html,
@@ -84,17 +95,22 @@ body,
 
 .form-section-title {
   @apply text-gray-9;
-  @apply th-dark:text-gray-5;
+  @apply th-dark:text-white;
   @apply th-highcontrast:text-white;
 
-  margin-top: 5px;
+  margin-top: 20px;
   margin-bottom: 10px;
   padding-left: 0;
   font-weight: 500;
   font-size: 16px;
 }
 
-.form-horizontal .control-label.text-left {
+.form-section-title:first-child {
+  margin-top: 5px;
+}
+
+.form-horizontal .control-label.text-left,
+.form-row .control-label.text-left {
   text-align: left;
   font-size: 0.9em;
 }
@@ -148,7 +164,7 @@ input[type='checkbox'] {
 }
 
 .text-warning {
-  @apply text-warning-9 th-dark:text-warning-7 th-highcontrast:text-warning-1;
+  @apply text-warning-9 th-highcontrast:text-warning-1 th-dark:text-warning-7;
 }
 
 .widget .widget-body table tbody .image-tag {
@@ -210,14 +226,9 @@ input[type='checkbox'] {
   margin-right: 10px;
 }
 
-.blocklist-item--disabled {
-  cursor: auto;
-  background-color: var(--grey-12);
-}
-
 .blocklist-item--selected {
   background-color: var(--bg-blocklist-item-selected-color);
-  border: 2px solid var(--border-blocklist-item-selected-color);
+  border-color: var(--border-blocklist-item-selected-color);
   color: var(--text-blocklist-item-selected-color);
 }
 
@@ -414,34 +425,6 @@ input[type='checkbox'] {
   float: none !important;
 }
 
-.bootbox-form .bootbox-input-checkbox {
-  display: none;
-}
-
-.bootbox-form .visible {
-  position: initial !important;
-  display: initial !important;
-  margin-left: 10px !important;
-  margin-top: -2px !important;
-}
-
-.bootbox-form label {
-  padding-left: 0;
-}
-
-.bootbox-checkbox-list {
-  max-height: 200px;
-  overflow-y: auto;
-  background-color: var(--white-color);
-  border: 1px solid var(--grey-48);
-  border-radius: 4px;
-}
-
-:root[theme='dark'] .bootbox-checkbox-list,
-:root[theme='highcontrast'] .bootbox-checkbox-list {
-  background-color: var(--bg-modal-content-color);
-}
-
 .small-select {
   display: inline-block;
   padding: 0px 6px;
@@ -451,10 +434,6 @@ input[type='checkbox'] {
   background-image: none;
   border-radius: 4px;
   font-size: 14px;
-}
-
-.bootbox-form .checkbox i {
-  margin-left: 21px;
 }
 
 .visualizer_container {
@@ -597,20 +576,6 @@ input[type='checkbox'] {
   padding: 0 !important;
 }
 
-.modal::before {
-  content: '';
-  display: inline-block;
-  height: 100%;
-  vertical-align: middle;
-  margin-right: -4px;
-}
-
-.modal-dialog {
-  display: inline-block;
-  text-align: left;
-  vertical-align: middle;
-}
-
 .striked::after {
   border-bottom: 0.2em solid var(--grey-26);
   content: '';
@@ -643,17 +608,6 @@ input[type='checkbox'] {
   margin-right: -50%;
 }
 
-/*bootbox override */
-.modal-open {
-  padding-right: 0 !important;
-}
-
-.image-zoom-modal .modal-dialog {
-  width: 80%;
-}
-
-/*!bootbox override*/
-
 /*toaster override*/
 #toast-container > div {
   opacity: 0.9;
@@ -664,24 +618,6 @@ input[type='checkbox'] {
   font-family: monospace;
   font-weight: 600;
 }
-
-/* json-tree override */
-json-tree {
-  font-size: 13px;
-  color: var(--blue-5);
-}
-
-json-tree .key {
-  color: var(--blue-3);
-  padding-right: 5px;
-}
-
-json-tree .branch-preview {
-  font-style: normal;
-  font-size: 11px;
-  opacity: 0.5;
-}
-/* !json-tree override */
 
 /* uib-progressbar override */
 .progress-bar {
@@ -745,20 +681,6 @@ json-tree .branch-preview {
   cursor: not-allowed;
 }
 
-/* used for bootbox prompt with inputType radio */
-.form-check.radio {
-  margin-left: 15px;
-}
-
-.inline-text {
-  display: inline;
-  position: absolute;
-  font-family: 'Montserrat';
-  font-size: smaller;
-  margin-left: 5px;
-  margin-right: 5px;
-}
-
 .web-editor {
   background-color: var(--bg-webeditor-color);
   border-radius: 8px;
@@ -788,4 +710,26 @@ input[style*='background-image: url("data:image/png'] {
 
 .web-editor .trancluded-item:empty {
   display: none;
+}
+
+input:-webkit-autofill {
+  @apply caret-[--grey-25] th-highcontrast:caret-white th-dark:caret-white;
+}
+
+/*
+rules for styling the progress bar on both chrome and firefox
+first rule is for firefox and the second rule is for chrome
+
+use the `.progress-filled` tailwind variant util to style the filled value of the progress bar, 
+and the usual styles to style the unfilled value.
+
+see app/react/edge/edge-stacks/ListView/EdgeStacksDatatable/DeploymentCounter.tsx for an example
+*/
+
+progress {
+  appearance: none;
+}
+
+progress::-webkit-progress-bar {
+  background-color: transparent;
 }

@@ -1,23 +1,34 @@
 import clsx from 'clsx';
 
-import { Select } from '@@/form-components/ReactSelect';
+import { PortainerSelect } from '@@/form-components/PortainerSelect';
 import { TableHeaderSortIcons } from '@@/datatables/TableHeaderSortIcons';
 
-import { Filter } from './types';
+import {
+  SortOptions,
+  SortType,
+} from '../../environments/queries/useEnvironmentList';
+
 import styles from './SortbySelector.module.css';
 
+export type ListSortType = Exclude<SortType, 'LastCheckIn' | 'EdgeID'>;
+
+const sortByOptions = SortOptions.filter(
+  (v): v is ListSortType => !['LastCheckIn', 'EdgeID'].includes(v)
+).map((v) => ({
+  value: v,
+  label: v,
+}));
+
 interface Props {
-  filterOptions: Filter[];
-  onChange: (filterOptions: Filter) => void;
+  onChange: (value: ListSortType) => void;
   onDescending: () => void;
   placeHolder: string;
   sortByDescending: boolean;
   sortByButton: boolean;
-  value?: Filter;
+  value?: ListSortType;
 }
 
 export function SortbySelector({
-  filterOptions,
   onChange,
   onDescending,
   placeHolder,
@@ -27,17 +38,18 @@ export function SortbySelector({
 }: Props) {
   const sorted = sortByButton && !!value;
   return (
-    <div className="flex items-center gap-1 justify-end">
-      <Select
+    <div className="flex items-center justify-end gap-1">
+      <PortainerSelect
         placeholder={placeHolder}
-        options={filterOptions}
-        onChange={(option) => onChange(option as Filter)}
+        options={sortByOptions}
+        onChange={(option: ListSortType) => onChange(option)}
         isClearable
         value={value}
+        data-cy="home-view-sortby-selector"
       />
 
       <button
-        className={clsx(styles.sortButton, 'h-[34px] !m-0')}
+        className={clsx(styles.sortButton, '!m-0 h-[34px]')}
         type="button"
         disabled={!sorted}
         onClick={(e) => {

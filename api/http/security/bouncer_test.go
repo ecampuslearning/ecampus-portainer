@@ -5,15 +5,17 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	portainer "github.com/portainer/portainer/api"
 	"github.com/portainer/portainer/api/apikey"
 	"github.com/portainer/portainer/api/dataservices"
 	"github.com/portainer/portainer/api/datastore"
-	httperrors "github.com/portainer/portainer/api/http/errors"
+	"github.com/portainer/portainer/api/internal/testhelpers"
 	"github.com/portainer/portainer/api/jwt"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // testHandler200 is a simple handler which returns HTTP status 200 OK
@@ -21,24 +23,25 @@ var testHandler200 = http.HandlerFunc(func(w http.ResponseWriter, r *http.Reques
 	w.WriteHeader(http.StatusOK)
 })
 
-func tokenLookupSucceed(dataStore dataservices.DataStore, jwtService dataservices.JWTService) tokenLookup {
-	return func(r *http.Request) *portainer.TokenData {
+func tokenLookupSucceed(dataStore dataservices.DataStore, jwtService portainer.JWTService) tokenLookup {
+	return func(r *http.Request) (*portainer.TokenData, error) {
 		uid := portainer.UserID(1)
 		dataStore.User().Create(&portainer.User{ID: uid})
 		jwtService.GenerateToken(&portainer.TokenData{ID: uid})
-		return &portainer.TokenData{ID: 1}
+		return &portainer.TokenData{ID: 1}, nil
 	}
 }
 
-func tokenLookupFail(r *http.Request) *portainer.TokenData {
-	return nil
+func tokenLookupFail(r *http.Request) (*portainer.TokenData, error) {
+	return nil, ErrInvalidKey
+}
+
+func tokenLookupEmpty(r *http.Request) (*portainer.TokenData, error) {
+	return nil, nil
 }
 
 func Test_mwAuthenticateFirst(t *testing.T) {
-	is := assert.New(t)
-
-	_, store, teardown := datastore.MustNewTestStore(t, true, true)
-	defer teardown()
+	_, store := datastore.MustNewTestStore(t, true, true)
 
 	jwtService, err := jwt.NewService("1h", store)
 	assert.NoError(t, err, "failed to create a copy of service")
@@ -80,17 +83,28 @@ func Test_mwAuthenticateFirst(t *testing.T) {
 			wantStatusCode: http.StatusOK,
 		},
 		{
-			name: "mwAuthenticateFirst succeeds if last middleware successfully handles request",
+			name: "mwAuthenticateFirst fails if first middleware fails",
 			verificationMiddlwares: []tokenLookup{
 				tokenLookupFail,
 				tokenLookupSucceed(store, jwtService),
 			},
-			wantStatusCode: http.StatusOK,
+			wantStatusCode: http.StatusUnauthorized,
+		},
+		{
+			name: "mwAuthenticateFirst fails if first middleware has no token, but second middleware fails",
+			verificationMiddlwares: []tokenLookup{
+				tokenLookupEmpty,
+				tokenLookupFail,
+
+				tokenLookupSucceed(store, jwtService),
+			},
+			wantStatusCode: http.StatusUnauthorized,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			is := assert.New(t)
 			req := httptest.NewRequest(http.MethodGet, "/", nil)
 			rr := httptest.NewRecorder()
 
@@ -102,9 +116,45 @@ func Test_mwAuthenticateFirst(t *testing.T) {
 	}
 }
 
-func Test_extractBearerToken(t *testing.T) {
+func Test_extractKeyFromCookie(t *testing.T) {
 	is := assert.New(t)
 
+	tt := []struct {
+		name     string
+		token    string
+		succeeds bool
+	}{
+		{
+			name:     "missing cookie",
+			token:    "",
+			succeeds: false,
+		},
+
+		{
+			name:     "valid cookie",
+			token:    "abc",
+			succeeds: true,
+		},
+	}
+
+	for _, test := range tt {
+		req := httptest.NewRequest(http.MethodGet, "/", nil)
+		if test.token != "" {
+			testhelpers.AddTestSecurityCookie(req, test.token)
+		}
+
+		apiKey, err := extractKeyFromCookie(req)
+		is.Equal(test.token, apiKey)
+		if !test.succeeds {
+			is.Error(err, "Should return error")
+			is.ErrorIs(err, http.ErrNoCookie)
+		} else {
+			is.NoError(err)
+		}
+	}
+}
+
+func Test_extractBearerToken(t *testing.T) {
 	tt := []struct {
 		name               string
 		requestHeader      string
@@ -143,16 +193,14 @@ func Test_extractBearerToken(t *testing.T) {
 	}
 
 	for _, test := range tt {
-		req := httptest.NewRequest(http.MethodGet, "/", nil)
-		req.Header.Set(test.requestHeader, test.requestHeaderValue)
-		apiKey, err := extractBearerToken(req)
-		is.Equal(test.wantToken, apiKey)
-		if !test.succeeds {
-			is.Error(err, "Should return error")
-			is.ErrorIs(err, httperrors.ErrUnauthorized)
-		} else {
-			is.NoError(err)
-		}
+		t.Run(test.name, func(t *testing.T) {
+			is := assert.New(t)
+			req := httptest.NewRequest(http.MethodGet, "/", nil)
+			req.Header.Set(test.requestHeader, test.requestHeaderValue)
+			apiKey, ok := extractBearerToken(req)
+			is.Equal(test.wantToken, apiKey)
+			is.Equal(test.succeeds, ok)
+		})
 	}
 }
 
@@ -260,8 +308,7 @@ func Test_extractAPIKeyQueryParam(t *testing.T) {
 func Test_apiKeyLookup(t *testing.T) {
 	is := assert.New(t)
 
-	_, store, teardown := datastore.MustNewTestStore(t, true, true)
-	defer teardown()
+	_, store := datastore.MustNewTestStore(t, true, true)
 
 	// create standard user
 	user := &portainer.User{ID: 2, Username: "standard", Role: portainer.StandardUserRole}
@@ -276,16 +323,17 @@ func Test_apiKeyLookup(t *testing.T) {
 
 	t.Run("missing x-api-key header fails api-key lookup", func(t *testing.T) {
 		req := httptest.NewRequest(http.MethodGet, "/", nil)
-		// req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", jwt))
-		token := bouncer.apiKeyLookup(req)
+		// testhelpers.AddTestSecurityCookie(req, jwt)
+		token, _ := bouncer.apiKeyLookup(req)
 		is.Nil(token)
 	})
 
 	t.Run("invalid x-api-key header fails api-key lookup", func(t *testing.T) {
 		req := httptest.NewRequest(http.MethodGet, "/", nil)
 		req.Header.Add("x-api-key", "random-failing-api-key")
-		token := bouncer.apiKeyLookup(req)
+		token, err := bouncer.apiKeyLookup(req)
 		is.Nil(token)
+		is.Error(err)
 	})
 
 	t.Run("valid x-api-key header succeeds api-key lookup", func(t *testing.T) {
@@ -295,7 +343,8 @@ func Test_apiKeyLookup(t *testing.T) {
 		req := httptest.NewRequest(http.MethodGet, "/", nil)
 		req.Header.Add("x-api-key", rawAPIKey)
 
-		token := bouncer.apiKeyLookup(req)
+		token, err := bouncer.apiKeyLookup(req)
+		require.NoError(t, err)
 
 		expectedToken := &portainer.TokenData{ID: user.ID, Username: user.Username, Role: portainer.StandardUserRole}
 		is.Equal(expectedToken, token)
@@ -309,7 +358,8 @@ func Test_apiKeyLookup(t *testing.T) {
 		req := httptest.NewRequest(http.MethodGet, "/", nil)
 		req.Header.Add("x-api-key", rawAPIKey)
 
-		token := bouncer.apiKeyLookup(req)
+		token, err := bouncer.apiKeyLookup(req)
+		require.NoError(t, err)
 
 		expectedToken := &portainer.TokenData{ID: user.ID, Username: user.Username, Role: portainer.StandardUserRole}
 		is.Equal(expectedToken, token)
@@ -323,7 +373,8 @@ func Test_apiKeyLookup(t *testing.T) {
 		req := httptest.NewRequest(http.MethodGet, "/", nil)
 		req.Header.Add("x-api-key", rawAPIKey)
 
-		token := bouncer.apiKeyLookup(req)
+		token, err := bouncer.apiKeyLookup(req)
+		require.NoError(t, err)
 
 		expectedToken := &portainer.TokenData{ID: user.ID, Username: user.Username, Role: portainer.StandardUserRole}
 		is.Equal(expectedToken, token)
@@ -333,4 +384,180 @@ func Test_apiKeyLookup(t *testing.T) {
 
 		is.True(apiKeyUpdated.LastUsed > apiKey.LastUsed)
 	})
+}
+
+func Test_ShouldSkipCSRFCheck(t *testing.T) {
+	tt := []struct {
+		name                     string
+		cookieValue              string
+		apiKey                   string
+		authHeader               string
+		isDockerDesktopExtension bool
+		expectedResult           bool
+		expectedError            bool
+	}{
+		{
+			name:                     "Should return false (not skip) when cookie is present",
+			cookieValue:              "test-cookie",
+			isDockerDesktopExtension: false,
+		},
+		{
+			name:                     "Should return true (skip) when cookie is present and docker desktop extension is true",
+			cookieValue:              "test-cookie",
+			isDockerDesktopExtension: true,
+			expectedResult:           true,
+		},
+		{
+			name:                     "Should return true (skip) when cookie is not present",
+			cookieValue:              "",
+			isDockerDesktopExtension: false,
+			expectedResult:           true,
+		},
+		{
+			name:                     "Should return true (skip) when api key is present",
+			cookieValue:              "",
+			apiKey:                   "test-api-key",
+			isDockerDesktopExtension: false,
+			expectedResult:           true,
+		},
+		{
+			name:                     "Should return true (skip) when auth header is present",
+			cookieValue:              "",
+			authHeader:               "test-auth-header",
+			isDockerDesktopExtension: false,
+			expectedResult:           true,
+		},
+		{
+			name:                     "Should return false (not skip) and error when both api key and auth header are present",
+			cookieValue:              "",
+			apiKey:                   "test-api-key",
+			authHeader:               "test-auth-header",
+			isDockerDesktopExtension: false,
+			expectedError:            true,
+		},
+	}
+
+	for _, test := range tt {
+		t.Run(test.name, func(t *testing.T) {
+			is := assert.New(t)
+			req := httptest.NewRequest(http.MethodGet, "/", nil)
+			if test.cookieValue != "" {
+				req.AddCookie(&http.Cookie{Name: portainer.AuthCookieKey, Value: test.cookieValue})
+			}
+			if test.apiKey != "" {
+				req.Header.Set(apiKeyHeader, test.apiKey)
+			}
+			if test.authHeader != "" {
+				req.Header.Set(jwtTokenHeader, test.authHeader)
+			}
+
+			result, err := ShouldSkipCSRFCheck(req, test.isDockerDesktopExtension)
+			is.Equal(test.expectedResult, result)
+			if test.expectedError {
+				is.Error(err)
+			} else {
+				is.NoError(err)
+			}
+		})
+	}
+}
+
+func TestJWTRevocation(t *testing.T) {
+	_, store := datastore.MustNewTestStore(t, true, true)
+
+	jwtService, err := jwt.NewService("1h", store)
+	require.NoError(t, err)
+
+	err = store.User().Create(&portainer.User{ID: 1})
+	require.NoError(t, err)
+
+	jwtService.SetUserSessionDuration(time.Second)
+
+	token, _, err := jwtService.GenerateToken(&portainer.TokenData{ID: 1})
+	require.NoError(t, err)
+
+	settings, err := store.Settings().Settings()
+	require.NoError(t, err)
+
+	settings.KubeconfigExpiry = "0"
+
+	err = store.Settings().UpdateSettings(settings)
+	require.NoError(t, err)
+
+	kubeToken, err := jwtService.GenerateTokenForKubeconfig(&portainer.TokenData{ID: 1})
+	require.NoError(t, err)
+
+	apiKeyService := apikey.NewAPIKeyService(nil, nil)
+
+	bouncer := NewRequestBouncer(store, jwtService, apiKeyService)
+
+	r, err := http.NewRequest(http.MethodGet, "url", nil)
+	require.NoError(t, err)
+
+	r.Header.Add(jwtTokenHeader, "Bearer "+token)
+
+	r.AddCookie(&http.Cookie{Name: portainer.AuthCookieKey, Value: token})
+
+	_, err = bouncer.JWTAuthLookup(r)
+	require.NoError(t, err)
+
+	_, err = bouncer.CookieAuthLookup(r)
+	require.NoError(t, err)
+
+	bouncer.RevokeJWT(token)
+	bouncer.RevokeJWT(kubeToken)
+
+	revokeLen := func() (l int) {
+		bouncer.revokedJWT.Range(func(key, value any) bool {
+			l++
+
+			return true
+		})
+
+		return l
+	}
+	require.Equal(t, 2, revokeLen())
+
+	_, err = bouncer.JWTAuthLookup(r)
+	require.Error(t, err)
+
+	_, err = bouncer.CookieAuthLookup(r)
+	require.Error(t, err)
+
+	time.Sleep(time.Second)
+
+	bouncer.cleanUpExpiredJWTPass()
+
+	require.Equal(t, 1, revokeLen())
+}
+
+func TestCSPHeaderDefault(t *testing.T) {
+	b := NewRequestBouncer(nil, nil, nil)
+
+	srv := httptest.NewServer(
+		b.PublicAccess(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {})),
+	)
+	defer srv.Close()
+
+	resp, err := http.Get(srv.URL + "/")
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	require.Contains(t, resp.Header, "Content-Security-Policy")
+}
+
+func TestCSPHeaderDisabled(t *testing.T) {
+	b := NewRequestBouncer(nil, nil, nil)
+	b.DisableCSP()
+
+	srv := httptest.NewServer(
+		b.PublicAccess(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {})),
+	)
+	defer srv.Close()
+
+	resp, err := http.Get(srv.URL + "/")
+	require.NoError(t, err)
+	defer resp.Body.Close()
+
+	require.NotContains(t, resp.Header, "Content-Security-Policy")
 }

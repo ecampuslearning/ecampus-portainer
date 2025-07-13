@@ -1,10 +1,12 @@
 package edge
 
 import (
+	"slices"
+
 	portainer "github.com/portainer/portainer/api"
 	"github.com/portainer/portainer/api/dataservices"
 	"github.com/portainer/portainer/api/internal/endpointutils"
-	"github.com/portainer/portainer/api/internal/tag"
+	"github.com/portainer/portainer/api/tag"
 )
 
 // EdgeGroupRelatedEndpoints returns a list of environments(endpoints) related to this Edge group
@@ -13,21 +15,19 @@ func EdgeGroupRelatedEndpoints(edgeGroup *portainer.EdgeGroup, endpoints []porta
 		return edgeGroup.Endpoints
 	}
 
+	endpointGroupsMap := map[portainer.EndpointGroupID]*portainer.EndpointGroup{}
+	for i, group := range endpointGroups {
+		endpointGroupsMap[group.ID] = &endpointGroups[i]
+	}
+
 	endpointIDs := []portainer.EndpointID{}
 	for _, endpoint := range endpoints {
 		if !endpointutils.IsEdgeEndpoint(&endpoint) {
 			continue
 		}
 
-		var endpointGroup portainer.EndpointGroup
-		for _, group := range endpointGroups {
-			if endpoint.GroupID == group.ID {
-				endpointGroup = group
-				break
-			}
-		}
-
-		if edgeGroupRelatedToEndpoint(edgeGroup, &endpoint, &endpointGroup) {
+		endpointGroup := endpointGroupsMap[endpoint.GroupID]
+		if edgeGroupRelatedToEndpoint(edgeGroup, &endpoint, endpointGroup) {
 			endpointIDs = append(endpointIDs, endpoint.ID)
 		}
 	}
@@ -45,20 +45,20 @@ func EdgeGroupSet(edgeGroupIDs []portainer.EdgeGroupID) map[portainer.EdgeGroupI
 	return set
 }
 
-func GetEndpointsFromEdgeGroups(edgeGroupIDs []portainer.EdgeGroupID, datastore dataservices.DataStore) ([]portainer.EndpointID, error) {
+func GetEndpointsFromEdgeGroups(edgeGroupIDs []portainer.EdgeGroupID, datastore dataservices.DataStoreTx) ([]portainer.EndpointID, error) {
 	endpoints, err := datastore.Endpoint().Endpoints()
 	if err != nil {
 		return nil, err
 	}
 
-	endpointGroups, err := datastore.EndpointGroup().EndpointGroups()
+	endpointGroups, err := datastore.EndpointGroup().ReadAll()
 	if err != nil {
 		return nil, err
 	}
 
 	var response []portainer.EndpointID
 	for _, edgeGroupID := range edgeGroupIDs {
-		edgeGroup, err := datastore.EdgeGroup().EdgeGroup(edgeGroupID)
+		edgeGroup, err := datastore.EdgeGroup().Read(edgeGroupID)
 		if err != nil {
 			return nil, err
 		}
@@ -69,27 +69,20 @@ func GetEndpointsFromEdgeGroups(edgeGroupIDs []portainer.EdgeGroupID, datastore 
 	return response, nil
 }
 
-// edgeGroupRelatedToEndpoint returns true is edgeGroup is associated with environment(endpoint)
+// edgeGroupRelatedToEndpoint returns true if edgeGroup is associated with environment(endpoint)
 func edgeGroupRelatedToEndpoint(edgeGroup *portainer.EdgeGroup, endpoint *portainer.Endpoint, endpointGroup *portainer.EndpointGroup) bool {
 	if !edgeGroup.Dynamic {
-		for _, endpointID := range edgeGroup.Endpoints {
-			if endpoint.ID == endpointID {
-				return true
-			}
-		}
-		return false
+		return slices.Contains(edgeGroup.Endpoints, endpoint.ID)
 	}
 
 	endpointTags := tag.Set(endpoint.TagIDs)
-	if endpointGroup.TagIDs != nil {
+	if endpointGroup != nil && endpointGroup.TagIDs != nil {
 		endpointTags = tag.Union(endpointTags, tag.Set(endpointGroup.TagIDs))
 	}
-	edgeGroupTags := tag.Set(edgeGroup.TagIDs)
 
 	if edgeGroup.PartialMatch {
-		intersection := tag.Intersection(endpointTags, edgeGroupTags)
-		return len(intersection) != 0
+		return tag.PartialMatch(edgeGroup.TagIDs, endpointTags)
 	}
 
-	return tag.Contains(edgeGroupTags, endpointTags)
+	return tag.FullMatch(edgeGroup.TagIDs, endpointTags)
 }

@@ -9,7 +9,6 @@ import { TextTip } from '@@/Tip/TextTip';
 import { usePreviousVersions } from '../queries/usePreviousVersions';
 
 import { FormValues } from './types';
-import { useEdgeGroupsEnvironmentIds } from './useEdgeGroupsEnvironmentIds';
 
 export function RollbackOptions() {
   const { isLoading, count, version, versionError } = useSelectVersionOnMount();
@@ -23,7 +22,7 @@ export function RollbackOptions() {
   if (!count) {
     return (
       <TextTip>
-        The are no rollback options available for yor selected groups(s)
+        There are no rollback options available for your selected groups(s)
       </TextTip>
     );
   }
@@ -50,29 +49,25 @@ function useSelectVersionOnMount() {
     errors: { version: versionError },
   } = useFormikContext<FormValues>();
 
-  const environmentIdsQuery = useEdgeGroupsEnvironmentIds(groupIds);
-
-  const previousVersionsQuery = usePreviousVersions<string[]>({
-    enabled: !!environmentIdsQuery.data,
-  });
+  const previousVersionsQuery = usePreviousVersions(groupIds ?? []);
 
   const previousVersions = useMemo(
     () =>
       previousVersionsQuery.data
-        ? _.uniq(
-            _.compact(
-              environmentIdsQuery.data?.map(
-                (envId) => previousVersionsQuery.data[envId]
-              )
-            )
-          )
+        ? _.uniq(Object.values(previousVersionsQuery.data))
         : [],
-    [environmentIdsQuery.data, previousVersionsQuery.data]
+    [previousVersionsQuery.data]
+  );
+
+  const previousVersionCount = useMemo(
+    () => Object.keys(previousVersions).length,
+    [previousVersions]
   );
 
   useEffect(() => {
     switch (previousVersions.length) {
       case 0:
+        setFieldValue('version', '');
         setFieldError('version', 'No rollback options available');
         break;
       case 1:
@@ -90,7 +85,7 @@ function useSelectVersionOnMount() {
     isLoading: previousVersionsQuery.isLoading,
     versionError,
     version,
-    count: environmentIdsQuery.data?.length,
+    count: previousVersionCount,
   };
 }
 

@@ -1,35 +1,45 @@
 import { useState } from 'react';
 
-import { useUser } from '@/react/hooks/useUser';
+import { useCurrentUser } from '@/react/hooks/useUser';
 
 import { UploadLicenseDialog } from './UploadLicenseDialog';
 import { LoadingDialog } from './LoadingDialog';
 import { NonAdminUpgradeDialog } from './NonAdminUpgradeDialog';
+import { GetLicenseDialog } from './GetLicenseDialog';
 
 type Step = 'uploadLicense' | 'loading' | 'getLicense';
 
 export function UpgradeDialog({ onDismiss }: { onDismiss: () => void }) {
-  const { isAdmin } = useUser();
+  const { isPureAdmin } = useCurrentUser();
   const [currentStep, setCurrentStep] = useState<Step>('uploadLicense');
-
+  const [isGetLicenseSubmitted, setIsGetLicenseSubmitted] = useState(false);
   const component = getDialog();
 
   return component;
 
   function getDialog() {
-    if (!isAdmin) {
+    if (!isPureAdmin) {
       return <NonAdminUpgradeDialog onDismiss={onDismiss} />;
     }
 
     switch (currentStep) {
       case 'getLicense':
-        throw new Error('Not implemented');
-      // return <GetLicense setCurrentStep={setCurrentStep} />;
+        return (
+          <GetLicenseDialog
+            goToUploadLicense={(isSubmitted) => {
+              setCurrentStep('uploadLicense');
+              setIsGetLicenseSubmitted(isSubmitted);
+            }}
+            onDismiss={onDismiss}
+          />
+        );
       case 'uploadLicense':
         return (
           <UploadLicenseDialog
             goToLoading={() => setCurrentStep('loading')}
             onDismiss={onDismiss}
+            goToGetLicense={() => setCurrentStep('getLicense')}
+            isGetLicenseSubmitted={isGetLicenseSubmitted}
           />
         );
       case 'loading':

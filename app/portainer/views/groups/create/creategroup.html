@@ -1,4 +1,4 @@
-<page-header title="'Create environment group'" breadcrumbs="[{label:'Environment groups', link:'portainer.groups'}, 'Add group']"> </page-header>
+<page-header title="'Create environment group'" breadcrumbs="[{label:'Environment groups', link:'portainer.groups'}, 'Add group']" reload="true"> </page-header>
 
 <div class="row">
   <div class="col-sm-12">
@@ -6,15 +6,12 @@
       <rd-widget-body>
         <group-form
           loaded="loaded"
-          page-type="create"
           model="model"
-          available-endpoints="availableEndpoints"
           associated-endpoints="associatedEndpoints"
-          add-label-action="addLabel"
-          remove-label-action="removeLabel"
           form-action="create"
           form-action-label="Create the group"
           action-in-progress="state.actionInProgress"
+          on-change-environments="(onChangeEnvironments)"
         ></group-form>
       </rd-widget-body>
     </rd-widget>

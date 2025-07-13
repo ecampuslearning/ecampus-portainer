@@ -4,11 +4,10 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/asaskevich/govalidator"
-	httperror "github.com/portainer/libhttp/error"
-	"github.com/portainer/libhttp/request"
-	"github.com/portainer/libhttp/response"
 	portainer "github.com/portainer/portainer/api"
+	httperror "github.com/portainer/portainer/pkg/libhttp/error"
+	"github.com/portainer/portainer/pkg/libhttp/request"
+	"github.com/portainer/portainer/pkg/libhttp/response"
 )
 
 type resourceControlCreatePayload struct {
@@ -32,7 +31,7 @@ type resourceControlCreatePayload struct {
 var errResourceControlAlreadyExists = errors.New("A resource control is already applied on this resource") //http/resourceControl
 
 func (payload *resourceControlCreatePayload) Validate(r *http.Request) error {
-	if govalidator.IsNull(payload.ResourceID) {
+	if len(payload.ResourceID) == 0 {
 		return errors.New("invalid payload: invalid resource identifier")
 	}
 
@@ -62,7 +61,7 @@ func (payload *resourceControlCreatePayload) Validate(r *http.Request) error {
 // @param body body resourceControlCreatePayload true "Resource control details"
 // @success 200 {object} portainer.ResourceControl "Success"
 // @failure 400 "Invalid request"
-// @failure 409 "Resource control already exists"
+// @failure 409 "A resource control is already associated to this resource"
 // @failure 500 "Server error"
 // @router /resource_controls [post]
 func (handler *Handler) resourceControlCreate(w http.ResponseWriter, r *http.Request) *httperror.HandlerError {
@@ -77,7 +76,7 @@ func (handler *Handler) resourceControlCreate(w http.ResponseWriter, r *http.Req
 		return httperror.InternalServerError("Unable to retrieve resource controls from the database", err)
 	}
 	if rc != nil {
-		return &httperror.HandlerError{StatusCode: http.StatusConflict, Message: "A resource control is already associated to this resource", Err: errResourceControlAlreadyExists}
+		return httperror.Conflict("A resource control is already associated to this resource", errResourceControlAlreadyExists)
 	}
 
 	var userAccesses = make([]portainer.UserResourceAccess, 0)

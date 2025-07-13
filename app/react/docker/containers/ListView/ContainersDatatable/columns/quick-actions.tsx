@@ -1,27 +1,24 @@
-import { CellProps, Column } from 'react-table';
+import { CellContext } from '@tanstack/react-table';
 
 import { useAuthorizations } from '@/react/hooks/useUser';
 import { ContainerQuickActions } from '@/react/docker/containers/components/ContainerQuickActions';
-import { DockerContainer } from '@/react/docker/containers/types';
+import { ContainerListViewModel } from '@/react/docker/containers/types';
 
 import { useTableSettings } from '@@/datatables/useTableSettings';
 
 import { TableSettings } from '../types';
 
-export const quickActions: Column<DockerContainer> = {
-  Header: 'Quick Actions',
+import { columnHelper } from './helper';
+
+export const quickActions = columnHelper.display({
+  header: 'Quick Actions',
   id: 'actions',
-  Cell: QuickActionsCell,
-  disableFilters: true,
-  disableSortBy: true,
-  canHide: true,
-  sortType: 'string',
-  Filter: () => null,
-};
+  cell: QuickActionsCell,
+});
 
 function QuickActionsCell({
   row: { original: container },
-}: CellProps<DockerContainer>) {
+}: CellContext<ContainerListViewModel, unknown>) {
   const settings = useTableSettings<TableSettings>();
 
   const { hiddenQuickActions = [] } = settings;
@@ -41,7 +38,7 @@ function QuickActionsCell({
     wrapperState.showQuickActionLogs ||
     wrapperState.showQuickActionStats;
 
-  const isAuthorized = useAuthorizations([
+  const { authorized } = useAuthorizations([
     'DockerContainerStats',
     'DockerContainerLogs',
     'DockerExecStart',
@@ -50,7 +47,7 @@ function QuickActionsCell({
     'DockerTaskLogs',
   ]);
 
-  if (!someOn || !isAuthorized) {
+  if (!someOn || !authorized) {
     return null;
   }
 

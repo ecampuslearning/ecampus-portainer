@@ -35,10 +35,10 @@ export const commandsTabs: Record<string, CommandTab> = {
     label: 'Docker Standalone',
     command: buildLinuxStandaloneCommand,
   },
-  nomadLinux: {
-    id: 'nomad',
-    label: 'Nomad',
-    command: buildLinuxNomadCommand,
+  podmanLinux: {
+    id: 'podman',
+    label: 'Podman',
+    command: buildLinuxPodmanCommand,
   },
   swarmWindows: {
     id: 'swarm',
@@ -52,14 +52,6 @@ export const commandsTabs: Record<string, CommandTab> = {
   },
 } as const;
 
-function buildDockerEnvVars(envVars: string, defaultVars: string[]) {
-  const vars = defaultVars.concat(
-    envVars.split(',').filter((s) => s.length > 0)
-  );
-
-  return vars.map((s) => `-e ${s}`).join(' \\\n  ');
-}
-
 export function buildLinuxStandaloneCommand(
   agentVersion: string,
   edgeKey: string,
@@ -70,16 +62,16 @@ export function buildLinuxStandaloneCommand(
 ) {
   const { allowSelfSignedCertificates, edgeIdGenerator, envVars } = properties;
 
-  const env = buildDockerEnvVars(
-    envVars,
-    buildDefaultEnvVars(
+  const env = buildDockerEnvVars(envVars, [
+    ...buildDefaultDockerEnvVars(
       edgeKey,
       allowSelfSignedCertificates,
       !edgeIdGenerator ? edgeId : undefined,
       agentSecret,
       useAsyncMode
-    )
-  );
+    ),
+    ...metaEnvVars(properties),
+  ]);
 
   return `${
     edgeIdGenerator ? `PORTAINER_EDGE_ID=$(${edgeIdGenerator}) \n\n` : ''
@@ -96,6 +88,45 @@ docker run -d \\
   `;
 }
 
+function buildLinuxPodmanCommand(
+  agentVersion: string,
+  edgeKey: string,
+  properties: ScriptFormValues,
+  useAsyncMode: boolean,
+  edgeId?: string,
+  agentSecret?: string
+) {
+  const { allowSelfSignedCertificates, edgeIdGenerator, envVars } = properties;
+
+  const env = buildDockerEnvVars(envVars, [
+    ...buildDefaultDockerEnvVars(
+      edgeKey,
+      allowSelfSignedCertificates,
+      !edgeIdGenerator ? edgeId : undefined,
+      agentSecret,
+      useAsyncMode
+    ),
+    ...metaEnvVars(properties),
+  ]);
+
+  return `${
+    edgeIdGenerator ? `PORTAINER_EDGE_ID=$(${edgeIdGenerator}) \n\n` : ''
+  }\
+sudo systemctl enable --now podman.socket
+sudo podman volume create portainer
+sudo podman run -d \\
+  -v /run/podman/podman.sock:/var/run/docker.sock \\
+  -v /var/lib/containers/storage/volumes:/var/lib/docker/volumes \\
+  -v /:/host \\
+  -v portainer_agent_data:/data \\
+  --restart always \\
+  --privileged \\
+  ${env} \\
+  --name portainer_edge_agent \\
+  portainer/agent:${agentVersion}
+  `;
+}
+
 export function buildWindowsStandaloneCommand(
   agentVersion: string,
   edgeKey: string,
@@ -106,16 +137,16 @@ export function buildWindowsStandaloneCommand(
 ) {
   const { allowSelfSignedCertificates, edgeIdGenerator, envVars } = properties;
 
-  const env = buildDockerEnvVars(
-    envVars,
-    buildDefaultEnvVars(
+  const env = buildDockerEnvVars(envVars, [
+    ...buildDefaultDockerEnvVars(
       edgeKey,
       allowSelfSignedCertificates,
       edgeIdGenerator ? '$Env:PORTAINER_EDGE_ID' : edgeId,
       agentSecret,
       useAsyncMode
-    )
-  );
+    ),
+    ...metaEnvVars(properties),
+  ]);
 
   return `${
     edgeIdGenerator
@@ -144,7 +175,7 @@ export function buildLinuxSwarmCommand(
   const { allowSelfSignedCertificates, edgeIdGenerator, envVars } = properties;
 
   const env = buildDockerEnvVars(envVars, [
-    ...buildDefaultEnvVars(
+    ...buildDefaultDockerEnvVars(
       edgeKey,
       allowSelfSignedCertificates,
       !edgeIdGenerator ? edgeId : undefined,
@@ -152,6 +183,7 @@ export function buildLinuxSwarmCommand(
       useAsyncMode
     ),
     'AGENT_CLUSTER_ADDR=tasks.portainer_edge_agent',
+    ...metaEnvVars(properties),
   ]);
 
   return `${
@@ -186,7 +218,7 @@ export function buildWindowsSwarmCommand(
   const { allowSelfSignedCertificates, edgeIdGenerator, envVars } = properties;
 
   const env = buildDockerEnvVars(envVars, [
-    ...buildDefaultEnvVars(
+    ...buildDefaultDockerEnvVars(
       edgeKey,
       allowSelfSignedCertificates,
       edgeIdGenerator ? '$Env:PORTAINER_EDGE_ID' : edgeId,
@@ -194,6 +226,7 @@ export function buildWindowsSwarmCommand(
       useAsyncMode
     ),
     'AGENT_CLUSTER_ADDR=tasks.portainer_edge_agent',
+    ...metaEnvVars(properties),
   ]);
 
   return `${
@@ -229,51 +262,27 @@ export function buildLinuxKubernetesCommand(
   const { allowSelfSignedCertificates, edgeIdGenerator, envVars } = properties;
 
   const agentShortVersion = getAgentShortVersion(agentVersion);
-  let envVarsTrimmed = envVars.trim();
-  if (useAsyncMode) {
-    envVarsTrimmed += `EDGE_ASYNC=1`;
-  }
-  const idEnvVar = edgeIdGenerator
-    ? `PORTAINER_EDGE_ID=$(${edgeIdGenerator}) \n\n`
-    : '';
-  const edgeIdVar = !edgeIdGenerator && edgeId ? edgeId : '$PORTAINER_EDGE_ID';
-  const selfSigned = allowSelfSignedCertificates ? '1' : '0';
-
-  return `${idEnvVar}curl https://downloads.portainer.io/ee${agentShortVersion}/portainer-edge-agent-setup.sh | bash -s -- "${edgeIdVar}" "${edgeKey}" "${selfSigned}" "${agentSecret}" "${envVarsTrimmed}"`;
-}
-
-export function buildLinuxNomadCommand(
-  agentVersion: string,
-  edgeKey: string,
-  properties: ScriptFormValues,
-  useAsyncMode: boolean,
-  edgeId?: string,
-  agentSecret?: string
-) {
-  const {
-    allowSelfSignedCertificates,
-    edgeIdGenerator,
+  const allEnvVars = buildEnvVars(
     envVars,
-    nomadToken = '',
-    tlsEnabled,
-  } = properties;
+    _.compact([useAsyncMode && 'EDGE_ASYNC=1', ...metaEnvVars(properties)])
+  );
 
-  const agentShortVersion = getAgentShortVersion(agentVersion);
-  let envVarsTrimmed = envVars.trim();
-  if (useAsyncMode) {
-    envVarsTrimmed += `EDGE_ASYNC=1`;
-  }
-
-  const selfSigned = allowSelfSignedCertificates ? '1' : '0';
   const idEnvVar = edgeIdGenerator
     ? `PORTAINER_EDGE_ID=$(${edgeIdGenerator}) \n\n`
     : '';
   const edgeIdVar = !edgeIdGenerator && edgeId ? edgeId : '$PORTAINER_EDGE_ID';
+  const selfSigned = allowSelfSignedCertificates ? '1' : '0';
 
-  return `${idEnvVar}curl https://downloads.portainer.io/ee${agentShortVersion}/portainer-edge-agent-nomad-setup.sh | bash -s -- "${nomadToken}" "${edgeIdVar}" "${edgeKey}" "${selfSigned}" "${envVarsTrimmed}" "${agentSecret}" "${tlsEnabled}"`;
+  return `${idEnvVar}curl https://downloads.portainer.io/ee${agentShortVersion}/portainer-edge-agent-setup.sh | bash -s -- "${edgeIdVar}" "${edgeKey}" "${selfSigned}" "${agentSecret}" "${allEnvVars}"`;
 }
 
-function buildDefaultEnvVars(
+function buildDockerEnvVars(envVars: string, moreVars: string[]) {
+  const vars = moreVars.concat(envVars.split(',').filter((s) => s.length > 0));
+
+  return vars.map((s) => `-e ${s}`).join(' \\\n  ');
+}
+
+function buildDefaultDockerEnvVars(
   edgeKey: string,
   allowSelfSignedCerts: boolean,
   edgeId = '$PORTAINER_EDGE_ID',
@@ -287,5 +296,24 @@ function buildDefaultEnvVars(
     `EDGE_INSECURE_POLL=${allowSelfSignedCerts ? 1 : 0}`,
     agentSecret ? `AGENT_SECRET=${agentSecret}` : ``,
     useAsyncMode ? 'EDGE_ASYNC=1' : '',
+  ]);
+}
+
+const ENV_VAR_SEPARATOR = ',';
+const VAR_LIST_SEPARATOR = ':';
+function buildEnvVars(envVars: string, moreVars: string[]) {
+  return _.compact([envVars.trim(), ...moreVars]).join(ENV_VAR_SEPARATOR);
+}
+
+function metaEnvVars({
+  edgeGroupsIds,
+  group,
+  tagsIds,
+}: Pick<ScriptFormValues, 'edgeGroupsIds' | 'tagsIds' | 'group'>) {
+  return _.compact([
+    edgeGroupsIds.length &&
+      `EDGE_GROUPS=${edgeGroupsIds.join(VAR_LIST_SEPARATOR)}`,
+    group && `PORTAINER_GROUP=${group}`,
+    tagsIds.length && `PORTAINER_TAGS=${tagsIds.join(VAR_LIST_SEPARATOR)}`,
   ]);
 }

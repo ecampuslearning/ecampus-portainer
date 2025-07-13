@@ -3,10 +3,10 @@ package edgestacks
 import (
 	"net/http"
 
-	httperror "github.com/portainer/libhttp/error"
-	"github.com/portainer/libhttp/request"
-	"github.com/portainer/libhttp/response"
 	portainer "github.com/portainer/portainer/api"
+	httperror "github.com/portainer/portainer/pkg/libhttp/error"
+	"github.com/portainer/portainer/pkg/libhttp/request"
+	"github.com/portainer/portainer/pkg/libhttp/response"
 )
 
 type stackFileResponse struct {
@@ -20,7 +20,7 @@ type stackFileResponse struct {
 // @security ApiKeyAuth
 // @security jwt
 // @produce json
-// @param id path string true "EdgeStack Id"
+// @param id path int true "EdgeStack Id"
 // @success 200 {object} stackFileResponse
 // @failure 500
 // @failure 400
@@ -34,7 +34,7 @@ func (handler *Handler) edgeStackFile(w http.ResponseWriter, r *http.Request) *h
 
 	stack, err := handler.DataStore.EdgeStack().EdgeStack(portainer.EdgeStackID(stackID))
 	if err != nil {
-		return handler.handlerDBErr(err, "Unable to find an edge stack with the specified identifier inside the database")
+		return handlerDBErr(err, "Unable to find an edge stack with the specified identifier inside the database")
 	}
 
 	fileName := stack.EntryPoint

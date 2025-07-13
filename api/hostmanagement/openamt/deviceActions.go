@@ -1,12 +1,13 @@
 package openamt
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"strings"
 
 	portainer "github.com/portainer/portainer/api"
+
+	"github.com/segmentio/encoding/json"
 )
 
 type ActionResponse struct {
@@ -43,13 +44,13 @@ func (service *Service) executeDeviceAction(configuration portainer.OpenAMTConfi
 }
 
 func parseAction(actionRaw string) (portainer.PowerState, error) {
-	switch strings.ToLower(actionRaw) {
-	case "power on":
+	if strings.EqualFold(actionRaw, "power on") {
 		return powerOnState, nil
-	case "power off":
+	} else if strings.EqualFold(actionRaw, "power off") {
 		return powerOffState, nil
-	case "restart":
+	} else if strings.EqualFold(actionRaw, "restart") {
 		return restartState, nil
 	}
+
 	return 0, fmt.Errorf("unsupported device action %s", actionRaw)
 }

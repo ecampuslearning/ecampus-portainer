@@ -16,9 +16,9 @@ import (
 
 	"github.com/portainer/portainer/api/adminmonitor"
 	"github.com/portainer/portainer/api/crypto"
-	"github.com/portainer/portainer/api/demo"
 	"github.com/portainer/portainer/api/http/offlinegate"
-	i "github.com/portainer/portainer/api/internal/testhelpers"
+	"github.com/portainer/portainer/api/internal/testhelpers"
+
 	"github.com/stretchr/testify/assert"
 )
 
@@ -48,11 +48,18 @@ func Test_backupHandlerWithoutPassword_shouldCreateATarballArchive(t *testing.T)
 	gate := offlinegate.NewOfflineGate()
 	adminMonitor := adminmonitor.New(time.Hour, nil, context.Background())
 
-	handlerErr := NewHandler(nil, i.NewDatastore(), gate, "./test_assets/handler_test", func() {}, adminMonitor, &demo.Service{}).backup(w, r)
+	handlerErr := NewHandler(
+		testhelpers.NewTestRequestBouncer(),
+		testhelpers.NewDatastore(),
+		gate,
+		"./test_assets/handler_test",
+		func() {},
+		adminMonitor).backup(w, r)
 	assert.Nil(t, handlerErr, "Handler should not fail")
 
 	response := w.Result()
 	body, _ := io.ReadAll(response.Body)
+	response.Body.Close()
 
 	tmpdir := t.TempDir()
 
@@ -84,11 +91,18 @@ func Test_backupHandlerWithPassword_shouldCreateEncryptedATarballArchive(t *test
 	gate := offlinegate.NewOfflineGate()
 	adminMonitor := adminmonitor.New(time.Hour, nil, nil)
 
-	handlerErr := NewHandler(nil, i.NewDatastore(), gate, "./test_assets/handler_test", func() {}, adminMonitor, &demo.Service{}).backup(w, r)
+	handlerErr := NewHandler(
+		testhelpers.NewTestRequestBouncer(),
+		testhelpers.NewDatastore(),
+		gate,
+		"./test_assets/handler_test",
+		func() {},
+		adminMonitor).backup(w, r)
 	assert.Nil(t, handlerErr, "Handler should not fail")
 
 	response := w.Result()
 	body, _ := io.ReadAll(response.Body)
+	response.Body.Close()
 
 	tmpdir := t.TempDir()
 

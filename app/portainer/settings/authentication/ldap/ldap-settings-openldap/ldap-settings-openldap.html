@@ -1,9 +1,6 @@
 <ng-form limited-feature-dir="{{::$ctrl.limitedFeatureId}}" limited-feature-class="limited-be" class="ldap-settings-openldap">
-  <div class="overlay">
-    <div class="limited-be-link vertical-center"
-      ><be-feature-indicator feature="$ctrl.limitedFeatureId"></be-feature-indicator
-      ><portainer-tooltip message="'This feature is currently limited to Business Edition users only. '"></portainer-tooltip
-    ></div>
+  <div class="be-indicator-container">
+    <div class="limited-be-link vertical-center"><be-feature-indicator feature="$ctrl.limitedFeatureId"></be-feature-indicator></div>
     <div class="limited-be-content">
       <div>
         <div class="col-sm-12 form-section-title"> Information </div>
@@ -43,6 +40,7 @@
           <div ng-repeat="url in $ctrl.settings.URLs track by $index" style="display: flex; margin-bottom: 10px">
             <input
               type="text"
+              data-cy="ldap-url"
               class="form-control"
               id="ldap_url"
               ng-model="$ctrl.settings.URLs[$index]"
@@ -67,14 +65,21 @@
       <!-- Anonymous mode-->
       <div class="form-group">
         <div class="col-sm-12">
-          <label for="anonymous_mode" class="control-label text-left col-sm-3 col-lg-2">
+          <label for="anonymous_mode" class="control-label col-sm-3 col-lg-2 text-left">
             Anonymous mode
             <portainer-tooltip message="'Enable this option if the server is configured for Anonymous access.'"></portainer-tooltip>
           </label>
 
           <div class="col-sm-9 col-lg-10">
             <label class="switch">
-              <input type="checkbox" id="anonymous_mode" ng-model="$ctrl.settings.AnonymousMode" limited-feature-dir="{{::$ctrl.limitedFeatureId}}" limited-feature-tabindex="-1" />
+              <input
+                type="checkbox"
+                id="anonymous_mode"
+                ng-model="$ctrl.settings.AnonymousMode"
+                limited-feature-dir="{{::$ctrl.limitedFeatureId}}"
+                limited-feature-tabindex="-1"
+                data-cy="ldap-anonymous-mode"
+              />
               <span class="slider round"></span>
             </label>
           </div>
@@ -91,6 +96,7 @@
           <div class="col-sm-9 col-lg-10">
             <input
               type="text"
+              data-cy="ldap-reader-dn"
               class="form-control"
               id="ldap_username"
               ng-model="$ctrl.settings.ReaderDN"
@@ -127,6 +133,7 @@
         <div class="col-sm-9">
           <input
             type="text"
+            data-cy="ldap-domain-root"
             class="form-control"
             id="ldap_domain_root"
             ng-model="$ctrl.domainSuffix"

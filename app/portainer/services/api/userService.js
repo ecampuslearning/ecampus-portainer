@@ -1,11 +1,12 @@
 import _ from 'lodash-es';
-import { UserTokenModel, UserViewModel } from '@/portainer/models/user';
-import { getUser, getUsers } from '@/portainer/users/user.service';
+import { UserViewModel } from '@/portainer/models/user';
+import { getUsers } from '@/portainer/users/user.service';
+import { getUser } from '@/portainer/users/queries/useUser';
 
 import { TeamMembershipModel } from '../../models/teamMembership';
 
 /* @ngInject */
-export function UserService($q, Users, TeamService, TeamMembershipService) {
+export function UserService($q, Users, TeamService) {
   'use strict';
   var service = {};
 
@@ -15,45 +16,18 @@ export function UserService($q, Users, TeamService, TeamMembershipService) {
     return users.map((u) => new UserViewModel(u));
   };
 
-  service.user = async function (includeAdministrators) {
-    const user = await getUser(includeAdministrators);
+  service.user = async function (userId) {
+    const user = await getUser(userId);
 
     return new UserViewModel(user);
-  };
-
-  service.createUser = function (username, password, role, teamIds) {
-    var deferred = $q.defer();
-
-    var payload = {
-      username: username,
-      password: password,
-      role: role,
-    };
-
-    Users.create({}, payload)
-      .$promise.then(function success(data) {
-        var userId = data.Id;
-        var teamMembershipQueries = [];
-        angular.forEach(teamIds, function (teamId) {
-          teamMembershipQueries.push(TeamMembershipService.createMembership(userId, teamId, 2));
-        });
-        $q.all(teamMembershipQueries).then(function success() {
-          deferred.resolve();
-        });
-      })
-      .catch(function error(err) {
-        deferred.reject({ msg: 'Unable to create user', err: err });
-      });
-
-    return deferred.promise;
   };
 
   service.deleteUser = function (id) {
     return Users.remove({ id: id }).$promise;
   };
 
-  service.updateUser = function (id, { password, role, username }) {
-    return Users.update({ id }, { password, role, username }).$promise;
+  service.updateUser = function (id, { newPassword, role, username }) {
+    return Users.update({ id }, { newPassword, role, username }).$promise;
   };
 
   service.updateUserPassword = function (id, currentPassword, newPassword) {
@@ -65,8 +39,8 @@ export function UserService($q, Users, TeamService, TeamMembershipService) {
     return Users.updatePassword({ id: id }, payload).$promise;
   };
 
-  service.updateUserTheme = function (id, userTheme) {
-    return Users.updateTheme({ id }, { userTheme }).$promise;
+  service.updateUserTheme = function (id, theme) {
+    return Users.updateTheme({ id }, { theme }).$promise;
   };
 
   service.userMemberships = function (id) {
@@ -108,40 +82,6 @@ export function UserService($q, Users, TeamService, TeamMembershipService) {
       });
 
     return deferred.promise;
-  };
-
-  service.createAccessToken = function (id, description) {
-    const deferred = $q.defer();
-    const payload = { description };
-    Users.createAccessToken({ id }, payload)
-      .$promise.then((data) => {
-        deferred.resolve(data);
-      })
-      .catch(function error(err) {
-        deferred.reject({ msg: 'Unable to create user', err: err });
-      });
-    return deferred.promise;
-  };
-
-  service.getAccessTokens = function (id) {
-    var deferred = $q.defer();
-
-    Users.getAccessTokens({ id: id })
-      .$promise.then(function success(data) {
-        var userTokens = data.map(function (item) {
-          return new UserTokenModel(item);
-        });
-        deferred.resolve(userTokens);
-      })
-      .catch(function error(err) {
-        deferred.reject({ msg: 'Unable to retrieve user tokens', err: err });
-      });
-
-    return deferred.promise;
-  };
-
-  service.deleteAccessToken = function (id, tokenId) {
-    return Users.deleteAccessToken({ id: id, tokenId: tokenId }).$promise;
   };
 
   service.initAdministrator = function (username, password) {

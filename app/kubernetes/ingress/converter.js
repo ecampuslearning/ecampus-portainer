@@ -7,7 +7,6 @@ import {
   KubernetesResourcePoolIngressClassFormValue,
   KubernetesResourcePoolIngressClassHostFormValue,
 } from 'Kubernetes/models/resource-pool/formValues';
-import { KubernetesApplicationPublishingTypes } from '../models/application/models';
 import { KubernetesIngress, KubernetesIngressRule } from './models';
 import { KubernetesIngressCreatePayload, KubernetesIngressRuleCreatePayload, KubernetesIngressRulePathCreatePayload } from './payloads';
 import { KubernetesIngressClassAnnotation, PortainerIngressClassTypes } from './constants';
@@ -48,44 +47,12 @@ export class KubernetesIngressConverter {
     return res;
   }
 
-  /**
-   * Converts Application Form Value (from Create Application View) to Ingresses
-   * @param {KubernetesApplicationFormValues} formValues
-   * @param {string} serviceName
-   * @returns {KubernetesIngressRule[]}
-   */
-  static applicationFormValuesToIngresses(formValues, serviceName) {
-    const isPublishingToIngress = formValues.PublishingType === KubernetesApplicationPublishingTypes.INGRESS;
-    const ingresses = angular.copy(formValues.OriginalIngresses);
-    _.forEach(formValues.PublishedPorts, (p) => {
-      const ingress = _.find(ingresses, { Name: p.IngressName });
-      if (ingress) {
-        if (p.NeedsDeletion) {
-          _.remove(ingress.Paths, (path) => path.Port === p.ContainerPort && path.ServiceName === serviceName && path.Path === p.IngressRoute);
-        } else if (isPublishingToIngress && p.IsNew) {
-          const rule = new KubernetesIngressRule();
-          rule.IngressName = ingress.Name;
-          rule.ServiceName = serviceName;
-          rule.Port = p.ContainerPort;
-          if (p.IngressRoute) {
-            rule.Path = _.startsWith(p.IngressRoute, '/') ? p.IngressRoute : '/' + p.IngressRoute;
-          }
-          rule.Host = p.IngressHost;
-          ingress.Paths.push(rule);
-        }
-      }
-    });
-    return ingresses;
-  }
-
   static applicationFormValuesToDeleteIngresses(formValues, application) {
     const ingresses = angular.copy(formValues.OriginalIngresses);
     application.Services.forEach((service) => {
       ingresses.forEach((ingress) => {
-        const path = _.find(ingress.Paths, { ServiceName: service.metadata.name });
-        if (path) {
-          _.remove(ingress.Paths, path);
-        }
+        const paths = _.filter(ingress.Paths, { ServiceName: service.metadata.name });
+        paths.forEach((path) => _.remove(ingress.Paths, path));
       });
     });
     return ingresses;
@@ -127,7 +94,7 @@ export class KubernetesIngressConverter {
   static newApplicationFormValuesToIngresses(formValues, serviceName, servicePorts) {
     const ingresses = angular.copy(formValues.OriginalIngresses);
     servicePorts.forEach((port) => {
-      const ingress = _.find(ingresses, { Name: port.ingress.IngressName });
+      const ingress = port.ingress && _.find(ingresses, { Name: port.ingress.IngressName });
       if (ingress) {
         const rule = new KubernetesIngressRule();
         rule.ServiceName = serviceName;
@@ -151,7 +118,7 @@ export class KubernetesIngressConverter {
     const res = new KubernetesIngress();
     res.Name = formValues.IngressClass.Name;
     res.Namespace = formValues.Namespace;
-    const pairs = _.map(formValues.Annotations, (a) => [a.Key, a.Value]);
+    const pairs = _.map(formValues.Annotations, (a) => [a.key, a.value]);
     res.Annotations = _.fromPairs(pairs);
     res.Annotations[PortainerIngressClassTypes] = formValues.IngressClass.Name;
     res.IngressClassName = formValues.IngressClass.Name;
@@ -182,8 +149,8 @@ export class KubernetesIngressConverter {
         const annotations = _.map(_.toPairs(ingress.Annotations), ([key, value]) => {
           if (key !== PortainerIngressClassTypes) {
             const annotation = new KubernetesResourcePoolIngressClassAnnotationFormValue();
-            annotation.Key = key;
-            annotation.Value = value;
+            annotation.key = key;
+            annotation.value = value;
             return annotation;
           }
         });

@@ -5,14 +5,14 @@ import (
 	"fmt"
 	"net/http"
 
-	httperror "github.com/portainer/libhttp/error"
-	"github.com/portainer/libhttp/request"
-	"github.com/portainer/libhttp/response"
 	portainer "github.com/portainer/portainer/api"
 	httperrors "github.com/portainer/portainer/api/http/errors"
 	"github.com/portainer/portainer/api/http/security"
 	"github.com/portainer/portainer/api/stacks/deployments"
 	"github.com/portainer/portainer/api/stacks/stackutils"
+	httperror "github.com/portainer/portainer/pkg/libhttp/error"
+	"github.com/portainer/portainer/pkg/libhttp/request"
+	"github.com/portainer/portainer/pkg/libhttp/response"
 )
 
 type stackMigratePayload struct {
@@ -46,6 +46,7 @@ func (payload *stackMigratePayload) Validate(r *http.Request) error {
 // @failure 400 "Invalid request"
 // @failure 403 "Permission denied"
 // @failure 404 "Stack not found"
+// @failure 409 "A stack with the same name is already running on the target environment(endpoint)"
 // @failure 500 "Server error"
 // @router /stacks/{id}/migrate [post]
 func (handler *Handler) stackMigrate(w http.ResponseWriter, r *http.Request) *httperror.HandlerError {
@@ -55,12 +56,11 @@ func (handler *Handler) stackMigrate(w http.ResponseWriter, r *http.Request) *ht
 	}
 
 	var payload stackMigratePayload
-	err = request.DecodeAndValidateJSONPayload(r, &payload)
-	if err != nil {
+	if err := request.DecodeAndValidateJSONPayload(r, &payload); err != nil {
 		return httperror.BadRequest("Invalid request payload", err)
 	}
 
-	stack, err := handler.DataStore.Stack().Stack(portainer.StackID(stackID))
+	stack, err := handler.DataStore.Stack().Read(portainer.StackID(stackID))
 	if handler.DataStore.IsErrObjectNotFound(err) {
 		return httperror.NotFound("Unable to find a stack with the specified identifier inside the database", err)
 	} else if err != nil {
@@ -78,8 +78,7 @@ func (handler *Handler) stackMigrate(w http.ResponseWriter, r *http.Request) *ht
 		return httperror.InternalServerError("Unable to find an endpoint with the specified identifier inside the database", err)
 	}
 
-	err = handler.requestBouncer.AuthorizedEndpointOperation(r, endpoint)
-	if err != nil {
+	if err := handler.requestBouncer.AuthorizedEndpointOperation(r, endpoint); err != nil {
 		return httperror.Forbidden("Permission denied to access endpoint", err)
 	}
 
@@ -145,7 +144,7 @@ func (handler *Handler) stackMigrate(w http.ResponseWriter, r *http.Request) *ht
 
 	if !isUnique {
 		errorMessage := fmt.Sprintf("A stack with the name '%s' is already running on endpoint '%s'", stack.Name, targetEndpoint.Name)
-		return &httperror.HandlerError{StatusCode: http.StatusConflict, Message: errorMessage, Err: errors.New(errorMessage)}
+		return httperror.Conflict(errorMessage, errors.New(errorMessage))
 	}
 
 	migrationError := handler.migrateStack(r, stack, targetEndpoint)
@@ -155,20 +154,18 @@ func (handler *Handler) stackMigrate(w http.ResponseWriter, r *http.Request) *ht
 
 	newName := stack.Name
 	stack.Name = oldName
-	err = handler.deleteStack(securityContext.UserID, stack, endpoint)
-	if err != nil {
+	if err := handler.deleteStack(securityContext.UserID, stack, endpoint); err != nil {
 		return httperror.InternalServerError(err.Error(), err)
 	}
 
 	stack.Name = newName
-	err = handler.DataStore.Stack().UpdateStack(stack.ID, stack)
-	if err != nil {
+	if err := handler.DataStore.Stack().Update(stack.ID, stack); err != nil {
 		return httperror.InternalServerError("Unable to persist the stack changes inside the database", err)
 	}
 
 	if resourceControl != nil {
 		resourceControl.ResourceID = stackutils.ResourceControlID(stack.EndpointID, stack.Name)
-		err := handler.DataStore.ResourceControl().UpdateResourceControl(resourceControl.ID, resourceControl)
+		err := handler.DataStore.ResourceControl().Update(resourceControl.ID, resourceControl)
 		if err != nil {
 			return httperror.InternalServerError("Unable to persist the resource control changes", err)
 		}
@@ -209,10 +206,10 @@ func (handler *Handler) migrateComposeStack(r *http.Request, stack *portainer.St
 	}
 
 	// Deploy the stack
-	err = composeDeploymentConfig.Deploy()
-	if err != nil {
+	if err := composeDeploymentConfig.Deploy(); err != nil {
 		return httperror.InternalServerError(err.Error(), err)
 	}
+
 	return nil
 }
 
@@ -236,8 +233,7 @@ func (handler *Handler) migrateSwarmStack(r *http.Request, stack *portainer.Stac
 	}
 
 	// Deploy the stack
-	err = swarmDeploymentConfig.Deploy()
-	if err != nil {
+	if err := swarmDeploymentConfig.Deploy(); err != nil {
 		return httperror.InternalServerError(err.Error(), err)
 	}
 

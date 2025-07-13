@@ -7,7 +7,7 @@ import { withControlledInput } from '@/react-tools/withControlledInput';
 
 import { VariablesFieldAngular } from './variables-field';
 
-export const customTemplatesModule = angular
+export const ngModule = angular
   .module('portainer.app.react.components.custom-templates', [])
   .component(
     'customTemplatesVariablesFieldReact',
@@ -15,6 +15,7 @@ export const customTemplatesModule = angular
       'value',
       'onChange',
       'definitions',
+      'errors',
     ])
   )
   .component('customTemplatesVariablesField', VariablesFieldAngular)
@@ -26,4 +27,6 @@ export const customTemplatesModule = angular
       'errors',
       'isVariablesNamesFromParent',
     ])
-  ).name;
+  );
+
+export const customTemplatesModule = ngModule.name;

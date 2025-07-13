@@ -3,11 +3,13 @@ import { PropsWithChildren } from 'react';
 import _ from 'lodash';
 import { Info } from 'lucide-react';
 
-import { ownershipIcon, truncate } from '@/portainer/filters/filters';
+import { truncate } from '@/portainer/filters/filters';
 import { UserId } from '@/portainer/users/types';
 import { TeamId } from '@/react/portainer/users/teams/types';
 import { useTeams } from '@/react/portainer/users/teams/queries';
 import { useUsers } from '@/portainer/users/queries';
+import { pluralize } from '@/portainer/helpers/strings';
+import { ownershipIcon } from '@/react/docker/components/datatable/createOwnershipColumn';
 
 import { Link } from '@@/Link';
 import { Tooltip } from '@@/Tip/Tooltip';
@@ -23,11 +25,13 @@ import { ResourceControlViewModel } from '../models/ResourceControlViewModel';
 interface Props {
   resourceControl?: ResourceControlViewModel;
   resourceType: ResourceControlType;
+  isAuthorisedToFetchUsers?: boolean;
 }
 
 export function AccessControlPanelDetails({
   resourceControl,
   resourceType,
+  isAuthorisedToFetchUsers = false,
 }: Props) {
   const inheritanceMessage = getInheritanceMessage(
     resourceType,
@@ -40,14 +44,36 @@ export function AccessControlPanelDetails({
     TeamAccesses: restrictedToTeams = [],
   } = resourceControl || {};
 
-  const users = useAuthorizedUsers(restrictedToUsers.map((ra) => ra.UserId));
+  const users = useAuthorizedUsers(
+    restrictedToUsers.map((ra) => ra.UserId),
+    isAuthorisedToFetchUsers
+  );
   const teams = useAuthorizedTeams(restrictedToTeams.map((ra) => ra.TeamId));
+
+  const teamsLength = teams.data ? teams.data.length : 0;
+  const unauthoisedTeams = restrictedToTeams.length - teamsLength;
+
+  let teamsMessage = teams.data && teams.data.join(', ');
+  if (unauthoisedTeams > 0 && teams.isFetched) {
+    teamsMessage += teamsLength > 0 ? ' and' : '';
+    teamsMessage += ` ${unauthoisedTeams} ${pluralize(
+      unauthoisedTeams,
+      'team'
+    )} you are not part of`;
+  }
+
+  const userMessage = users.data
+    ? users.data.join(', ')
+    : `${restrictedToUsers.length} ${pluralize(
+        restrictedToUsers.length,
+        'user'
+      )}`;
 
   return (
     <table className="table">
       <tbody>
         <tr data-cy="access-ownership">
-          <td>Ownership</td>
+          <td className="w-1/5">Ownership</td>
           <td>
             <i
               className={clsx(ownershipIcon(ownership), 'space-right')}
@@ -62,17 +88,13 @@ export function AccessControlPanelDetails({
         {restrictedToUsers.length > 0 && (
           <tr data-cy="access-authorisedUsers">
             <td>Authorized users</td>
-            <td aria-label="authorized-users">
-              {users.data && users.data.join(', ')}
-            </td>
+            <td aria-label="authorized-users">{userMessage}</td>
           </tr>
         )}
         {restrictedToTeams.length > 0 && (
           <tr data-cy="access-authorisedTeams">
             <td>Authorized teams</td>
-            <td aria-label="authorized-teams">
-              {teams.data && teams.data.join(', ')}
-            </td>
+            <td aria-label="authorized-teams">{teamsMessage}</td>
           </tr>
         )}
       </tbody>
@@ -112,7 +134,11 @@ function getInheritanceMessage(
     return (
       <InheritanceMessage tooltip="Access control applied on a service is also applied on each container of that service.">
         Access control on this resource is inherited from the following service:
-        <Link to="docker.services.service" params={{ id: resourceId }}>
+        <Link
+          to="docker.services.service"
+          params={{ id: resourceId }}
+          data-cy="docker-access-inherited-service"
+        >
           {truncate(resourceId)}
         </Link>
       </InheritanceMessage>
@@ -127,7 +153,11 @@ function getInheritanceMessage(
       <InheritanceMessage tooltip="Access control applied on a container created using a template is also applied on each volume associated to the container.">
         Access control on this resource is inherited from the following
         container:
-        <Link to="docker.containers.container" params={{ id: resourceId }}>
+        <Link
+          to="docker.containers.container"
+          params={{ id: resourceId }}
+          data-cy="docker-access-inherited-container"
+        >
           {truncate(resourceId)}
         </Link>
       </InheritanceMessage>
@@ -171,8 +201,10 @@ function InheritanceMessage({
   return (
     <tr>
       <td colSpan={2} aria-label="inheritance-message">
-        <Icon icon={Info} mode="primary" className="mr-1" />
-        {children}
+        <div className="inline-flex items-center gap-1">
+          <Icon icon={Info} mode="primary" />
+          {children}
+        </div>
         <Tooltip message={tooltip} />
       </td>
     </tr>
@@ -197,17 +229,22 @@ function useAuthorizedTeams(authorizedTeamIds: TeamId[]) {
   });
 }
 
-function useAuthorizedUsers(authorizedUserIds: UserId[]) {
-  return useUsers(false, 0, authorizedUserIds.length > 0, (users) => {
-    if (authorizedUserIds.length === 0) {
-      return [];
-    }
+function useAuthorizedUsers(authorizedUserIds: UserId[], enabled = true) {
+  return useUsers(
+    false,
+    0,
+    authorizedUserIds.length > 0 && enabled,
+    (users) => {
+      if (authorizedUserIds.length === 0) {
+        return [];
+      }
 
-    return _.compact(
-      authorizedUserIds.map((id) => {
-        const user = users.find((u) => u.Id === id);
-        return user?.Username;
-      })
-    );
-  });
+      return _.compact(
+        authorizedUserIds.map((id) => {
+          const user = users.find((u) => u.Id === id);
+          return user?.Username;
+        })
+      );
+    }
+  );
 }

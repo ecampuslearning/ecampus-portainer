@@ -3,10 +3,10 @@
 
   <div class="form-group" ng-if="$ctrl.isCreation">
     <div class="col-sm-12">
-      <button type="button" class="btn btn-link btn-sm hover:no-underline !ml-0 p-0" ng-if="$ctrl.formValues.IsSimple" ng-click="$ctrl.showAdvancedMode()">
+      <button type="button" class="btn btn-link btn-sm !ml-0 p-0 hover:no-underline" ng-if="$ctrl.formValues.IsSimple" ng-click="$ctrl.showAdvancedMode()">
         <pr-icon icon="'list'"></pr-icon> Advanced mode
       </button>
-      <button type="button" class="btn btn-link btn-sm hover:no-underline !ml-0 p-0" ng-if="!$ctrl.formValues.IsSimple" ng-click="$ctrl.showSimpleMode()">
+      <button type="button" class="btn btn-link btn-sm !ml-0 p-0 hover:no-underline" ng-if="!$ctrl.formValues.IsSimple" ng-click="$ctrl.showSimpleMode()">
         <pr-icon icon="'edit'"></pr-icon> Simple mode
       </button>
     </div>
@@ -14,9 +14,13 @@
       <pr-icon icon="'info'" mode="'primary'"></pr-icon>
       Switch to advanced mode to copy and paste multiple key/values
     </div>
-    <div class="col-sm-12 small text-muted vertical-center" ng-if="!$ctrl.formValues.IsSimple">
+    <div class="col-sm-12 small text-muted vertical-center" ng-if="!$ctrl.formValues.IsSimple && $ctrl.type === 'configmap'">
       <pr-icon icon="'info'" mode="'primary'"></pr-icon>
-      Generate a configuration entry per line, use YAML format
+      Generate a ConfigMap entry per line, use YAML format
+    </div>
+    <div class="col-sm-12 small text-muted vertical-center" ng-if="!$ctrl.formValues.IsSimple && $ctrl.type === 'secret'">
+      <pr-icon icon="'info'" mode="'primary'"></pr-icon>
+      Generate a Secret entry per line, use YAML format
     </div>
   </div>
 
@@ -61,13 +65,14 @@
 
   <div ng-repeat="(index, entry) in $ctrl.formValues.Data" ng-if="$ctrl.formValues.IsSimple">
     <div class="form-group">
-      <label for="configuration_data_key_{{ index }}" class="col-sm-3 col-lg-2 control-label text-left required"
+      <label for="configuration_data_key_{{ index }}" class="col-sm-3 col-lg-2 control-label required text-left"
         >Key
         <portainer-tooltip message="'The key must consist of alphanumeric characters, \'-\', \'_\' or \'.\' and be up to 253 characters in length.'"></portainer-tooltip>
       </label>
       <div class="col-sm-8 col-lg-9">
         <input
           type="text"
+          data-cy="k8sConfigCreate-keyInput"
           class="form-control"
           maxlength="253"
           id="configuration_data_key_{{ index }}"
@@ -103,10 +108,11 @@
     </div>
 
     <div class="form-group" ng-if="$ctrl.formValues.IsSimple && !entry.IsBinary">
-      <label for="configuration_data_value_{{ index }}" class="col-sm-3 col-lg-2 control-label text-left required">Value</label>
+      <label for="configuration_data_value_{{ index }}" class="col-sm-3 col-lg-2 control-label required text-left">Value</label>
       <div class="col-sm-8 col-lg-9">
         <textarea
           class="form-control"
+          data-cy="k8sConfigCreate-configurationDataValue"
           rows="5"
           id="configuration_data_value_{{ index }}"
           name="configuration_data_value_{{ index }}"
@@ -123,7 +129,7 @@
     </div>
 
     <div class="form-group" ng-if="$ctrl.formValues.IsSimple && entry.IsBinary">
-      <label for="configuration_data_value_{{ index }}" class="col-sm-3 col-lg-2 control-label text-left required">Value</label>
+      <label for="configuration_data_value_{{ index }}" class="col-sm-3 col-lg-2 control-label required text-left">Value</label>
       <div class="col-sm-8 control-label small text-muted text-left"
         >Binary data <portainer-tooltip message="'This key holds binary data and cannot be displayed.'"></portainer-tooltip
       ></div>
@@ -152,14 +158,14 @@
   </div>
 
   <div class="form-group !px-[15px]" ng-if="!$ctrl.formValues.IsSimple">
-    <input type="text" ng-model="$ctrl.formValues.DataYaml" required style="display: none" />
+    <input type="text" ng-model="$ctrl.formValues.DataYaml" required style="display: none" data-cy="k8sConfigCreate-configurationDataYaml" />
 
     <web-editor-form
       identifier="kubernetes-configuration-editor"
       value="$ctrl.formValues.DataYaml"
       on-change="($ctrl.editorUpdate)"
       yml="true"
-      placeholder="# Define or paste key-value pairs, one pair per line"
+      text-tip="Define or paste key-value pairs, one pair per line"
     >
     </web-editor-form>
   </div>

@@ -3,10 +3,10 @@ package websocket
 import (
 	"net/http"
 
-	httperror "github.com/portainer/libhttp/error"
-	"github.com/portainer/libhttp/request"
 	portainer "github.com/portainer/portainer/api"
 	"github.com/portainer/portainer/api/http/security"
+	httperror "github.com/portainer/portainer/pkg/libhttp/error"
+	"github.com/portainer/portainer/pkg/libhttp/request"
 )
 
 // @summary Execute a websocket on kubectl shell pod
@@ -42,12 +42,12 @@ func (handler *Handler) websocketShellPodExec(w http.ResponseWriter, r *http.Req
 		return httperror.Forbidden("Permission denied to access environment", err)
 	}
 
-	cli, err := handler.KubernetesClientFactory.GetKubeClient(endpoint)
+	cli, err := handler.KubernetesClientFactory.GetPrivilegedKubeClient(endpoint)
 	if err != nil {
 		return httperror.InternalServerError("Unable to create Kubernetes client", err)
 	}
 
-	serviceAccount, err := cli.GetServiceAccount(tokenData)
+	serviceAccount, err := cli.GetPortainerUserServiceAccount(tokenData)
 	if err != nil {
 		return httperror.InternalServerError("Unable to find serviceaccount associated with user", err)
 	}

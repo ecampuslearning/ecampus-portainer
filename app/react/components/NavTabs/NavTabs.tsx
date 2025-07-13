@@ -1,5 +1,7 @@
 import clsx from 'clsx';
-import { ReactNode } from 'react';
+import { ComponentProps, ReactNode } from 'react';
+
+import { Button } from '@@/buttons';
 
 import styles from './NavTabs.module.css';
 
@@ -7,13 +9,17 @@ export interface Option<T extends string | number = string> {
   label: ReactNode;
   children?: ReactNode;
   id: T;
+  hidden?: boolean;
+  icon?: ComponentProps<typeof Button>['icon'];
 }
 
 interface Props<T extends string | number> {
-  options: Option<T>[];
+  options: Array<Option<T>> | ReadonlyArray<Option<T>>;
   selectedId?: T;
   onSelect?(id: T): void;
   disabled?: boolean;
+  type?: 'tabs' | 'pills';
+  justified?: boolean;
 }
 
 export function NavTabs<T extends string | number = string>({
@@ -21,37 +27,42 @@ export function NavTabs<T extends string | number = string>({
   selectedId,
   onSelect = () => {},
   disabled,
+  type = 'tabs',
+  justified = false,
 }: Props<T>) {
   const selected = options.find((option) => option.id === selectedId);
 
   return (
-    <div className="nav-container">
-      <ul className="nav nav-tabs">
-        {options.map((option) => (
-          <li
-            className={clsx({
-              active: option.id === selectedId,
-              [styles.parent]: !option.children,
-              disabled,
-            })}
-            key={option.id}
-          >
-            {/* rule disabled because `nav-tabs` requires an anchor */}
-            {/* eslint-disable-next-line jsx-a11y/anchor-is-valid */}
-            <a
-              onClick={() => handleSelect(option)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                  handleSelect(option);
-                }
-              }}
-              role="button"
-              tabIndex={0}
-            >
-              {option.label}
-            </a>
-          </li>
-        ))}
+    <div>
+      <ul
+        className={clsx('nav', `nav-${type}`, { 'nav-justified': justified })}
+      >
+        {options.map(
+          (option) =>
+            !option.hidden && (
+              <li
+                className={clsx({
+                  active: option.id === selectedId,
+                  [styles.parent]: !option.children,
+                  disabled,
+                })}
+                key={option.id}
+              >
+                {/* rule disabled because `nav-tabs` requires an anchor */}
+                {/* eslint-disable-next-line jsx-a11y/anchor-is-valid */}
+                <Button
+                  color="none"
+                  onClick={() => handleSelect(option)}
+                  as="a"
+                  data-cy="nav-tab-button"
+                  className="!flex"
+                  icon={option.icon}
+                >
+                  {option.label}
+                </Button>
+              </li>
+            )
+        )}
       </ul>
       {selected && selected.children && (
         <div className="tab-content mt-3">{selected.children}</div>
@@ -64,8 +75,6 @@ export function NavTabs<T extends string | number = string>({
       return;
     }
 
-    if (option.children) {
-      onSelect(option.id);
-    }
+    onSelect(option.id);
   }
 }

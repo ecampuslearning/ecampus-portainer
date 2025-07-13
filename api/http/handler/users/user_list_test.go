@@ -1,7 +1,6 @@
 package users
 
 import (
-	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -13,25 +12,26 @@ import (
 	portainer "github.com/portainer/portainer/api"
 	"github.com/portainer/portainer/api/apikey"
 	"github.com/portainer/portainer/api/datastore"
-	"github.com/portainer/portainer/api/demo"
 	"github.com/portainer/portainer/api/http/security"
 	"github.com/portainer/portainer/api/internal/authorization"
+	"github.com/portainer/portainer/api/internal/testhelpers"
 	"github.com/portainer/portainer/api/jwt"
+
+	"github.com/segmentio/encoding/json"
 	"github.com/stretchr/testify/assert"
 )
 
 func Test_userList(t *testing.T) {
 	is := assert.New(t)
 
-	_, store, teardown := datastore.MustNewTestStore(t, true, true)
-	defer teardown()
+	_, store := datastore.MustNewTestStore(t, true, true)
 
-	// create admin and standard user(s)
+	// Create admin and standard user(s)
 	adminUser := &portainer.User{ID: 1, Username: "admin", Role: portainer.AdministratorRole}
 	err := store.User().Create(adminUser)
 	is.NoError(err, "error creating admin user")
 
-	// setup services
+	// Setup services
 	jwtService, err := jwt.NewService("1h", store)
 	is.NoError(err, "Error initiating jwt service")
 	apiKeyService := apikey.NewAPIKeyService(store.APIKeyRepository(), store.User())
@@ -39,11 +39,11 @@ func Test_userList(t *testing.T) {
 	rateLimiter := security.NewRateLimiter(10, 1*time.Second, 1*time.Hour)
 	passwordChecker := security.NewPasswordStrengthChecker(store.SettingsService)
 
-	h := NewHandler(requestBouncer, rateLimiter, apiKeyService, &demo.Service{}, passwordChecker)
+	h := NewHandler(requestBouncer, rateLimiter, apiKeyService, passwordChecker)
 	h.DataStore = store
 
-	// generate admin user tokens
-	adminJWT, _ := jwtService.GenerateToken(&portainer.TokenData{ID: adminUser.ID, Username: adminUser.Username, Role: adminUser.Role})
+	// Generate admin user tokens
+	adminJWT, _, _ := jwtService.GenerateToken(&portainer.TokenData{ID: adminUser.ID, Username: adminUser.Username, Role: adminUser.Role})
 
 	// Case 1: the user is given the endpoint access directly
 	userWithEndpointAccess := &portainer.User{ID: 2, Username: "standard-user-with-endpoint-access", Role: portainer.StandardUserRole, PortainerAuthorizations: authorization.DefaultPortainerAuthorizations()}
@@ -54,12 +54,12 @@ func Test_userList(t *testing.T) {
 	err = store.User().Create(userWithoutEndpointAccess)
 	is.NoError(err, "error creating user")
 
-	// create environment group
+	// Create environment group
 	endpointGroup := &portainer.EndpointGroup{ID: 1, Name: "default-endpoint-group"}
 	err = store.EndpointGroup().Create(endpointGroup)
 	is.NoError(err, "error creating endpoint group")
 
-	// create endpoint and user access policies
+	// Create endpoint and user access policies
 	userAccessPolicies := make(portainer.UserAccessPolicies, 0)
 	userAccessPolicies[userWithEndpointAccess.ID] = portainer.AccessPolicy{RoleID: portainer.RoleID(userWithEndpointAccess.Role)}
 
@@ -67,11 +67,11 @@ func Test_userList(t *testing.T) {
 	err = store.Endpoint().Create(endpointWithUserAccessPolicy)
 	is.NoError(err, "error creating endpoint")
 
-	jwt, _ := jwtService.GenerateToken(&portainer.TokenData{ID: userWithEndpointAccess.ID, Username: userWithEndpointAccess.Username, Role: userWithEndpointAccess.Role})
+	jwt, _, _ := jwtService.GenerateToken(&portainer.TokenData{ID: userWithEndpointAccess.ID, Username: userWithEndpointAccess.Username, Role: userWithEndpointAccess.Role})
 
 	t.Run("admin user can successfully list all users", func(t *testing.T) {
 		req := httptest.NewRequest(http.MethodGet, "/users", nil)
-		req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", adminJWT))
+		testhelpers.AddTestSecurityCookie(req, adminJWT)
 
 		rr := httptest.NewRecorder()
 		h.ServeHTTP(rr, req)
@@ -92,7 +92,7 @@ func Test_userList(t *testing.T) {
 		params := url.Values{}
 		params.Add("environmentId", fmt.Sprintf("%d", endpointWithUserAccessPolicy.ID))
 		req := httptest.NewRequest(http.MethodGet, "/users?"+params.Encode(), nil)
-		req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", adminJWT))
+		testhelpers.AddTestSecurityCookie(req, adminJWT)
 
 		rr := httptest.NewRecorder()
 		h.ServeHTTP(rr, req)
@@ -112,28 +112,14 @@ func Test_userList(t *testing.T) {
 		}
 	})
 
-	t.Run("standard user cannot list amdin users", func(t *testing.T) {
+	t.Run("standard user cannot list users", func(t *testing.T) {
 		req := httptest.NewRequest(http.MethodGet, "/users", nil)
-		req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", jwt))
+		testhelpers.AddTestSecurityCookie(req, jwt)
 
 		rr := httptest.NewRecorder()
 		h.ServeHTTP(rr, req)
 
-		is.Equal(http.StatusOK, rr.Code)
-
-		body, err := io.ReadAll(rr.Body)
-		is.NoError(err, "ReadAll should not return error")
-
-		var resp []portainer.User
-		err = json.Unmarshal(body, &resp)
-		is.NoError(err, "response should be list json")
-
-		is.Len(resp, 2)
-		if len(resp) > 0 {
-			for _, user := range resp {
-				is.NotEqual(portainer.AdministratorRole, user.Role)
-			}
-		}
+		is.Equal(http.StatusForbidden, rr.Code)
 	})
 
 	// Case 2: the user is under an environment group and the environment group has endpoint access.
@@ -143,7 +129,7 @@ func Test_userList(t *testing.T) {
 	err = store.User().Create(userUnderGroup)
 	is.NoError(err, "error creating user")
 
-	// create environment group including a user
+	// Create environment group including a user
 	userAccessPoliciesUnderGroup := make(portainer.UserAccessPolicies, 0)
 	userAccessPoliciesUnderGroup[userUnderGroup.ID] = portainer.AccessPolicy{RoleID: portainer.RoleID(userUnderGroup.Role)}
 
@@ -151,7 +137,7 @@ func Test_userList(t *testing.T) {
 	err = store.EndpointGroup().Create(endpointGroupWithUser)
 	is.NoError(err, "error creating endpoint group")
 
-	// create endpoint
+	// Create endpoint
 	endpointUnderGroupWithUser := &portainer.Endpoint{ID: 2, GroupID: endpointGroupWithUser.ID}
 	err = store.Endpoint().Create(endpointUnderGroupWithUser)
 	is.NoError(err, "error creating endpoint")
@@ -160,7 +146,7 @@ func Test_userList(t *testing.T) {
 		params := url.Values{}
 		params.Add("environmentId", fmt.Sprintf("%d", endpointUnderGroupWithUser.ID))
 		req := httptest.NewRequest(http.MethodGet, "/users?"+params.Encode(), nil)
-		req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", adminJWT))
+		testhelpers.AddTestSecurityCookie(req, adminJWT)
 
 		rr := httptest.NewRecorder()
 		h.ServeHTTP(rr, req)
@@ -196,7 +182,7 @@ func Test_userList(t *testing.T) {
 	err = store.TeamMembership().Create(teamMembership)
 	is.NoError(err, "error creating team membership")
 
-	// create environment group including a team
+	// Create environment group including a team
 	teamAccessPoliciesUnderGroup := make(portainer.TeamAccessPolicies, 0)
 	teamAccessPoliciesUnderGroup[teamUnderGroup.ID] = portainer.AccessPolicy{RoleID: portainer.RoleID(userUnderTeam.Role)}
 
@@ -204,7 +190,7 @@ func Test_userList(t *testing.T) {
 	err = store.EndpointGroup().Create(endpointGroupWithTeam)
 	is.NoError(err, "error creating endpoint group")
 
-	// create endpoint
+	// Create endpoint
 	endpointUnderGroupWithTeam := &portainer.Endpoint{ID: 3, GroupID: endpointGroupWithTeam.ID}
 	err = store.Endpoint().Create(endpointUnderGroupWithTeam)
 	is.NoError(err, "error creating endpoint")
@@ -212,7 +198,7 @@ func Test_userList(t *testing.T) {
 		params := url.Values{}
 		params.Add("environmentId", fmt.Sprintf("%d", endpointUnderGroupWithTeam.ID))
 		req := httptest.NewRequest(http.MethodGet, "/users?"+params.Encode(), nil)
-		req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", adminJWT))
+		testhelpers.AddTestSecurityCookie(req, adminJWT)
 
 		rr := httptest.NewRecorder()
 		h.ServeHTTP(rr, req)
@@ -247,12 +233,12 @@ func Test_userList(t *testing.T) {
 	err = store.TeamMembership().Create(teamMembershipWithEndpointAccess)
 	is.NoError(err, "error creating team membership")
 
-	// create environment group
+	// Create environment group
 	endpointGroupWithoutTeam := &portainer.EndpointGroup{ID: 4, Name: "endpoint-group-without-team"}
 	err = store.EndpointGroup().Create(endpointGroupWithoutTeam)
 	is.NoError(err, "error creating endpoint group")
 
-	// create endpoint and team access policies
+	// Create endpoint and team access policies
 	teamAccessPolicies := make(portainer.TeamAccessPolicies, 0)
 	teamAccessPolicies[teamWithEndpointAccess.ID] = portainer.AccessPolicy{RoleID: portainer.RoleID(userUnderTeamWithEndpointAccess.Role)}
 
@@ -263,7 +249,7 @@ func Test_userList(t *testing.T) {
 		params := url.Values{}
 		params.Add("environmentId", fmt.Sprintf("%d", endpointWithTeamAccessPolicy.ID))
 		req := httptest.NewRequest(http.MethodGet, "/users?"+params.Encode(), nil)
-		req.Header.Add("Authorization", fmt.Sprintf("Bearer %s", adminJWT))
+		testhelpers.AddTestSecurityCookie(req, adminJWT)
 
 		rr := httptest.NewRecorder()
 		h.ServeHTTP(rr, req)

@@ -50,9 +50,10 @@ export function AssociateAMTDialog({
           Select the environments to add to associate to OpenAMT. You may select
           across multiple pages.
         </span>
-        <div className="h-8 flex items-center">
+        <div className="flex h-8 items-center">
           <Checkbox
             id="settings-container-truncate-name"
+            data-cy="select-all-checkbox"
             label="Select all (in this page)"
             checked={isAllPageSelected}
             onChange={handleSelectAll}
@@ -63,10 +64,11 @@ export function AssociateAMTDialog({
             {environments.map((env) => (
               <div
                 key={env.Id}
-                className={clsx('h-8 flex items-center pt-1 pl-2')}
+                className={clsx('flex h-8 items-center pl-2 pt-1')}
               >
                 <Checkbox
                   id={`${env.Id}`}
+                  data-cy={`environment-checkbox-${env.Name}`}
                   label={`${env.Name} (${env.URL})`}
                   checked={selection.includes(env.Id)}
                   onChange={() =>
@@ -76,24 +78,29 @@ export function AssociateAMTDialog({
               </div>
             ))}
           </div>
-          <div className="pt-3 flex justify-end w-full">
+          <div className="flex w-full justify-end pt-3">
             <PaginationControls
               showAll={totalCount <= 100}
               page={page}
               onPageChange={setPage}
               pageLimit={pageLimit}
               onPageLimitChange={setPageLimit}
-              totalCount={totalCount}
+              pageCount={Math.ceil(totalCount / pageLimit)}
             />
           </div>
         </div>
       </Modal.Body>
       <Modal.Footer>
-        <Button onClick={onClose} color="default">
+        <Button
+          onClick={onClose}
+          color="default"
+          data-cy="associate-amt-dialog-cancel-button"
+        >
           Cancel
         </Button>
         <LoadingButton
           onClick={handleSubmit}
+          data-cy="associate-amt-dialog-associate-button"
           disabled={selection.length === 0}
           loadingText="Associating..."
           isLoading={activateDeviceMutation.isLoading}

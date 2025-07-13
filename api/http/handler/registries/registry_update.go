@@ -1,17 +1,17 @@
 package registries
 
 import (
+	"cmp"
 	"errors"
 	"net/http"
 
-	"github.com/portainer/portainer/api/internal/endpointutils"
-
-	httperror "github.com/portainer/libhttp/error"
-	"github.com/portainer/libhttp/request"
-	"github.com/portainer/libhttp/response"
 	portainer "github.com/portainer/portainer/api"
 	httperrors "github.com/portainer/portainer/api/http/errors"
 	"github.com/portainer/portainer/api/http/security"
+	"github.com/portainer/portainer/api/internal/endpointutils"
+	httperror "github.com/portainer/portainer/pkg/libhttp/error"
+	"github.com/portainer/portainer/pkg/libhttp/request"
+	"github.com/portainer/portainer/pkg/libhttp/response"
 )
 
 type registryUpdatePayload struct {
@@ -53,7 +53,7 @@ func (payload *registryUpdatePayload) Validate(r *http.Request) error {
 // @success 200 {object} portainer.Registry "Success"
 // @failure 400 "Invalid request"
 // @failure 404 "Registry not found"
-// @failure 409 "Another registry with the same URL already exists"
+// @failure 409 "Another registry with the same name or same URL & credentials already exists"
 // @failure 500 "Server error"
 // @router /registries/{id} [put]
 func (handler *Handler) registryUpdate(w http.ResponseWriter, r *http.Request) *httperror.HandlerError {
@@ -71,34 +71,32 @@ func (handler *Handler) registryUpdate(w http.ResponseWriter, r *http.Request) *
 		return httperror.BadRequest("Invalid registry identifier route variable", err)
 	}
 
-	registry, err := handler.DataStore.Registry().Registry(portainer.RegistryID(registryID))
+	registry, err := handler.DataStore.Registry().Read(portainer.RegistryID(registryID))
 	if handler.DataStore.IsErrObjectNotFound(err) {
 		return httperror.NotFound("Unable to find a registry with the specified identifier inside the database", err)
 	} else if err != nil {
 		return httperror.InternalServerError("Unable to find a registry with the specified identifier inside the database", err)
 	}
 
-	registries, err := handler.DataStore.Registry().Registries()
+	registries, err := handler.DataStore.Registry().ReadAll()
 	if err != nil {
 		return httperror.InternalServerError("Unable to retrieve registries from the database", err)
 	}
 
 	var payload registryUpdatePayload
-	err = request.DecodeAndValidateJSONPayload(r, &payload)
-	if err != nil {
+	if err := request.DecodeAndValidateJSONPayload(r, &payload); err != nil {
 		return httperror.BadRequest("Invalid request payload", err)
 	}
 
-	if payload.Name != nil {
-		registry.Name = *payload.Name
-	}
-	// enforce name uniqueness across registries
-	// check is performed even if Name didn't change (Name not in payload) as we need
-	// to enforce this rule on updates not performed with frontend (e.g. on direct API requests)
-	// see https://portainer.atlassian.net/browse/EE-2706 for more details
+	registry.Name = *cmp.Or(payload.Name, &registry.Name)
+
+	// Enforce name uniqueness across registries check is performed even if Name
+	// didn't change (Name not in payload) as we need to enforce this rule on
+	// updates not performed with frontend (e.g. on direct API requests)
+	// See https://portainer.atlassian.net/browse/EE-2706 for more details
 	for _, r := range registries {
 		if r.ID != registry.ID && r.Name == registry.Name {
-			return &httperror.HandlerError{StatusCode: http.StatusConflict, Message: "Another registry with the same name already exists", Err: errors.New("A registry is already defined with this name")}
+			return httperror.Conflict("Another registry with the same name already exists", errors.New("a registry is already defined with this name"))
 		}
 	}
 
@@ -140,6 +138,8 @@ func (handler *Handler) registryUpdate(w http.ResponseWriter, r *http.Request) *
 		}
 	}
 
+	registry.ManagementConfiguration = syncConfig(registry)
+
 	if payload.URL != nil {
 		shouldUpdateSecrets = shouldUpdateSecrets || (*payload.URL != registry.URL)
 
@@ -147,7 +147,7 @@ func (handler *Handler) registryUpdate(w http.ResponseWriter, r *http.Request) *
 
 		for _, r := range registries {
 			if r.ID != registry.ID && handler.registriesHaveSameURLAndCredentials(&r, registry) {
-				return &httperror.HandlerError{StatusCode: http.StatusConflict, Message: "Another registry with the same URL and credentials already exists", Err: errors.New("A registry is already defined for this URL and credentials")}
+				return httperror.Conflict("Another registry with the same URL and credentials already exists", errors.New("a registry is already defined for this URL and credentials"))
 			}
 		}
 	}
@@ -171,33 +171,39 @@ func (handler *Handler) registryUpdate(w http.ResponseWriter, r *http.Request) *
 		}
 	}
 
-	if payload.Quay != nil {
-		registry.Quay = *payload.Quay
-	}
+	registry.Quay = *cmp.Or(payload.Quay, &registry.Quay)
 
-	err = handler.DataStore.Registry().UpdateRegistry(registry.ID, registry)
-	if err != nil {
+	if err := handler.DataStore.Registry().Update(registry.ID, registry); err != nil {
 		return httperror.InternalServerError("Unable to persist registry changes inside the database", err)
 	}
 
 	return response.JSON(w, registry)
 }
 
-func (handler *Handler) updateEndpointRegistryAccess(endpoint *portainer.Endpoint, registry *portainer.Registry, endpointAccess portainer.RegistryAccessPolicies) error {
+func syncConfig(registry *portainer.Registry) *portainer.RegistryManagementConfiguration {
+	config := cmp.Or(registry.ManagementConfiguration, &portainer.RegistryManagementConfiguration{})
 
-	cli, err := handler.K8sClientFactory.GetKubeClient(endpoint)
+	config.Authentication = registry.Authentication
+	config.Username = registry.Username
+	config.Password = registry.Password
+	config.Ecr = registry.Ecr
+	config.Type = registry.Type
+
+	return config
+}
+
+func (handler *Handler) updateEndpointRegistryAccess(endpoint *portainer.Endpoint, registry *portainer.Registry, endpointAccess portainer.RegistryAccessPolicies) error {
+	cli, err := handler.K8sClientFactory.GetPrivilegedKubeClient(endpoint)
 	if err != nil {
 		return err
 	}
 
 	for _, namespace := range endpointAccess.Namespaces {
-		err := cli.DeleteRegistrySecret(registry, namespace)
-		if err != nil {
+		if err := cli.DeleteRegistrySecret(registry.ID, namespace); err != nil {
 			return err
 		}
 
-		err = cli.CreateRegistrySecret(registry, namespace)
-		if err != nil {
+		if err := cli.CreateRegistrySecret(registry, namespace); err != nil {
 			return err
 		}
 	}

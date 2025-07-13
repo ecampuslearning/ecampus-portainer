@@ -1,9 +1,12 @@
 import moment from 'moment';
 import _ from 'lodash-es';
 import { PorImageRegistryModel } from 'Docker/models/porImageRegistry';
-import { confirmContainerDeletion } from '@/portainer/services/modal.service/prompt';
+import { confirmContainerDeletion } from '@/react/docker/containers/common/confirm-container-delete-modal';
 import { FeatureId } from '@/react/portainer/feature-flags/enums';
 import { ResourceControlType } from '@/react/portainer/access-control/types';
+import { confirmContainerRecreation } from '@/react/docker/containers/ItemView/ConfirmRecreationModal';
+import { commitContainer } from '@/react/docker/proxy/queries/useCommitContainerMutation';
+import { ContainerEngine } from '@/react/portainer/environments/types';
 
 angular.module('portainer.docker').controller('ContainerController', [
   '$q',
@@ -12,40 +15,13 @@ angular.module('portainer.docker').controller('ContainerController', [
   '$transition$',
   '$filter',
   '$async',
-  'Commit',
-  'ContainerHelper',
   'ContainerService',
   'ImageHelper',
-  'NetworkService',
   'Notifications',
-  'ModalService',
-  'ResourceControlService',
-  'RegistryService',
-  'ImageService',
   'HttpRequestHelper',
   'Authentication',
   'endpoint',
-  function (
-    $q,
-    $scope,
-    $state,
-    $transition$,
-    $filter,
-    $async,
-    Commit,
-    ContainerHelper,
-    ContainerService,
-    ImageHelper,
-    NetworkService,
-    Notifications,
-    ModalService,
-    ResourceControlService,
-    RegistryService,
-    ImageService,
-    HttpRequestHelper,
-    Authentication,
-    endpoint
-  ) {
+  function ($q, $scope, $state, $transition$, $filter, $async, ContainerService, ImageHelper, Notifications, HttpRequestHelper, Authentication, endpoint) {
     $scope.resourceType = ResourceControlType.Container;
     $scope.endpoint = endpoint;
     $scope.isAdmin = Authentication.isAdmin();
@@ -62,8 +38,6 @@ angular.module('portainer.docker').controller('ContainerController', [
 
     $scope.state = {
       recreateContainerInProgress: false,
-      joinNetworkInProgress: false,
-      leaveNetworkInProgress: false,
       pullImageValidity: false,
     };
 
@@ -80,7 +54,7 @@ angular.module('portainer.docker').controller('ContainerController', [
 
     $scope.computeDockerGPUCommand = () => {
       const gpuOptions = _.find($scope.container.HostConfig.DeviceRequests, function (o) {
-        return o.Driver === 'nvidia' || o.Capabilities[0][0] === 'gpu';
+        return o.Driver === 'nvidia' || (o.Capabilities && o.Capabilities.length > 0 && o.Capabilities[0] > 0 && o.Capabilities[0][0] === 'gpu');
       });
       if (!gpuOptions) {
         return 'No GPU config found';
@@ -100,7 +74,7 @@ angular.module('portainer.docker').controller('ContainerController', [
       HttpRequestHelper.setPortainerAgentTargetHeader(nodeName);
       $scope.nodeName = nodeName;
 
-      ContainerService.container($transition$.params().id)
+      ContainerService.container(endpoint.Id, $transition$.params().id)
         .then(function success(data) {
           var container = data;
           $scope.container = container;
@@ -150,7 +124,11 @@ angular.module('portainer.docker').controller('ContainerController', [
             !allowHostNamespaceForRegularUsers ||
             !allowPrivilegedModeForRegularUsers;
 
-          $scope.displayRecreateButton = !inSwarm && !autoRemove && (admin || !settingRestrictsRegularUsers);
+          // displayRecreateButton should false for podman because recreating podman containers give and error: cannot set memory swappiness with cgroupv2
+          // https://github.com/containrrr/watchtower/issues/1060#issuecomment-2319076222
+          const isPodman = endpoint.ContainerEngine === ContainerEngine.Podman;
+          $scope.displayDuplicateEditButton = !inSwarm && !autoRemove && (admin || !settingRestrictsRegularUsers);
+          $scope.displayRecreateButton = !inSwarm && !autoRemove && (admin || !settingRestrictsRegularUsers) && !isPodman;
           $scope.displayCreateWebhookButton = $scope.displayRecreateButton;
         })
         .catch(function error(err) {
@@ -159,7 +137,7 @@ angular.module('portainer.docker').controller('ContainerController', [
     };
 
     function executeContainerAction(id, action, successMessage, errorMessage) {
-      action(id)
+      action(endpoint.Id, id)
         .then(function success() {
           Notifications.success(successMessage, id);
           update();
@@ -211,7 +189,7 @@ angular.module('portainer.docker').controller('ContainerController', [
         $scope.container.edit = false;
         return;
       }
-      ContainerService.renameContainer($transition$.params().id, container.newContainerName)
+      ContainerService.renameContainer(endpoint.Id, $transition$.params().id, container.newContainerName)
         .then(function success() {
           container.Name = container.newContainerName;
           Notifications.success('Container successfully renamed', container.Name);
@@ -226,42 +204,12 @@ angular.module('portainer.docker').controller('ContainerController', [
         });
     };
 
-    $scope.containerLeaveNetwork = function containerLeaveNetwork(container, networkId) {
-      $scope.state.leaveNetworkInProgress = true;
-      NetworkService.disconnectContainer(networkId, container.Id, false)
-        .then(function success() {
-          Notifications.success('Container left network', container.Id);
-          $state.reload();
-        })
-        .catch(function error(err) {
-          Notifications.error('Failure', err, 'Unable to disconnect container from network');
-        })
-        .finally(function final() {
-          $scope.state.leaveNetworkInProgress = false;
-        });
-    };
-
-    $scope.containerJoinNetwork = function containerJoinNetwork(container, networkId) {
-      $scope.state.joinNetworkInProgress = true;
-      NetworkService.connectContainer(networkId, container.Id)
-        .then(function success() {
-          Notifications.success('Container joined network', container.Id);
-          $state.reload();
-        })
-        .catch(function error(err) {
-          Notifications.error('Failure', err, 'Unable to connect container to network');
-        })
-        .finally(function final() {
-          $scope.state.joinNetworkInProgress = false;
-        });
-    };
-
     async function commitContainerAsync() {
       $scope.config.commitInProgress = true;
       const registryModel = $scope.config.RegistryModel;
-      const imageConfig = ImageHelper.createImageConfigForContainer(registryModel);
+      const { repo, tag } = ImageHelper.createImageConfigForContainer(registryModel);
       try {
-        await Commit.commitContainer({ id: $transition$.params().id, repo: imageConfig.fromImage }).$promise;
+        await commitContainer(endpoint.Id, { container: $transition$.params().id, repo, tag });
         Notifications.success('Image created', $transition$.params().id);
         $state.reload();
       } catch (err) {
@@ -275,25 +223,25 @@ angular.module('portainer.docker').controller('ContainerController', [
     };
 
     $scope.confirmRemove = function () {
-      var title = 'You are about to remove a container.';
-      if ($scope.container.State.Running) {
-        title = 'You are about to remove a running container.';
-      }
+      return $async(async () => {
+        var title = 'You are about to remove a container.';
+        if ($scope.container.State.Running) {
+          title = 'You are about to remove a running container.';
+        }
 
-      confirmContainerDeletion(title, function (result) {
+        const result = await confirmContainerDeletion(title);
+
         if (!result) {
           return;
         }
-        var cleanAssociatedVolumes = false;
-        if (result[0]) {
-          cleanAssociatedVolumes = true;
-        }
-        removeContainer(cleanAssociatedVolumes);
+        const { removeVolumes } = result;
+
+        removeContainer(removeVolumes);
       });
     };
 
     function removeContainer(cleanAssociatedVolumes) {
-      ContainerService.remove($scope.container, cleanAssociatedVolumes)
+      ContainerService.remove(endpoint.Id, $scope.container.Id, cleanAssociatedVolumes)
         .then(function success() {
           Notifications.success('Success', 'Container successfully removed');
           $state.go('docker.containers', {}, { reload: true });
@@ -305,84 +253,9 @@ angular.module('portainer.docker').controller('ContainerController', [
 
     function recreateContainer(pullImage) {
       var container = $scope.container;
-      var config = ContainerHelper.configFromContainer(container.Model);
       $scope.state.recreateContainerInProgress = true;
-      var isRunning = container.State.Running;
 
-      return pullImageIfNeeded()
-        .then(stopContainerIfNeeded)
-        .then(renameContainer)
-        .then(setMainNetworkAndCreateContainer)
-        .then(connectContainerToOtherNetworks)
-        .then(startContainerIfNeeded)
-        .then(createResourceControl)
-        .then(deleteOldContainer)
-        .then(notifyAndChangeView)
-        .catch(notifyOnError);
-
-      function stopContainerIfNeeded() {
-        if (!isRunning) {
-          return $q.when();
-        }
-        return ContainerService.stopContainer(container.Id);
-      }
-
-      function renameContainer() {
-        return ContainerService.renameContainer(container.Id, container.Name + '-old');
-      }
-
-      function pullImageIfNeeded() {
-        if (!pullImage) {
-          return $q.when();
-        }
-        return RegistryService.retrievePorRegistryModelFromRepository(container.Config.Image, endpoint.Id).then((registryModel) => {
-          return ImageService.pullImage(registryModel, false);
-        });
-      }
-
-      function setMainNetworkAndCreateContainer() {
-        var networks = config.NetworkingConfig.EndpointsConfig;
-        var networksNames = Object.keys(networks);
-        if (networksNames.length > 1) {
-          config.NetworkingConfig.EndpointsConfig = {};
-          config.NetworkingConfig.EndpointsConfig[networksNames[0]] = networks[0];
-        }
-        return $q.all([ContainerService.createContainer(config), networks]);
-      }
-
-      function connectContainerToOtherNetworks(createContainerData) {
-        var newContainer = createContainerData[0];
-        var networks = createContainerData[1];
-        var networksNames = Object.keys(networks);
-        var connectionPromises = networksNames.map(function connectToNetwork(name) {
-          NetworkService.connectContainer(name, newContainer.Id);
-        });
-        return $q.all(connectionPromises).then(function onConnectToNetworkSuccess() {
-          return newContainer;
-        });
-      }
-
-      function deleteOldContainer(newContainer) {
-        return ContainerService.remove(container, true).then(function onRemoveSuccess() {
-          return newContainer;
-        });
-      }
-
-      function startContainerIfNeeded(newContainer) {
-        if (!isRunning) {
-          return $q.when(newContainer);
-        }
-        return ContainerService.startContainer(newContainer.Id).then(function onStartSuccess() {
-          return newContainer;
-        });
-      }
-
-      function createResourceControl(newContainer) {
-        const userId = Authentication.getUserDetails().ID;
-        const oldResourceControl = container.ResourceControl;
-        const newResourceControl = newContainer.Portainer.ResourceControl;
-        return ResourceControlService.duplicateResourceControl(userId, oldResourceControl, newResourceControl);
-      }
+      return ContainerService.recreateContainer(endpoint.Id, container.Id, pullImage).then(notifyAndChangeView).catch(notifyOnError);
 
       function notifyAndChangeView() {
         Notifications.success('Success', 'Container successfully re-created');
@@ -397,22 +270,19 @@ angular.module('portainer.docker').controller('ContainerController', [
 
     $scope.recreate = function () {
       const cannotPullImage = !$scope.container.Config.Image || $scope.container.Config.Image.toLowerCase().startsWith('sha256');
-      ModalService.confirmContainerRecreation(cannotPullImage, function (result) {
+      confirmContainerRecreation(cannotPullImage).then(function (result) {
         if (!result) {
           return;
         }
-        var pullImage = false;
-        if (result[0]) {
-          pullImage = true;
-        }
-        recreateContainer(pullImage);
+
+        recreateContainer(result.pullLatest);
       });
     };
 
     function updateRestartPolicy(restartPolicy, maximumRetryCount) {
       maximumRetryCount = restartPolicy === 'on-failure' ? maximumRetryCount : undefined;
 
-      return ContainerService.updateRestartPolicy($scope.container.Id, restartPolicy, maximumRetryCount).then(onUpdateSuccess).catch(notifyOnError);
+      return ContainerService.updateRestartPolicy(endpoint.Id, $scope.container.Id, restartPolicy, maximumRetryCount).then(onUpdateSuccess).catch(notifyOnError);
 
       function onUpdateSuccess() {
         $scope.container.HostConfig.RestartPolicy = {
@@ -427,17 +297,6 @@ angular.module('portainer.docker').controller('ContainerController', [
         return $q.reject(err);
       }
     }
-
-    var provider = $scope.applicationState.endpoint.mode.provider;
-    var apiVersion = $scope.applicationState.endpoint.apiVersion;
-    NetworkService.networks(provider === 'DOCKER_STANDALONE' || provider === 'DOCKER_SWARM_MODE', false, provider === 'DOCKER_SWARM_MODE' && apiVersion >= 1.25)
-      .then(function success(data) {
-        var networks = data;
-        $scope.availableNetworks = networks;
-      })
-      .catch(function error(err) {
-        Notifications.error('Failure', err, 'Unable to retrieve networks');
-      });
 
     update();
   },

@@ -1,17 +1,18 @@
-import { ReactNode } from 'react';
+import { Briefcase } from 'lucide-react';
 
 import { FeatureId } from '@/react/portainer/feature-flags/enums';
+import { AutomationTestingProps } from '@/types';
 
 import { Button } from '@@/buttons';
 import { TooltipWithChildren } from '@@/Tip/TooltipWithChildren';
 
-interface Props {
+interface Props extends AutomationTestingProps {
   featureId: FeatureId;
   heading: string;
   message: string;
   buttonText: string;
   className?: string;
-  icon?: ReactNode;
+  buttonClassName?: string;
 }
 
 export function BETeaserButton({
@@ -20,7 +21,8 @@ export function BETeaserButton({
   message,
   buttonText,
   className,
-  icon,
+  buttonClassName,
+  'data-cy': dataCy,
 }: Props) {
   return (
     <TooltipWithChildren
@@ -31,12 +33,14 @@ export function BETeaserButton({
     >
       <span>
         <Button
-          icon={icon}
+          className={buttonClassName}
+          icon={Briefcase}
           type="button"
-          color="warninglight"
+          color="default"
           size="small"
           onClick={() => {}}
           disabled
+          data-cy={dataCy}
         >
           {buttonText}
         </Button>

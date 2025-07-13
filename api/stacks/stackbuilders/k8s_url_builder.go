@@ -4,7 +4,6 @@ import (
 	"strconv"
 	"sync"
 
-	httperror "github.com/portainer/libhttp/error"
 	portainer "github.com/portainer/portainer/api"
 	"github.com/portainer/portainer/api/dataservices"
 	"github.com/portainer/portainer/api/filesystem"
@@ -12,6 +11,7 @@ import (
 	k "github.com/portainer/portainer/api/kubernetes"
 	"github.com/portainer/portainer/api/stacks/deployments"
 	"github.com/portainer/portainer/api/stacks/stackutils"
+	httperror "github.com/portainer/portainer/pkg/libhttp/error"
 )
 
 type KubernetesStackUrlBuilder struct {
@@ -40,6 +40,7 @@ func CreateKubernetesStackUrlBuilder(dataStore dataservices.DataStore,
 
 func (b *KubernetesStackUrlBuilder) SetGeneralInfo(payload *StackPayload, endpoint *portainer.Endpoint) UrlMethodStackBuildProcess {
 	b.UrlMethodStackBuilder.SetGeneralInfo(payload, endpoint)
+
 	return b
 }
 
@@ -53,7 +54,7 @@ func (b *KubernetesStackUrlBuilder) SetUniqueInfo(payload *StackPayload) UrlMeth
 	b.stack.Name = payload.StackName
 	b.stack.EntryPoint = filesystem.ManifestFileDefaultName
 	b.stack.CreatedBy = b.user.Username
-	b.stack.IsComposeFormat = payload.ComposeFormat
+
 	return b
 }
 
@@ -62,10 +63,10 @@ func (b *KubernetesStackUrlBuilder) SetURL(payload *StackPayload) UrlMethodStack
 		return b
 	}
 
-	var manifestContent []byte
 	manifestContent, err := client.Get(payload.ManifestURL, 30)
 	if err != nil {
 		b.err = httperror.InternalServerError("Unable to retrieve manifest from URL", err)
+
 		return b
 	}
 
@@ -73,6 +74,7 @@ func (b *KubernetesStackUrlBuilder) SetURL(payload *StackPayload) UrlMethodStack
 	projectPath, err := b.fileService.StoreStackFileFromBytes(stackFolder, b.stack.EntryPoint, manifestContent)
 	if err != nil {
 		b.err = httperror.InternalServerError("Unable to persist Kubernetes manifest file on disk", err)
+
 		return b
 	}
 	b.stack.ProjectPath = projectPath
@@ -98,6 +100,7 @@ func (b *KubernetesStackUrlBuilder) Deploy(payload *StackPayload, endpoint *port
 	k8sDeploymentConfig, err := deployments.CreateKubernetesStackDeploymentConfig(b.stack, b.KuberneteDeployer, k8sAppLabel, b.user, endpoint)
 	if err != nil {
 		b.err = httperror.InternalServerError("failed to create temp kub deployment files", err)
+
 		return b
 	}
 

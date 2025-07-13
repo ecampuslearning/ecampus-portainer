@@ -11,6 +11,15 @@
               <td>ID</td>
               <td>
                 {{ volume.Id }}
+                <button
+                  ng-if="showBrowseAction"
+                  class="btn btn-xs btn-primary"
+                  ui-sref="docker.volumes.volume.browse({ id: volume.Name, nodeName: volume.NodeName })"
+                  authorization="DockerAgentBrowseList"
+                >
+                  <pr-icon icon="'search'" class="leading-none"></pr-icon>
+                  Browse
+                </button>
                 <button authorization="DockerVolumeDelete" class="btn btn-xs btn-danger" ng-click="removeVolume()"
                   ><pr-icon icon="'trash-2'" class="leading-none"></pr-icon> Remove this volume</button
                 >
@@ -31,7 +40,7 @@
             <tr ng-if="!(volume.Labels | emptyobject)">
               <td>Labels</td>
               <td>
-                <table class="table table-bordered table-condensed">
+                <table class="table-bordered table-condensed table">
                   <tr ng-repeat="(k, v) in volume.Labels">
                     <td>{{ k }}</td>
                     <td>{{ v }}</td>
@@ -53,6 +62,7 @@
   resource-control="volume.ResourceControl"
   resource-type="resourceType"
   on-update-success="(onUpdateResourceControlSuccess)"
+  environment-id="endpoint.Id"
 >
 </access-control-panel>
 <!-- !access-control-panel -->

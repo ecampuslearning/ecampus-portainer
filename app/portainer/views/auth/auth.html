@@ -1,15 +1,18 @@
 <div class="page-wrapper">
   <!-- login box -->
-  <div class="container simple-box">
+  <div class="simple-box container">
     <div class="col-sm-4 col-sm-offset-4">
       <!-- login box logo -->
       <div class="row">
-        <img ng-if="!ctrl.logo" src="~@/assets/images/logo_alt.svg" class="simple-box-logo" alt="Portainer" />
+        <div ng-if="!ctrl.logo">
+          <img src="~@/assets/images/logo_alt.svg" class="simple-box-logo hidden th-dark:!block th-highcontrast:!block" alt="Portainer" />
+          <img src="~@/assets/images/logo_alt_black.svg" class="simple-box-logo block th-dark:hidden th-highcontrast:hidden" alt="Portainer" />
+        </div>
         <img ng-if="ctrl.logo" ng-src="{{ ctrl.logo }}" class="simple-box-logo" />
       </div>
       <!-- !login box logo -->
 
-      <div class="row text-center p-5">
+      <div class="row p-5 text-center">
         <p class="text-xl">Log in to your account</p>
         <p class="text-md text-muted fw-bold">Welcome back! Please enter your details</p>
       </div>
@@ -32,7 +35,7 @@
                   </div>
                   <div class="btn btn-primary btn-lg btn-block" ng-if="ctrl.state.OAuthProvider === 'Github'">
                     <pr-icon icon="'svg-github'"></pr-icon>
-                    Login with Github
+                    Login with GitHub
                   </div>
                   <div class="btn btn-primary btn-lg btn-block" ng-if="ctrl.state.OAuthProvider === 'OAuth'">
                     <pr-icon icon="'log-in'"></pr-icon>
@@ -62,11 +65,11 @@
               <input
                 id="username"
                 type="text"
+                data-cy="auth-usernameInput"
                 class="form-control"
                 name="username"
                 ng-model="ctrl.formValues.Username"
                 auto-focus
-                data-cy="auth-usernameInput"
                 placeholder="Enter your username"
               />
             </div>
@@ -90,7 +93,7 @@
                   data-cy="auth-passwordInputToggle"
                   type="button"
                   ng-click="ctrl.toggleShowPassword()"
-                  class="absolute top-0 right-0 h-[34px] w-[50px] border-none flex justify-center items-center bg-transparent"
+                  class="absolute right-0 top-0 flex h-[34px] w-[50px] items-center justify-center border-none bg-transparent"
                   tooltip-append-to-body="true"
                   tooltip-placement="top"
                   tooltip-class="portainer-tooltip"

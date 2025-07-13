@@ -1,7 +1,8 @@
-import { useQuery } from 'react-query';
-import { RetryValue } from 'react-query/types/core/retryer';
+import { UseQueryOptions, useQuery } from '@tanstack/react-query';
 
 import axios, { parseAxiosError } from '@/portainer/services/axios';
+
+import { isBE } from '../feature-flags/feature-flags.service';
 
 import { buildUrl } from './build-url';
 import { queryKeys } from './query-keys';
@@ -18,7 +19,7 @@ export async function getSystemStatus() {
   try {
     const { data } = await axios.get<StatusResponse>(buildUrl('status'));
 
-    data.Edition = 'Community Edition';
+    data.Edition = isBE ? 'Business Edition' : 'Community Edition';
 
     return data;
   } catch (error) {
@@ -34,7 +35,7 @@ export function useSystemStatus<T = StatusResponse>({
 }: {
   select?: (status: StatusResponse) => T;
   enabled?: boolean;
-  retry?: RetryValue<unknown>;
+  retry?: UseQueryOptions['retry'];
   onSuccess?: (data: T) => void;
 } = {}) {
   return useQuery(queryKey, () => getSystemStatus(), {

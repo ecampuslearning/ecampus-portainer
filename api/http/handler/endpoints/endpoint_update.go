@@ -1,17 +1,22 @@
 package endpoints
 
 import (
+	"cmp"
 	"net/http"
 	"reflect"
 	"strconv"
+	"strings"
 
-	httperror "github.com/portainer/libhttp/error"
-	"github.com/portainer/libhttp/request"
-	"github.com/portainer/libhttp/response"
 	portainer "github.com/portainer/portainer/api"
+	"github.com/portainer/portainer/api/dataservices"
 	"github.com/portainer/portainer/api/http/client"
-	"github.com/portainer/portainer/api/internal/edge"
-	"github.com/portainer/portainer/api/internal/tag"
+	"github.com/portainer/portainer/api/internal/endpointutils"
+	"github.com/portainer/portainer/api/pendingactions/handlers"
+	httperror "github.com/portainer/portainer/pkg/libhttp/error"
+	"github.com/portainer/portainer/pkg/libhttp/request"
+	"github.com/portainer/portainer/pkg/libhttp/response"
+
+	"github.com/rs/zerolog/log"
 )
 
 type endpointUpdatePayload struct {
@@ -68,6 +73,7 @@ func (payload *endpointUpdatePayload) Validate(r *http.Request) error {
 // @success 200 {object} portainer.Endpoint "Success"
 // @failure 400 "Invalid request"
 // @failure 404 "Environment(Endpoint) not found"
+// @failure 409 "Name is not unique"
 // @failure 500 "Server error"
 // @router /endpoints/{id} [put]
 func (handler *Handler) endpointUpdate(w http.ResponseWriter, r *http.Request) *httperror.HandlerError {
@@ -77,8 +83,7 @@ func (handler *Handler) endpointUpdate(w http.ResponseWriter, r *http.Request) *
 	}
 
 	var payload endpointUpdatePayload
-	err = request.DecodeAndValidateJSONPayload(r, &payload)
-	if err != nil {
+	if err := request.DecodeAndValidateJSONPayload(r, &payload); err != nil {
 		return httperror.BadRequest("Invalid request payload", err)
 	}
 
@@ -89,79 +94,53 @@ func (handler *Handler) endpointUpdate(w http.ResponseWriter, r *http.Request) *
 		return httperror.InternalServerError("Unable to find an environment with the specified identifier inside the database", err)
 	}
 
+	updateEndpointProxy := shouldReloadTLSConfiguration(endpoint, &payload)
+
 	if payload.Name != nil {
 		name := *payload.Name
-		isUnique, err := handler.isNameUnique(name, endpoint.ID)
-		if err != nil {
+		if isUnique, err := handler.isNameUnique(name, endpoint.ID); err != nil {
 			return httperror.InternalServerError("Unable to check if name is unique", err)
-		}
-
-		if !isUnique {
-			return httperror.NewError(http.StatusConflict, "Name is not unique", nil)
+		} else if !isUnique {
+			return httperror.Conflict("Name is not unique", nil)
 		}
 
 		endpoint.Name = name
-
 	}
 
-	if payload.URL != nil {
+	if payload.URL != nil && *payload.URL != endpoint.URL {
 		endpoint.URL = *payload.URL
-	}
-
-	if payload.PublicURL != nil {
-		endpoint.PublicURL = *payload.PublicURL
+		updateEndpointProxy = true
 	}
 
 	if payload.Gpus != nil {
 		endpoint.Gpus = payload.Gpus
 	}
 
-	if payload.EdgeCheckinInterval != nil {
-		endpoint.EdgeCheckinInterval = *payload.EdgeCheckinInterval
-	}
+	endpoint.PublicURL = *cmp.Or(payload.PublicURL, &endpoint.PublicURL)
+	endpoint.EdgeCheckinInterval = *cmp.Or(payload.EdgeCheckinInterval, &endpoint.EdgeCheckinInterval)
 
-	groupIDChanged := false
+	updateRelations := false
+
 	if payload.GroupID != nil {
 		groupID := portainer.EndpointGroupID(*payload.GroupID)
-		groupIDChanged = groupID != endpoint.GroupID
+
+		updateRelations = updateRelations || groupID != endpoint.GroupID
 		endpoint.GroupID = groupID
 	}
 
-	tagsChanged := false
 	if payload.TagIDs != nil {
-		payloadTagSet := tag.Set(payload.TagIDs)
-		endpointTagSet := tag.Set((endpoint.TagIDs))
-		union := tag.Union(payloadTagSet, endpointTagSet)
-		intersection := tag.Intersection(payloadTagSet, endpointTagSet)
-		tagsChanged = len(union) > len(intersection)
-
-		if tagsChanged {
-			removeTags := tag.Difference(endpointTagSet, payloadTagSet)
-
-			for tagID := range removeTags {
-				err = handler.DataStore.Tag().UpdateTagFunc(tagID, func(tag *portainer.Tag) {
-					delete(tag.Endpoints, endpoint.ID)
-				})
-
-				if handler.DataStore.IsErrObjectNotFound(err) {
-					return httperror.InternalServerError("Unable to find a tag inside the database", err)
-				} else if err != nil {
-					return httperror.InternalServerError("Unable to persist tag changes inside the database", err)
-				}
+		if err := handler.DataStore.UpdateTx(func(tx dataservices.DataStoreTx) error {
+			tagsChanged, err := updateEnvironmentTags(tx, payload.TagIDs, endpoint.TagIDs, endpoint.ID)
+			if err != nil {
+				return err
 			}
 
 			endpoint.TagIDs = payload.TagIDs
-			for _, tagID := range payload.TagIDs {
-				err = handler.DataStore.Tag().UpdateTagFunc(tagID, func(tag *portainer.Tag) {
-					tag.Endpoints[endpoint.ID] = true
-				})
+			updateRelations = updateRelations || tagsChanged
 
-				if handler.DataStore.IsErrObjectNotFound(err) {
-					return httperror.InternalServerError("Unable to find a tag inside the database", err)
-				} else if err != nil {
-					return httperror.InternalServerError("Unable to persist tag changes inside the database", err)
-				}
-			}
+			return nil
+		}); err != nil {
+			return httperror.InternalServerError("Unable to update environment tags", err)
 		}
 	}
 
@@ -196,21 +175,24 @@ func (handler *Handler) endpointUpdate(w http.ResponseWriter, r *http.Request) *
 	}
 
 	if endpoint.Type == portainer.AzureEnvironment {
+		updateEndpointProxy = true
+
 		credentials := endpoint.AzureCredentials
 		if payload.AzureApplicationID != nil {
 			credentials.ApplicationID = *payload.AzureApplicationID
 		}
+
 		if payload.AzureTenantID != nil {
 			credentials.TenantID = *payload.AzureTenantID
 		}
+
 		if payload.AzureAuthenticationKey != nil {
 			credentials.AuthenticationKey = *payload.AzureAuthenticationKey
 		}
 
 		httpClient := client.NewHTTPClient()
-		_, authErr := httpClient.ExecuteAzureAuthenticationRequest(&credentials)
-		if authErr != nil {
-			return httperror.InternalServerError("Unable to authenticate against Azure", authErr)
+		if _, err := httpClient.ExecuteAzureAuthenticationRequest(&credentials); err != nil {
+			return httperror.InternalServerError("Unable to authenticate against Azure", err)
 		}
 		endpoint.AzureCredentials = credentials
 	}
@@ -245,87 +227,75 @@ func (handler *Handler) endpointUpdate(w http.ResponseWriter, r *http.Request) *
 					handler.FileService.DeleteTLSFile(folder, portainer.TLSFileKey)
 				}
 			}
-
 		} else {
 			endpoint.TLSConfig.TLS = false
 			endpoint.TLSConfig.TLSSkipVerify = false
 			endpoint.TLSConfig.TLSCACertPath = ""
 			endpoint.TLSConfig.TLSCertPath = ""
 			endpoint.TLSConfig.TLSKeyPath = ""
-			err = handler.FileService.DeleteTLSFiles(folder)
-			if err != nil {
+
+			if err := handler.FileService.DeleteTLSFiles(folder); err != nil {
 				return httperror.InternalServerError("Unable to remove TLS files from disk", err)
 			}
 		}
 
-		if endpoint.Type == portainer.AgentOnKubernetesEnvironment || endpoint.Type == portainer.EdgeAgentOnKubernetesEnvironment {
+		if !endpointutils.IsLocalEndpoint(endpoint) && endpointutils.IsKubernetesEndpoint(endpoint) {
 			endpoint.TLSConfig.TLS = true
 			endpoint.TLSConfig.TLSSkipVerify = true
 		}
 	}
 
-	if (payload.URL != nil && *payload.URL != endpoint.URL) || (payload.TLS != nil && endpoint.TLSConfig.TLS != *payload.TLS) || endpoint.Type == portainer.AzureEnvironment {
+	if updateEndpointProxy {
 		handler.ProxyManager.DeleteEndpointProxy(endpoint.ID)
-		_, err = handler.ProxyManager.CreateAndRegisterEndpointProxy(endpoint)
-		if err != nil {
+
+		if _, err := handler.ProxyManager.CreateAndRegisterEndpointProxy(endpoint); err != nil {
 			return httperror.InternalServerError("Unable to register HTTP proxy for the environment", err)
 		}
 	}
 
-	if updateAuthorizations {
-		if endpoint.Type == portainer.KubernetesLocalEnvironment || endpoint.Type == portainer.AgentOnKubernetesEnvironment || endpoint.Type == portainer.EdgeAgentOnKubernetesEnvironment {
-			err = handler.AuthorizationService.CleanNAPWithOverridePolicies(endpoint, nil)
-			if err != nil {
-				return httperror.InternalServerError("Unable to update user authorizations", err)
-			}
+	if updateAuthorizations && endpointutils.IsKubernetesEndpoint(endpoint) {
+		if err := handler.AuthorizationService.CleanNAPWithOverridePolicies(handler.DataStore, endpoint, nil); err != nil {
+			handler.PendingActionsService.Create(handlers.NewCleanNAPWithOverridePolicies(endpoint.ID, nil))
+			log.Warn().Err(err).Msgf("Unable to clean NAP with override policies for endpoint (%d). Will try to update when endpoint is online.", endpoint.ID)
 		}
 	}
 
-	err = handler.DataStore.Endpoint().UpdateEndpoint(endpoint.ID, endpoint)
-	if err != nil {
+	if err := handler.DataStore.Endpoint().UpdateEndpoint(endpoint.ID, endpoint); err != nil {
 		return httperror.InternalServerError("Unable to persist environment changes inside the database", err)
 	}
 
-	if (endpoint.Type == portainer.EdgeAgentOnDockerEnvironment || endpoint.Type == portainer.EdgeAgentOnKubernetesEnvironment) && (groupIDChanged || tagsChanged) {
-		relation, err := handler.DataStore.EndpointRelation().EndpointRelation(endpoint.ID)
-		if err != nil {
-			return httperror.InternalServerError("Unable to find environment relation inside the database", err)
-		}
-
-		endpointGroup, err := handler.DataStore.EndpointGroup().EndpointGroup(endpoint.GroupID)
-		if err != nil {
-			return httperror.InternalServerError("Unable to find environment group inside the database", err)
-		}
-
-		edgeGroups, err := handler.DataStore.EdgeGroup().EdgeGroups()
-		if err != nil {
-			return httperror.InternalServerError("Unable to retrieve edge groups from the database", err)
-		}
-
-		edgeStacks, err := handler.DataStore.EdgeStack().EdgeStacks()
-		if err != nil {
-			return httperror.InternalServerError("Unable to retrieve edge stacks from the database", err)
-		}
-
-		currentEdgeStackSet := map[portainer.EdgeStackID]bool{}
-
-		endpointEdgeStacks := edge.EndpointRelatedEdgeStacks(endpoint, endpointGroup, edgeGroups, edgeStacks)
-		for _, edgeStackID := range endpointEdgeStacks {
-			currentEdgeStackSet[edgeStackID] = true
-		}
-
-		relation.EdgeStacks = currentEdgeStackSet
-
-		err = handler.DataStore.EndpointRelation().UpdateEndpointRelation(endpoint.ID, relation)
-		if err != nil {
-			return httperror.InternalServerError("Unable to persist environment relation changes inside the database", err)
+	if updateRelations {
+		if err := handler.DataStore.UpdateTx(func(tx dataservices.DataStoreTx) error {
+			return handler.updateEdgeRelations(tx, endpoint)
+		}); err != nil {
+			return httperror.InternalServerError("Unable to update environment relations", err)
 		}
 	}
 
-	err = handler.SnapshotService.FillSnapshotData(endpoint)
-	if err != nil {
+	if err := handler.SnapshotService.FillSnapshotData(endpoint, true); err != nil {
 		return httperror.InternalServerError("Unable to add snapshot data", err)
 	}
 
 	return response.JSON(w, endpoint)
+}
+
+func shouldReloadTLSConfiguration(endpoint *portainer.Endpoint, payload *endpointUpdatePayload) bool {
+	// If we change anything in the tls config then we need to reload the proxy
+	if payload.TLS != nil && endpoint.TLSConfig.TLS != *payload.TLS {
+		return true
+	}
+
+	// When updating Docker API environment, as long as TLS is true and TLSSkipVerify is false,
+	// we assume that new TLS files have been uploaded and we need to reload the TLS configuration.
+	if endpoint.Type != portainer.DockerEnvironment ||
+		(payload.URL != nil && !strings.HasPrefix(*payload.URL, "tcp://")) ||
+		payload.TLS == nil || !*payload.TLS {
+		return false
+	}
+
+	if payload.TLSSkipVerify != nil && !*payload.TLSSkipVerify {
+		return true
+	}
+
+	return payload.TLSSkipClientVerify != nil && !*payload.TLSSkipClientVerify
 }

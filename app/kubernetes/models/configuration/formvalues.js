@@ -9,11 +9,13 @@ const _KubernetesConfigurationFormValues = Object.freeze({
   Name: '',
   ConfigurationOwner: '',
   Kind: KubernetesConfigurationKinds.CONFIGMAP,
+  kind: 'ConfigMap',
   Data: [],
   DataYaml: '',
   IsSimple: true,
   ServiceAccountName: '',
   Type: KubernetesSecretTypeOptions.OPAQUE.value,
+  Labels: {},
 });
 
 export class KubernetesConfigurationFormValues {

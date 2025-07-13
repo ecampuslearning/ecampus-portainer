@@ -1,29 +1,28 @@
 import angular from 'angular';
 
 import { r2a } from '@/react-tools/react2angular';
-import {
-  DefaultRegistryAction,
-  DefaultRegistryDomain,
-  DefaultRegistryName,
-} from '@/react/portainer/registries/ListView/DefaultRegistry';
-import { Icon } from '@/react/components/Icon';
-import { ReactQueryDevtoolsWrapper } from '@/react/components/ReactQueryDevtoolsWrapper';
-import { AccessControlPanel } from '@/react/portainer/access-control';
 import { withCurrentUser } from '@/react-tools/withCurrentUser';
 import { withReactQuery } from '@/react-tools/withReactQuery';
 import { withUIRouter } from '@/react-tools/withUIRouter';
-import { SettingsFDO } from '@/react/portainer/settings/EdgeComputeView/SettingsFDO';
-import { SettingsOpenAMT } from '@/react/portainer/settings/EdgeComputeView/SettingsOpenAMT';
-import { InternalAuth } from '@/react/portainer/settings/AuthenticationView/InternalAuth';
-import { PorAccessControlFormTeamSelector } from '@/react/portainer/access-control/PorAccessControlForm/TeamsSelector';
-import { PorAccessControlFormUserSelector } from '@/react/portainer/access-control/PorAccessControlForm/UsersSelector';
-import { PorAccessManagementUsersSelector } from '@/react/portainer/access-control/AccessManagement/PorAccessManagementUsersSelector';
+import { AnnotationsBeTeaser } from '@/react/kubernetes/annotations/AnnotationsBeTeaser';
+import { withFormValidation } from '@/react-tools/withFormValidation';
+import { GroupAssociationTable } from '@/react/portainer/environments/environment-groups/components/GroupAssociationTable';
+import { AssociatedEnvironmentsSelector } from '@/react/portainer/environments/environment-groups/components/AssociatedEnvironmentsSelector';
+import { withControlledInput } from '@/react-tools/withControlledInput';
+import { NamespacePortainerSelect } from '@/react/kubernetes/applications/components/NamespaceSelector/NamespaceSelector';
 
+import {
+  EnvironmentVariablesFieldset,
+  EnvironmentVariablesPanel,
+  StackEnvironmentVariablesPanel,
+  envVarValidation,
+} from '@@/form-components/EnvironmentVariablesFieldset';
+import { Icon } from '@@/Icon';
+import { ReactQueryDevtoolsWrapper } from '@@/ReactQueryDevtoolsWrapper';
 import { PageHeader } from '@@/PageHeader';
 import { TagSelector } from '@@/TagSelector';
 import { Loading } from '@@/Widget/Loading';
 import { PasswordCheckHint } from '@@/PasswordCheckHint';
-import { ViewLoading } from '@@/ViewLoading';
 import { Tooltip } from '@@/Tip/Tooltip';
 import { Badge } from '@@/Badge';
 import { TableColumnHeaderAngular } from '@@/datatables/TableHeaderCell';
@@ -32,20 +31,50 @@ import { SearchBar } from '@@/datatables/SearchBar';
 import { FallbackImage } from '@@/FallbackImage';
 import { BadgeIcon } from '@@/BadgeIcon';
 import { TeamsSelector } from '@@/TeamsSelector';
+import { TerminalTooltip } from '@@/TerminalTooltip';
 import { PortainerSelect } from '@@/form-components/PortainerSelect';
 import { Slider } from '@@/form-components/Slider';
 import { TagButton } from '@@/TagButton';
 import { BETeaserButton } from '@@/BETeaserButton';
+import { CodeEditor } from '@@/CodeEditor';
+import { HelpLink } from '@@/HelpLink';
+import { TextTip } from '@@/Tip/TextTip';
+import { InlineLoader } from '@@/InlineLoader/InlineLoader';
 
 import { fileUploadField } from './file-upload-field';
 import { switchField } from './switch-field';
 import { customTemplatesModule } from './custom-templates';
+import { gitFormModule } from './git-form';
+import { settingsModule } from './settings';
+import { accessControlModule } from './access-control';
+import { environmentsModule } from './environments';
+import { registriesModule } from './registries';
+import { accountModule } from './account';
+import { usersModule } from './users';
+import { activityLogsModule } from './activity-logs';
+import { rbacModule } from './rbac';
 
-export const componentsModule = angular
-  .module('portainer.app.react.components', [customTemplatesModule])
+export const ngModule = angular
+  .module('portainer.app.react.components', [
+    accessControlModule,
+    customTemplatesModule,
+    environmentsModule,
+    gitFormModule,
+    registriesModule,
+    settingsModule,
+    accountModule,
+    usersModule,
+    activityLogsModule,
+    rbacModule,
+  ])
   .component(
     'tagSelector',
-    r2a(withReactQuery(TagSelector), ['allowCreate', 'onChange', 'value'])
+    r2a(withUIRouter(withReactQuery(TagSelector)), [
+      'allowCreate',
+      'onChange',
+      'value',
+      'errors',
+    ])
   )
   .component(
     'beTeaserButton',
@@ -55,17 +84,20 @@ export const componentsModule = angular
       'message',
       'buttonText',
       'className',
-      'icon',
+      'buttonClassName',
+      'data-cy',
     ])
   )
   .component(
     'tagButton',
     r2a(TagButton, ['value', 'label', 'title', 'onRemove'])
   )
+
   .component(
     'portainerTooltip',
-    r2a(Tooltip, ['message', 'position', 'className', 'setHtmlMessage'])
+    r2a(Tooltip, ['message', 'position', 'className', 'setHtmlMessage', 'size'])
   )
+  .component('terminalTooltip', r2a(TerminalTooltip, []))
   .component('badge', r2a(Badge, ['type', 'className']))
   .component('fileUploadField', fileUploadField)
   .component('porSwitchField', switchField)
@@ -86,7 +118,6 @@ export const componentsModule = angular
       'isSortedDesc',
     ])
   )
-  .component('viewLoading', r2a(ViewLoading, ['message']))
   .component(
     'pageHeader',
     r2a(withUIRouter(withReactQuery(withCurrentUser(PageHeader))), [
@@ -100,13 +131,36 @@ export const componentsModule = angular
   )
   .component(
     'fallbackImage',
-    r2a(FallbackImage, ['src', 'fallbackIcon', 'alt', 'size', 'className'])
+    r2a(FallbackImage, ['src', 'fallbackIcon', 'alt', 'className'])
   )
-  .component('prIcon', r2a(Icon, ['className', 'icon', 'mode', 'size']))
-  .component('reactQueryDevTools', r2a(ReactQueryDevtoolsWrapper, []))
+  .component('prIcon', r2a(Icon, ['className', 'icon', 'mode', 'size', 'spin']))
+  .component(
+    'reactQueryDevTools',
+    r2a(withReactQuery(ReactQueryDevtoolsWrapper), [])
+  )
+  .component(
+    'helpLink',
+    r2a(withUIRouter(withReactQuery(HelpLink)), [
+      'docLink',
+      'target',
+      'children',
+    ])
+  )
   .component(
     'dashboardItem',
-    r2a(DashboardItem, ['icon', 'type', 'value', 'children'])
+    r2a(DashboardItem, [
+      'icon',
+      'type',
+      'value',
+      'to',
+      'params',
+      'children',
+      'pluralType',
+      'isLoading',
+      'isRefetching',
+      'data-cy',
+      'iconClass',
+    ])
   )
   .component(
     'datatableSearchbar',
@@ -119,39 +173,7 @@ export const componentsModule = angular
       'className',
     ])
   )
-  .component('badgeIcon', r2a(BadgeIcon, ['icon', 'size']))
-  .component(
-    'accessControlPanel',
-    r2a(withUIRouter(withReactQuery(withCurrentUser(AccessControlPanel))), [
-      'disableOwnershipChange',
-      'onUpdateSuccess',
-      'resourceControl',
-      'resourceId',
-      'resourceType',
-      'environmentId',
-    ])
-  )
-  .component(
-    'defaultRegistryName',
-    r2a(withReactQuery(DefaultRegistryName), [])
-  )
-  .component(
-    'defaultRegistryAction',
-    r2a(withReactQuery(DefaultRegistryAction), [])
-  )
-  .component(
-    'defaultRegistryDomain',
-    r2a(withReactQuery(DefaultRegistryDomain), [])
-  )
-  .component(
-    'settingsFdo',
-    r2a(withUIRouter(withReactQuery(SettingsFDO)), ['onSubmit', 'settings'])
-  )
-  .component('settingsOpenAmt', r2a(SettingsOpenAMT, ['onSubmit', 'settings']))
-  .component(
-    'internalAuth',
-    r2a(InternalAuth, ['onSaveSettings', 'isLoading', 'value', 'onChange'])
-  )
+  .component('badgeIcon', r2a(BadgeIcon, ['icon', 'size', 'iconClass']))
   .component(
     'teamsSelector',
     r2a(TeamsSelector, [
@@ -163,24 +185,6 @@ export const componentsModule = angular
       'placeholder',
       'teams',
       'disabled',
-    ])
-  )
-  .component(
-    'porAccessControlFormTeamSelector',
-    r2a(PorAccessControlFormTeamSelector, [
-      'inputId',
-      'onChange',
-      'options',
-      'value',
-    ])
-  )
-  .component(
-    'porAccessControlFormUserSelector',
-    r2a(PorAccessControlFormUserSelector, [
-      'inputId',
-      'onChange',
-      'options',
-      'value',
     ])
   )
   .component(
@@ -196,7 +200,22 @@ export const componentsModule = angular
       'onChange',
       'options',
       'isMulti',
+      'filterOption',
       'isClearable',
+      'components',
+      'isLoading',
+      'noOptionsMessage',
+      'aria-label',
+      'loadingMessage',
+    ])
+  )
+  .component(
+    'namespacePortainerSelect',
+    r2a(NamespacePortainerSelect, [
+      'value',
+      'onChange',
+      'isDisabled',
+      'options',
     ])
   )
   .component(
@@ -209,9 +228,86 @@ export const componentsModule = angular
       'onChange',
       'visibleTooltip',
       'dataCy',
+      'disabled',
     ])
   )
   .component(
-    'porAccessManagementUsersSelector',
-    r2a(PorAccessManagementUsersSelector, ['onChange', 'options', 'value'])
-  ).name;
+    'reactCodeEditor',
+    r2a(CodeEditor, [
+      'id',
+      'textTip',
+      'type',
+      'readonly',
+      'onChange',
+      'value',
+      'height',
+      'data-cy',
+      'versions',
+      'onVersionChange',
+      'schema',
+      'fileName',
+      'placeholder',
+      'showToolbar',
+    ])
+  )
+  .component(
+    'textTip',
+    r2a(TextTip, [
+      'className',
+      'color',
+      'icon',
+      'inline',
+      'children',
+      'childrenWrapperClassName',
+    ])
+  )
+  .component(
+    'inlineLoader',
+    r2a(InlineLoader, ['children', 'className', 'size'])
+  )
+  .component(
+    'groupAssociationTable',
+    r2a(withReactQuery(GroupAssociationTable), [
+      'onClickRow',
+      'query',
+      'title',
+      'data-cy',
+    ])
+  )
+  .component('annotationsBeTeaser', r2a(AnnotationsBeTeaser, []))
+  .component(
+    'associatedEndpointsSelector',
+    r2a(withReactQuery(AssociatedEnvironmentsSelector), ['onChange', 'value'])
+  );
+
+export const componentsModule = ngModule.name;
+
+withFormValidation(
+  ngModule,
+  withControlledInput(EnvironmentVariablesFieldset, { values: 'onChange' }),
+  'environmentVariablesFieldset',
+  ['canUndoDelete'],
+  envVarValidation
+);
+
+withFormValidation(
+  ngModule,
+  withControlledInput(EnvironmentVariablesPanel, { values: 'onChange' }),
+  'environmentVariablesPanel',
+  ['explanation', 'showHelpMessage', 'isFoldable'],
+  envVarValidation
+);
+
+withFormValidation(
+  ngModule,
+  withUIRouter(
+    withReactQuery(
+      withControlledInput(StackEnvironmentVariablesPanel, {
+        values: 'onChange',
+      })
+    )
+  ),
+  'stackEnvironmentVariablesPanel',
+  ['showHelpMessage', 'isFoldable'],
+  envVarValidation
+);

@@ -4,10 +4,12 @@ import (
 	"net/http"
 	"regexp"
 
+	ceplf "github.com/portainer/portainer/api/platform"
+	httperror "github.com/portainer/portainer/pkg/libhttp/error"
+	"github.com/portainer/portainer/pkg/libhttp/request"
+	"github.com/portainer/portainer/pkg/libhttp/response"
+
 	"github.com/pkg/errors"
-	httperror "github.com/portainer/libhttp/error"
-	"github.com/portainer/libhttp/request"
-	"github.com/portainer/libhttp/response"
 )
 
 type systemUpgradePayload struct {
@@ -34,7 +36,7 @@ func (payload *systemUpgradePayload) Validate(r *http.Request) error {
 // @description **Access policy**: administrator
 // @tags system
 // @produce json
-// @success 200 {object} status "Success"
+// @success 204 {object} status "Success"
 // @router /system/upgrade [post]
 func (handler *Handler) systemUpgrade(w http.ResponseWriter, r *http.Request) *httperror.HandlerError {
 	payload, err := request.GetPayload[systemUpgradePayload](r)
@@ -42,8 +44,20 @@ func (handler *Handler) systemUpgrade(w http.ResponseWriter, r *http.Request) *h
 		return httperror.BadRequest("Invalid request payload", err)
 	}
 
-	err = handler.upgradeService.Upgrade(payload.License)
+	environment, err := handler.platformService.GetLocalEnvironment()
 	if err != nil {
+		if errors.Is(err, ceplf.ErrNoLocalEnvironment) {
+			return httperror.NotFound("The system upgrade feature is disabled because no local environment was detected.", err)
+		}
+		return httperror.InternalServerError("Failed to get local environment", err)
+	}
+
+	platform, err := handler.platformService.GetPlatform()
+	if err != nil {
+		return httperror.InternalServerError("Failed to get platform", err)
+	}
+
+	if err := handler.upgradeService.Upgrade(platform, environment, payload.License); err != nil {
 		return httperror.InternalServerError("Failed to upgrade Portainer", err)
 	}
 

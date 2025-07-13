@@ -5,6 +5,7 @@ import { useAgentDetails } from '@/react/portainer/environments/queries/useAgent
 import { Code } from '@@/Code';
 import { CopyButton } from '@@/buttons/CopyButton';
 import { NavTabs } from '@@/NavTabs';
+import { NavContainer } from '@@/NavTabs/NavContainer';
 
 import { ScriptFormValues, Platform } from './types';
 import { CommandTab } from './scripts';
@@ -16,7 +17,7 @@ interface Props {
   commands: CommandTab[];
   platform?: Platform;
   onPlatformChange?(platform: Platform): void;
-  hideAsyncMode?: boolean;
+  asyncMode?: boolean;
 }
 
 export function ScriptTabs({
@@ -25,7 +26,7 @@ export function ScriptTabs({
   edgeId,
   commands,
   platform,
-  hideAsyncMode = false,
+  asyncMode = false,
   onPlatformChange = () => {},
 }: Props) {
   const agentDetails = useAgentDetails();
@@ -40,14 +41,14 @@ export function ScriptTabs({
     return null;
   }
 
-  const { agentSecret, agentVersion, useEdgeAsyncMode } = agentDetails;
+  const { agentSecret, agentVersion } = agentDetails;
 
   const options = commands.map((c) => {
     const cmd = c.command(
       agentVersion,
       edgeKey,
       values,
-      !hideAsyncMode && useEdgeAsyncMode,
+      asyncMode,
       edgeId,
       agentSecret
     );
@@ -58,21 +59,23 @@ export function ScriptTabs({
       children: (
         <>
           <Code>{cmd}</Code>
-          <CopyButton copyText={cmd}>Copy</CopyButton>
+          <div className="mt-2">
+            <CopyButton copyText={cmd} data-cy="copy-edge-script-button">
+              Copy
+            </CopyButton>
+          </div>
         </>
       ),
     };
   });
 
   return (
-    <div className="row">
-      <div className="col-sm-12">
-        <NavTabs
-          selectedId={platform}
-          options={options}
-          onSelect={(id: Platform) => onPlatformChange(id)}
-        />
-      </div>
-    </div>
+    <NavContainer>
+      <NavTabs
+        selectedId={platform}
+        options={options}
+        onSelect={(id: Platform) => onPlatformChange(id)}
+      />
+    </NavContainer>
   );
 }

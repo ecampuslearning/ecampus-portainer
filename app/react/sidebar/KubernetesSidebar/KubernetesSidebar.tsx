@@ -1,14 +1,21 @@
-import { Box, Edit, Layers, Lock, Server } from 'lucide-react';
+import {
+  Box,
+  Edit,
+  Layers,
+  LayoutList,
+  Lock,
+  Network,
+  Server,
+} from 'lucide-react';
 
 import { EnvironmentId } from '@/react/portainer/environments/types';
 import { Authorized } from '@/react/hooks/useUser';
-import Helm from '@/assets/ico/vendor/helm.svg?c';
-import Route from '@/assets/ico/route.svg?c';
+import { isBE } from '@/react/portainer/feature-flags/feature-flags.service';
 
 import { DashboardLink } from '../items/DashboardLink';
 import { SidebarItem } from '../SidebarItem';
 import { VolumesLink } from '../items/VolumesLink';
-import { useSidebarState } from '../useSidebarState';
+import { SidebarParent } from '../SidebarItem/SidebarParent';
 
 import { KubectlShellButton } from './KubectlShell';
 
@@ -17,15 +24,11 @@ interface Props {
 }
 
 export function KubernetesSidebar({ environmentId }: Props) {
-  const { isOpen } = useSidebarState();
-
   return (
     <>
-      {isOpen && (
-        <div className="mb-3">
-          <KubectlShellButton environmentId={environmentId} />
-        </div>
-      )}
+      <div className="w-full flex mb-2 justify-center -mt-2">
+        <KubectlShellButton environmentId={environmentId} />
+      </div>
 
       <DashboardLink
         environmentId={environmentId}
@@ -49,19 +52,6 @@ export function KubernetesSidebar({ environmentId }: Props) {
         data-cy="k8sSidebar-namespaces"
       />
 
-      <Authorized
-        authorizations="HelmInstallChart"
-        environmentId={environmentId}
-      >
-        <SidebarItem
-          to="kubernetes.templates.helm"
-          params={{ endpointId: environmentId }}
-          icon={Helm}
-          label="Helm"
-          data-cy="k8sSidebar-helm"
-        />
-      </Authorized>
-
       <SidebarItem
         to="kubernetes.applications"
         params={{ endpointId: environmentId }}
@@ -70,13 +60,31 @@ export function KubernetesSidebar({ environmentId }: Props) {
         data-cy="k8sSidebar-applications"
       />
 
-      <SidebarItem
-        to="kubernetes.ingresses"
+      <SidebarParent
+        label="Networking"
+        icon={Network}
+        to="kubernetes.services"
         params={{ endpointId: environmentId }}
-        label="Ingresses"
-        data-cy="k8sSidebar-ingresses"
-        icon={Route}
-      />
+        pathOptions={{ includePaths: ['kubernetes.ingresses'] }}
+        data-cy="k8sSidebar-networking"
+        listId="k8sSidebar-networking"
+      >
+        <SidebarItem
+          to="kubernetes.services"
+          params={{ endpointId: environmentId }}
+          label="Services"
+          isSubMenu
+          data-cy="k8sSidebar-services"
+        />
+
+        <SidebarItem
+          to="kubernetes.ingresses"
+          params={{ endpointId: environmentId }}
+          label="Ingresses"
+          isSubMenu
+          data-cy="k8sSidebar-ingresses"
+        />
+      </SidebarParent>
 
       <SidebarItem
         to="kubernetes.configurations"
@@ -92,13 +100,77 @@ export function KubernetesSidebar({ environmentId }: Props) {
         data-cy="k8sSidebar-volumes"
       />
 
-      <SidebarItem
-        label="Cluster"
-        to="kubernetes.cluster"
-        icon={Server}
+      <SidebarParent
+        label="More Resources"
+        to="kubernetes.moreResources.jobs"
+        pathOptions={{
+          includePaths: [
+            'kubernetes.moreResources.serviceAccounts',
+            'kubernetes.moreResources.clusterRoles',
+            'kubernetes.moreResources.roles',
+          ],
+        }}
+        icon={LayoutList}
         params={{ endpointId: environmentId }}
-        data-cy="k8sSidebar-cluster"
+        data-cy="k8sSidebar-moreResources"
+        listId="k8sSidebar-moreResources"
       >
+        <SidebarItem
+          to="kubernetes.moreResources.jobs"
+          params={{ endpointId: environmentId }}
+          label="Cron Jobs & Jobs"
+          data-cy="k8sSidebar-jobs"
+          isSubMenu
+        />
+        <Authorized
+          authorizations="K8sMoreResourcesRW"
+          adminOnlyCE
+          environmentId={environmentId}
+        >
+          <SidebarItem
+            to="kubernetes.moreResources.serviceAccounts"
+            params={{ endpointId: environmentId }}
+            label="Service Accounts"
+            data-cy="k8sSidebar-serviceAccounts"
+            isSubMenu
+          />
+          <SidebarItem
+            to="kubernetes.moreResources.clusterRoles"
+            params={{ endpointId: environmentId }}
+            label="Cluster Roles"
+            data-cy="k8sSidebar-clusterRoles"
+            isSubMenu
+          />
+          <SidebarItem
+            to="kubernetes.moreResources.roles"
+            params={{ endpointId: environmentId }}
+            label="Roles"
+            data-cy="k8sSidebar-Roles"
+            isSubMenu
+          />
+        </Authorized>
+      </SidebarParent>
+
+      <SidebarParent
+        label="Cluster"
+        icon={Server}
+        to="kubernetes.cluster"
+        params={{ endpointId: environmentId }}
+        pathOptions={{ includePaths: ['kubernetes.registries'] }}
+        data-cy="k8sSidebar-cluster-area"
+        listId="k8sSidebar-cluster-area"
+      >
+        <SidebarItem
+          label="Details"
+          to="kubernetes.cluster"
+          ignorePaths={[
+            'kubernetes.cluster.setup',
+            'kubernetes.cluster.securityConstraint',
+          ]}
+          params={{ endpointId: environmentId }}
+          isSubMenu
+          data-cy="k8sSidebar-cluster"
+        />
         <Authorized
           authorizations="K8sClusterSetupRW"
           adminOnlyCE
@@ -108,6 +180,7 @@ export function KubernetesSidebar({ environmentId }: Props) {
             to="kubernetes.cluster.setup"
             params={{ endpointId: environmentId }}
             label="Setup"
+            isSubMenu
             data-cy="k8sSidebar-setup"
           />
         </Authorized>
@@ -121,17 +194,35 @@ export function KubernetesSidebar({ environmentId }: Props) {
             to="kubernetes.cluster.securityConstraint"
             params={{ endpointId: environmentId }}
             label="Security constraints"
+            isSubMenu
             data-cy="k8sSidebar-securityConstraints"
           />
         </Authorized>
+
+        {isBE && (
+          <Authorized
+            authorizations="K8sClusterSetupRW"
+            adminOnlyCE
+            environmentId={environmentId}
+          >
+            <SidebarItem
+              to="kubernetes.cluster.securityConstraint"
+              params={{ endpointId: environmentId }}
+              label="Security Constraints"
+              isSubMenu
+              data-cy="k8sSidebar-securityConstraints"
+            />
+          </Authorized>
+        )}
 
         <SidebarItem
           to="kubernetes.registries"
           params={{ endpointId: environmentId }}
           label="Registries"
+          isSubMenu
           data-cy="k8sSidebar-registries"
         />
-      </SidebarItem>
+      </SidebarParent>
     </>
   );
 }

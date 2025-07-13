@@ -1,29 +1,18 @@
-import { CellProps, Column } from 'react-table';
-import _ from 'lodash';
+import { CellContext } from '@tanstack/react-table';
 
-import { EdgeGroup } from '@/react/edge/edge-groups/types';
-import { useEdgeGroups } from '@/react/edge/edge-groups/queries/useEdgeGroups';
+import { DecoratedItem } from '../types';
 
-import { EdgeUpdateListItemResponse } from '../../queries/list';
+import { columnHelper } from './helper';
 
-export const groups: Column<EdgeUpdateListItemResponse> = {
-  Header: 'Groups',
-  accessor: 'edgeGroupIds',
-  Cell: GroupsCell,
-  disableFilters: true,
-  Filter: () => null,
-  canHide: false,
-  disableSortBy: true,
-};
+export const groups = columnHelper.accessor('edgeGroupNames', {
+  header: 'Edge Groups',
+  cell: GroupsCell,
+});
 
 export function GroupsCell({
-  value: groupsIds,
-}: CellProps<EdgeUpdateListItemResponse, Array<EdgeGroup['Id']>>) {
-  const groupsQuery = useEdgeGroups();
+  getValue,
+}: CellContext<DecoratedItem, Array<string>>) {
+  const groups = getValue();
 
-  const groups = _.compact(
-    groupsIds.map((id) => groupsQuery.data?.find((g) => g.Id === id))
-  );
-
-  return groups.map((g) => g.Name).join(', ');
+  return groups.join(', ');
 }

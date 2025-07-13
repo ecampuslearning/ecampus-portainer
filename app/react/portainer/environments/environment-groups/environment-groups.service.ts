@@ -1,13 +1,16 @@
 import axios, { parseAxiosError } from '@/portainer/services/axios';
 
-import { EnvironmentGroup, EnvironmentGroupId } from './types';
+import { EnvironmentGroupId } from '../types';
+
+import { buildUrl } from './queries/build-url';
+import { EnvironmentGroup } from './types';
 
 export async function getGroup(id: EnvironmentGroupId) {
   try {
     const { data: group } = await axios.get<EnvironmentGroup>(buildUrl(id));
     return group;
   } catch (e) {
-    throw parseAxiosError(e as Error, '');
+    throw parseAxiosError(e, 'Unable to retrieve group');
   }
 }
 
@@ -16,20 +19,6 @@ export async function getGroups() {
     const { data: groups } = await axios.get<EnvironmentGroup[]>(buildUrl());
     return groups;
   } catch (e) {
-    throw parseAxiosError(e as Error, '');
+    throw parseAxiosError(e, 'Unable to retrieve groups');
   }
-}
-
-function buildUrl(id?: EnvironmentGroupId, action?: string) {
-  let url = '/endpoint_groups';
-
-  if (id) {
-    url += `/${id}`;
-  }
-
-  if (action) {
-    url += `/${action}`;
-  }
-
-  return url;
 }

@@ -1,5 +1,5 @@
-import { render } from '@testing-library/react';
 import { PropsWithChildren } from 'react';
+import { render } from '@testing-library/react';
 
 import { Switch, Props } from './Switch';
 
@@ -8,7 +8,13 @@ function renderDefault({
   checked = false,
 }: Partial<PropsWithChildren<Props>> = {}) {
   return render(
-    <Switch id="id" name={name} checked={checked} onChange={() => {}} />
+    <Switch
+      id="id"
+      name={name}
+      checked={checked}
+      onChange={() => {}}
+      data-cy="switch"
+    />
   );
 }
 

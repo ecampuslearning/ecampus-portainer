@@ -1,11 +1,12 @@
-import { Column } from 'react-table';
+import { formatDate } from '@/portainer/filters/filters';
 
-import { EdgeUpdateListItemResponse } from '../../queries/list';
+import { FORMAT } from '@@/DateTimeField';
 
-export const scheduledTime: Column<EdgeUpdateListItemResponse> = {
-  Header: 'Scheduled Time & Date',
-  accessor: (row) => row.scheduledTime,
-  disableFilters: true,
-  Filter: () => null,
-  canHide: false,
-};
+import { columnHelper } from './helper';
+
+export const scheduledTime = columnHelper.accessor('scheduledTime', {
+  header: 'Scheduled Time & Date',
+  // make sure the value has the right format
+  cell: ({ getValue }) => formatDate(getValue(), FORMAT, FORMAT),
+  id: 'time',
+});

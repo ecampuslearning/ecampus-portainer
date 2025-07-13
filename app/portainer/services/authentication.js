@@ -1,48 +1,57 @@
+import { hasAuthorizations as useUserHasAuthorization } from '@/react/hooks/useUser';
+import { getCurrentUser } from '../users/queries/useLoadCurrentUser';
+import * as userHelpers from '../users/user.helpers';
 import { clear as clearSessionStorage } from './session-storage';
-
 const DEFAULT_USER = 'admin';
 const DEFAULT_PASSWORD = 'K7yJPP5qNK4hf1QsRnfV';
 
 angular.module('portainer.app').factory('Authentication', [
   '$async',
+  '$state',
   'Auth',
   'OAuth',
-  'jwtHelper',
   'LocalStorage',
   'StateManager',
   'EndpointProvider',
-  'UserService',
   'ThemeManager',
-  function AuthenticationFactory($async, Auth, OAuth, jwtHelper, LocalStorage, StateManager, EndpointProvider, UserService, ThemeManager) {
+  function AuthenticationFactory($async, $state, Auth, OAuth, LocalStorage, StateManager, EndpointProvider, ThemeManager) {
     'use strict';
 
-    var service = {};
     var user = {};
+    if (process.env.NODE_ENV === 'development') {
+      window.login = loginAsync;
+    }
 
-    service.init = init;
-    service.OAuthLogin = OAuthLogin;
-    service.login = login;
-    service.logout = logout;
-    service.isAuthenticated = isAuthenticated;
-    service.getUserDetails = getUserDetails;
-    service.isAdmin = isAdmin;
+    return {
+      init,
+      OAuthLogin,
+      login,
+      logout,
+      isAuthenticated,
+      getUserDetails,
+      isAdmin,
+      isEdgeAdmin,
+      isPureAdmin,
+      hasAuthorizations,
+      redirectIfUnauthorized,
+    };
 
     async function initAsync() {
       try {
-        const jwt = LocalStorage.getJWT();
-        if (!jwt || jwtHelper.isTokenExpired(jwt)) {
-          return tryAutoLoginExtension();
+        const userId = LocalStorage.getUserId();
+        if (userId && user.ID === userId) {
+          return true;
         }
-        await setUser(jwt);
+        await tryAutoLoginExtension();
+        await loadUserData();
         return true;
       } catch (error) {
-        console.log('Unable to initialize authentication service', error);
         return tryAutoLoginExtension();
       }
     }
 
-    async function logoutAsync(performApiLogout) {
-      if (performApiLogout) {
+    async function logoutAsync() {
+      if (isAuthenticated()) {
         await Auth.logout().$promise;
       }
 
@@ -52,10 +61,11 @@ angular.module('portainer.app').factory('Authentication', [
       LocalStorage.cleanAuthData();
       LocalStorage.storeLoginStateUUID('');
       tryAutoLoginExtension();
+      cleanUserData();
     }
 
-    function logout(performApiLogout) {
-      return $async(logoutAsync, performApiLogout);
+    function logout() {
+      return $async(logoutAsync);
     }
 
     function init() {
@@ -63,16 +73,8 @@ angular.module('portainer.app').factory('Authentication', [
     }
 
     async function OAuthLoginAsync(code) {
-      const response = await OAuth.validate({ code: code }).$promise;
-      const jwt = setJWTFromResponse(response);
-      await setUser(jwt);
-    }
-
-    function setJWTFromResponse(response) {
-      const jwt = response.jwt;
-      LocalStorage.storeJWT(jwt);
-
-      return response.jwt;
+      await OAuth.validate({ code: code }).$promise;
+      await loadUserData();
     }
 
     function OAuthLogin(code) {
@@ -80,9 +82,8 @@ angular.module('portainer.app').factory('Authentication', [
     }
 
     async function loginAsync(username, password) {
-      const response = await Auth.login({ username: username, password: password }).$promise;
-      const jwt = setJWTFromResponse(response);
-      await setUser(jwt);
+      await Auth.login({ username: username, password: password }).$promise;
+      await loadUserData();
     }
 
     function login(username, password) {
@@ -90,33 +91,35 @@ angular.module('portainer.app').factory('Authentication', [
     }
 
     function isAuthenticated() {
-      var jwt = LocalStorage.getJWT();
-      return !!jwt && !jwtHelper.isTokenExpired(jwt);
+      return !!user.ID;
     }
 
     function getUserDetails() {
       return user;
     }
 
-    async function setUserTheme() {
-      const data = await UserService.user(user.ID);
+    function cleanUserData() {
+      user = {};
+    }
+
+    async function loadUserData() {
+      const userData = await getCurrentUser();
+      user.username = userData.Username;
+      user.ID = userData.Id;
+      user.role = userData.Role;
+      user.forceChangePassword = userData.forceChangePassword;
+      user.endpointAuthorizations = userData.EndpointAuthorizations;
+      user.portainerAuthorizations = userData.PortainerAuthorizations;
 
       // Initialize user theme base on UserTheme from database
-      const userTheme = data.UserTheme;
+      const userTheme = userData.ThemeSettings ? userData.ThemeSettings.color : 'auto';
       if (userTheme === 'auto' || !userTheme) {
         ThemeManager.autoTheme();
       } else {
         ThemeManager.setTheme(userTheme);
       }
-    }
 
-    async function setUser(jwt) {
-      var tokenPayload = jwtHelper.decodeToken(jwt);
-      user.username = tokenPayload.username;
-      user.ID = tokenPayload.id;
-      user.role = tokenPayload.role;
-      user.forceChangePassword = tokenPayload.forceChangePassword;
-      await setUserTheme();
+      LocalStorage.storeUserId(userData.Id);
     }
 
     function tryAutoLoginExtension() {
@@ -127,10 +130,48 @@ angular.module('portainer.app').factory('Authentication', [
       return login(DEFAULT_USER, DEFAULT_PASSWORD);
     }
 
-    function isAdmin() {
-      return !!user && user.role === 1;
+    // To avoid creating divergence between CE and EE
+    // isAdmin checks if the user is a portainer admin or edge admin
+
+    function isEdgeAdmin(noEnvScope = false) {
+      const environment = EndpointProvider.currentEndpoint();
+      return userHelpers.isEdgeAdmin({ Role: user.role }, noEnvScope ? undefined : environment);
     }
 
-    return service;
+    /**
+     * @deprecated use Authentication.isAdmin instead
+     */
+    function isAdmin(noEnvScope = false) {
+      return isEdgeAdmin(noEnvScope);
+    }
+
+    // To avoid creating divergence between CE and EE
+    // isPureAdmin checks if the user is portainer admin only
+    function isPureAdmin() {
+      return userHelpers.isPureAdmin({ Role: user.role });
+    }
+
+    function hasAuthorizations(authorizations) {
+      const endpointId = EndpointProvider.endpointID();
+
+      if (isEdgeAdmin()) {
+        return true;
+      }
+
+      return useUserHasAuthorization(
+        {
+          EndpointAuthorizations: user.endpointAuthorizations,
+        },
+        authorizations,
+        endpointId
+      );
+    }
+
+    function redirectIfUnauthorized(authorizations) {
+      const authorized = hasAuthorizations(authorizations);
+      if (!authorized) {
+        $state.go('portainer.home');
+      }
+    }
   },
 ]);

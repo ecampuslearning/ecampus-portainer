@@ -1,7 +1,7 @@
 import { Wand2, Plug2 } from 'lucide-react';
 
 import { EnvironmentType } from '@/react/portainer/environments/types';
-import { useAnalytics } from '@/angulartics.matomo/analytics-services';
+import { useAnalytics } from '@/react/hooks/useAnalytics';
 import DockerIcon from '@/assets/ico/vendor/docker-icon.svg?c';
 import Kube from '@/assets/ico/kube.svg?c';
 
@@ -22,6 +22,7 @@ export function HomeView() {
       <PageHeader
         title="Quick Setup"
         breadcrumbs={[{ label: 'Environment Wizard' }]}
+        reload
       />
 
       <div className="row">
@@ -46,8 +47,12 @@ export function HomeView() {
                       We could not connect your local environment to Portainer.
                       <br />
                       Please ensure your environment is correctly exposed. For
-                      help with installation visit
-                      <a href="https://documentation.portainer.io/quickstart/">
+                      help with installation visit{' '}
+                      <a
+                        href="https://documentation.portainer.io/quickstart/"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
                         https://documentation.portainer.io/quickstart
                       </a>
                     </p>
@@ -61,7 +66,11 @@ export function HomeView() {
 
                 <div className="flex flex-wrap gap-4">
                   {localEnvironmentAdded.status === 'success' && (
-                    <Link to="portainer.home" className={styles.link}>
+                    <Link
+                      to="portainer.home"
+                      className={styles.link}
+                      data-cy="wizard-get-started-link"
+                    >
                       <Option
                         icon={
                           localEnvironmentAdded.type === EnvironmentType.Docker
@@ -74,7 +83,11 @@ export function HomeView() {
                       />
                     </Link>
                   )}
-                  <Link to="portainer.wizard.endpoints" className={styles.link}>
+                  <Link
+                    to="portainer.wizard.endpoints"
+                    className={styles.link}
+                    data-cy="wizard-add-environments-link"
+                  >
                     <Option
                       title="Add Environments"
                       icon={Plug2}
@@ -102,6 +115,8 @@ function getTypeLabel(type?: EnvironmentType) {
   switch (type) {
     case EnvironmentType.Docker:
       return 'Docker';
+    case EnvironmentType.AgentOnDocker:
+      return 'Docker Agent';
     case EnvironmentType.KubernetesLocal:
       return 'Kubernetes';
     default:

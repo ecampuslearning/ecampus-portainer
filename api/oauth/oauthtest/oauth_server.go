@@ -1,19 +1,18 @@
 package oauthtest
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 
-	"github.com/gorilla/mux"
 	portainer "github.com/portainer/portainer/api"
+
+	"github.com/gorilla/mux"
+	"github.com/segmentio/encoding/json"
 )
 
-const (
-	AccessToken = "test-token"
-)
+const AccessToken = "test-token"
 
 // OAuthRoutes is an OAuth 2.0 compliant handler
 func OAuthRoutes(code string, config *portainer.OAuthSettings) http.Handler {
@@ -46,7 +45,7 @@ func OAuthRoutes(code string, config *portainer.OAuthSettings) http.Handler {
 			}
 
 			w.WriteHeader(http.StatusOK)
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			json.NewEncoder(w).Encode(map[string]any{
 				"token_type":   "Bearer",
 				"expires_in":   86400,
 				"access_token": AccessToken,
@@ -68,7 +67,7 @@ func OAuthRoutes(code string, config *portainer.OAuthSettings) http.Handler {
 			}
 
 			w.WriteHeader(http.StatusOK)
-			json.NewEncoder(w).Encode(map[string]interface{}{
+			json.NewEncoder(w).Encode(map[string]any{
 				"username": "test-oauth-user",
 				"groups":   "testing",
 			})

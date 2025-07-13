@@ -1,12 +1,12 @@
 package stackbuilders
 
 import (
-	httperror "github.com/portainer/libhttp/error"
 	portainer "github.com/portainer/portainer/api"
 	"github.com/portainer/portainer/api/dataservices"
 	"github.com/portainer/portainer/api/filesystem"
 	"github.com/portainer/portainer/api/http/security"
 	"github.com/portainer/portainer/api/stacks/deployments"
+	httperror "github.com/portainer/portainer/pkg/libhttp/error"
 )
 
 type SwarmStackFileUploadBuilder struct {
@@ -38,11 +38,13 @@ func (b *SwarmStackFileUploadBuilder) SetUniqueInfo(payload *StackPayload) FileU
 	if b.hasError() {
 		return b
 	}
+
 	b.stack.Name = payload.Name
 	b.stack.Type = portainer.DockerSwarmStack
 	b.stack.SwarmID = payload.SwarmID
 	b.stack.EntryPoint = filesystem.ComposeFileDefaultName
 	b.stack.Env = payload.Env
+
 	return b
 }
 

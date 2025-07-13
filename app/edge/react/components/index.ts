@@ -1,25 +1,36 @@
 import angular from 'angular';
 
-import { EdgeGroupsSelector } from '@/react/edge/edge-stacks/components/EdgeGroupsSelector';
 import { r2a } from '@/react-tools/react2angular';
 import { withReactQuery } from '@/react-tools/withReactQuery';
+import { withUIRouter } from '@/react-tools/withUIRouter';
+import { AssociatedEdgeEnvironmentsSelector } from '@/react/edge/components/AssociatedEdgeEnvironmentsSelector';
+import { EdgeAsyncIntervalsForm } from '@/react/edge/components/EdgeAsyncIntervalsForm';
 import { EdgeCheckinIntervalField } from '@/react/edge/components/EdgeCheckInIntervalField';
 import { EdgeScriptForm } from '@/react/edge/components/EdgeScriptForm';
-import { EdgeAsyncIntervalsForm } from '@/react/edge/components/EdgeAsyncIntervalsForm';
+import { EdgeGroupsSelector } from '@/react/edge/edge-stacks/components/EdgeGroupsSelector';
+import { AssociatedEdgeGroupEnvironmentsSelector } from '@/react/edge/components/AssociatedEdgeGroupEnvironmentsSelector';
 
-export const componentsModule = angular
+const ngModule = angular
   .module('portainer.edge.react.components', [])
+
   .component(
     'edgeGroupsSelector',
-    r2a(EdgeGroupsSelector, ['items', 'onChange', 'value'])
+    r2a(withUIRouter(withReactQuery(EdgeGroupsSelector)), [
+      'onChange',
+      'value',
+      'error',
+      'horizontal',
+      'isGroupVisible',
+      'required',
+    ])
   )
   .component(
     'edgeScriptForm',
     r2a(withReactQuery(EdgeScriptForm), [
       'edgeInfo',
       'commands',
-      'isNomadTokenVisible',
-      'hideAsyncMode',
+      'asyncMode',
+      'showMetaFields',
     ])
   )
   .component(
@@ -43,4 +54,23 @@ export const componentsModule = angular
       'readonly',
       'fieldSettings',
     ])
-  ).name;
+  )
+  .component(
+    'associatedEdgeEnvironmentsSelector',
+    r2a(withReactQuery(AssociatedEdgeEnvironmentsSelector), [
+      'onChange',
+      'value',
+      'error',
+    ])
+  )
+  .component(
+    'associatedEdgeGroupEnvironmentsSelector',
+    r2a(withReactQuery(AssociatedEdgeGroupEnvironmentsSelector), [
+      'onChange',
+      'value',
+      'error',
+      'edgeGroupId',
+    ])
+  );
+
+export const componentsModule = ngModule.name;

@@ -25,7 +25,7 @@ export function PageInput({ onChange, totalPages }: Props) {
 
   return (
     <form className="mx-3" onSubmit={handleSubmit}>
-      <label className="m-0 mr-2 font-normal small" htmlFor="go-to-page-input">
+      <label className="small m-0 mr-2 font-normal" htmlFor="go-to-page-input">
         Go to page
       </label>
       <Input
@@ -38,8 +38,13 @@ export function PageInput({ onChange, totalPages }: Props) {
         step={1}
         onChange={handleChange}
         onKeyPress={preventNotNumber}
+        data-cy="pagination-go-to-page-input"
       />
-      <Button type="submit" disabled={!isValid}>
+      <Button
+        type="submit"
+        disabled={!isValid}
+        data-cy="pagination-go-to-page-button"
+      >
         Go
       </Button>
     </form>

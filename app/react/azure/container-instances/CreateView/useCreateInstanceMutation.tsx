@@ -1,4 +1,4 @@
-import { useMutation, useQueryClient } from 'react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 import { createContainerGroup } from '@/react/azure/services/container-groups.service';
 import { queryKeys } from '@/react/azure/queries/query-keys';
@@ -52,7 +52,7 @@ export function useCreateInstanceMutation(
         }
 
         const accessControlData = values.accessControl;
-        await applyResourceControl(accessControlData, resourceControl);
+        await applyResourceControl(accessControlData, resourceControl.Id);
         return queryClient.invalidateQueries(
           queryKeys.subscriptions(environmentId)
         );

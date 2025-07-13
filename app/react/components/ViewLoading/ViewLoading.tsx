@@ -1,7 +1,4 @@
 import clsx from 'clsx';
-import { Settings } from 'lucide-react';
-
-import { Icon } from '@@/Icon';
 
 import styles from './ViewLoading.module.css';
 
@@ -18,12 +15,7 @@ export function ViewLoading({ message }: Props) {
         <div className="sk-fold-cube" />
         <div className="sk-fold-cube" />
       </div>
-      {message && (
-        <span className={styles.message}>
-          {message}
-          <Icon icon={Settings} className="animate-spin-slow !ml-1" />
-        </span>
-      )}
+      {message && <span className={styles.message}>{message}</span>}
     </div>
   );
 }

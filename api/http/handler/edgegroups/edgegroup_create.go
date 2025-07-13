@@ -4,13 +4,11 @@ import (
 	"errors"
 	"net/http"
 
-	httperror "github.com/portainer/libhttp/error"
-	"github.com/portainer/libhttp/request"
-	"github.com/portainer/libhttp/response"
 	portainer "github.com/portainer/portainer/api"
+	"github.com/portainer/portainer/api/dataservices"
 	"github.com/portainer/portainer/api/internal/endpointutils"
-
-	"github.com/asaskevich/govalidator"
+	httperror "github.com/portainer/portainer/pkg/libhttp/error"
+	"github.com/portainer/portainer/pkg/libhttp/request"
 )
 
 type edgeGroupCreatePayload struct {
@@ -22,15 +20,39 @@ type edgeGroupCreatePayload struct {
 }
 
 func (payload *edgeGroupCreatePayload) Validate(r *http.Request) error {
-	if govalidator.IsNull(payload.Name) {
+	if len(payload.Name) == 0 {
 		return errors.New("invalid Edge group name")
 	}
+
 	if payload.Dynamic && len(payload.TagIDs) == 0 {
 		return errors.New("tagIDs is mandatory for a dynamic Edge group")
 	}
-	if !payload.Dynamic && len(payload.Endpoints) == 0 {
-		return errors.New("environment is mandatory for a static Edge group")
+
+	return nil
+}
+
+func calculateEndpointsOrTags(tx dataservices.DataStoreTx, edgeGroup *portainer.EdgeGroup, endpoints []portainer.EndpointID, tagIDs []portainer.TagID) error {
+	if edgeGroup.Dynamic {
+		edgeGroup.TagIDs = tagIDs
+
+		return nil
 	}
+
+	endpointIDs := []portainer.EndpointID{}
+
+	for _, endpointID := range endpoints {
+		endpoint, err := tx.Endpoint().Endpoint(endpointID)
+		if err != nil {
+			return httperror.InternalServerError("Unable to retrieve environment from the database", err)
+		}
+
+		if endpointutils.IsEdgeEndpoint(endpoint) {
+			endpointIDs = append(endpointIDs, endpoint.ID)
+		}
+	}
+
+	edgeGroup.Endpoints = endpointIDs
+
 	return nil
 }
 
@@ -49,51 +71,42 @@ func (payload *edgeGroupCreatePayload) Validate(r *http.Request) error {
 // @router /edge_groups [post]
 func (handler *Handler) edgeGroupCreate(w http.ResponseWriter, r *http.Request) *httperror.HandlerError {
 	var payload edgeGroupCreatePayload
-	err := request.DecodeAndValidateJSONPayload(r, &payload)
-	if err != nil {
+	if err := request.DecodeAndValidateJSONPayload(r, &payload); err != nil {
 		return httperror.BadRequest("Invalid request payload", err)
 	}
 
-	edgeGroups, err := handler.DataStore.EdgeGroup().EdgeGroups()
-	if err != nil {
-		return httperror.InternalServerError("Unable to retrieve Edge groups from the database", err)
-	}
+	var edgeGroup *portainer.EdgeGroup
 
-	for _, edgeGroup := range edgeGroups {
-		if edgeGroup.Name == payload.Name {
-			return httperror.BadRequest("Edge group name must be unique", errors.New("edge group name must be unique"))
+	err := handler.DataStore.UpdateTx(func(tx dataservices.DataStoreTx) error {
+		edgeGroups, err := tx.EdgeGroup().ReadAll()
+		if err != nil {
+			return httperror.InternalServerError("Unable to retrieve Edge groups from the database", err)
 		}
-	}
 
-	edgeGroup := &portainer.EdgeGroup{
-		Name:         payload.Name,
-		Dynamic:      payload.Dynamic,
-		TagIDs:       []portainer.TagID{},
-		Endpoints:    []portainer.EndpointID{},
-		PartialMatch: payload.PartialMatch,
-	}
-
-	if edgeGroup.Dynamic {
-		edgeGroup.TagIDs = payload.TagIDs
-	} else {
-		endpointIDs := []portainer.EndpointID{}
-		for _, endpointID := range payload.Endpoints {
-			endpoint, err := handler.DataStore.Endpoint().Endpoint(endpointID)
-			if err != nil {
-				return httperror.InternalServerError("Unable to retrieve environment from the database", err)
-			}
-
-			if endpointutils.IsEdgeEndpoint(endpoint) {
-				endpointIDs = append(endpointIDs, endpoint.ID)
+		for _, edgeGroup := range edgeGroups {
+			if edgeGroup.Name == payload.Name {
+				return httperror.BadRequest("Edge group name must be unique", errors.New("edge group name must be unique"))
 			}
 		}
-		edgeGroup.Endpoints = endpointIDs
-	}
 
-	err = handler.DataStore.EdgeGroup().Create(edgeGroup)
-	if err != nil {
-		return httperror.InternalServerError("Unable to persist the Edge group inside the database", err)
-	}
+		edgeGroup = &portainer.EdgeGroup{
+			Name:         payload.Name,
+			Dynamic:      payload.Dynamic,
+			TagIDs:       []portainer.TagID{},
+			Endpoints:    []portainer.EndpointID{},
+			PartialMatch: payload.PartialMatch,
+		}
 
-	return response.JSON(w, edgeGroup)
+		if err := calculateEndpointsOrTags(tx, edgeGroup, payload.Endpoints, payload.TagIDs); err != nil {
+			return err
+		}
+
+		if err := tx.EdgeGroup().Create(edgeGroup); err != nil {
+			return httperror.InternalServerError("Unable to persist the Edge group inside the database", err)
+		}
+
+		return nil
+	})
+
+	return txResponse(w, edgeGroup, err)
 }

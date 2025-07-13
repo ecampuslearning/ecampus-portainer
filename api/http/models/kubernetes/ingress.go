@@ -3,6 +3,7 @@ package kubernetes
 import (
 	"errors"
 	"net/http"
+	"time"
 )
 
 type (
@@ -18,15 +19,17 @@ type (
 	K8sIngressControllers []K8sIngressController
 
 	K8sIngressInfo struct {
-		Name        string            `json:"Name"`
-		UID         string            `json:"UID"`
-		Type        string            `json:"Type"`
-		Namespace   string            `json:"Namespace"`
-		ClassName   string            `json:"ClassName"`
-		Annotations map[string]string `json:"Annotations"`
-		Hosts       []string          `json:"Hosts"`
-		Paths       []K8sIngressPath  `json:"Paths"`
-		TLS         []K8sIngressTLS   `json:"TLS"`
+		Name         string            `json:"Name"`
+		UID          string            `json:"UID"`
+		Type         string            `json:"Type"`
+		Namespace    string            `json:"Namespace"`
+		ClassName    string            `json:"ClassName"`
+		Annotations  map[string]string `json:"Annotations"`
+		Hosts        []string          `json:"Hosts"`
+		Paths        []K8sIngressPath  `json:"Paths"`
+		TLS          []K8sIngressTLS   `json:"TLS"`
+		Labels       map[string]string `json:"Labels,omitempty"`
+		CreationDate time.Time         `json:"CreationDate"`
 	}
 
 	K8sIngressTLS struct {
@@ -41,6 +44,7 @@ type (
 		Port        int    `json:"Port"`
 		Path        string `json:"Path"`
 		PathType    string `json:"PathType"`
+		HasService  bool   `json:"HasService"`
 	}
 
 	// K8sIngressDeleteRequests is a mapping of namespace names to a slice of
@@ -56,9 +60,11 @@ func (r K8sIngressInfo) Validate(request *http.Request) error {
 	if r.Name == "" {
 		return errors.New("missing ingress name from the request payload")
 	}
+
 	if r.Namespace == "" {
 		return errors.New("missing ingress Namespace from the request payload")
 	}
+
 	return nil
 }
 
@@ -66,10 +72,12 @@ func (r K8sIngressDeleteRequests) Validate(request *http.Request) error {
 	if len(r) == 0 {
 		return errors.New("missing deletion request list in payload")
 	}
+
 	for ns := range r {
 		if len(ns) == 0 {
 			return errors.New("deletion given with empty namespace")
 		}
 	}
+
 	return nil
 }

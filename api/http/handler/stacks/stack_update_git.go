@@ -4,33 +4,33 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/pkg/errors"
-	httperror "github.com/portainer/libhttp/error"
-	"github.com/portainer/libhttp/request"
-	"github.com/portainer/libhttp/response"
 	portainer "github.com/portainer/portainer/api"
 	gittypes "github.com/portainer/portainer/api/git/types"
+	"github.com/portainer/portainer/api/git/update"
 	httperrors "github.com/portainer/portainer/api/http/errors"
 	"github.com/portainer/portainer/api/http/security"
 	"github.com/portainer/portainer/api/stacks/deployments"
 	"github.com/portainer/portainer/api/stacks/stackutils"
+	httperror "github.com/portainer/portainer/pkg/libhttp/error"
+	"github.com/portainer/portainer/pkg/libhttp/request"
+	"github.com/portainer/portainer/pkg/libhttp/response"
+
+	"github.com/pkg/errors"
 )
 
 type stackGitUpdatePayload struct {
-	AutoUpdate               *portainer.StackAutoUpdate
+	AutoUpdate               *portainer.AutoUpdateSettings
 	Env                      []portainer.Pair
 	Prune                    bool
 	RepositoryReferenceName  string
 	RepositoryAuthentication bool
 	RepositoryUsername       string
 	RepositoryPassword       string
+	TLSSkipVerify            bool
 }
 
 func (payload *stackGitUpdatePayload) Validate(r *http.Request) error {
-	if err := stackutils.ValidateStackAutoUpdate(payload.AutoUpdate); err != nil {
-		return err
-	}
-	return nil
+	return update.ValidateAutoUpdateSettings(payload.AutoUpdate)
 }
 
 // @id StackUpdateGit
@@ -58,12 +58,11 @@ func (handler *Handler) stackUpdateGit(w http.ResponseWriter, r *http.Request) *
 	}
 
 	var payload stackGitUpdatePayload
-	err = request.DecodeAndValidateJSONPayload(r, &payload)
-	if err != nil {
+	if err := request.DecodeAndValidateJSONPayload(r, &payload); err != nil {
 		return httperror.BadRequest("Invalid request payload", err)
 	}
 
-	stack, err := handler.DataStore.Stack().Stack(portainer.StackID(stackID))
+	stack, err := handler.DataStore.Stack().Read(portainer.StackID(stackID))
 	if handler.DataStore.IsErrObjectNotFound(err) {
 		return httperror.NotFound("Unable to find a stack with the specified identifier inside the database", err)
 	} else if err != nil {
@@ -91,8 +90,7 @@ func (handler *Handler) stackUpdateGit(w http.ResponseWriter, r *http.Request) *
 		return httperror.InternalServerError("Unable to find the environment associated to the stack inside the database", err)
 	}
 
-	err = handler.requestBouncer.AuthorizedEndpointOperation(r, endpoint)
-	if err != nil {
+	if err := handler.requestBouncer.AuthorizedEndpointOperation(r, endpoint); err != nil {
 		return httperror.Forbidden("Permission denied to access environment", err)
 	}
 
@@ -101,7 +99,7 @@ func (handler *Handler) stackUpdateGit(w http.ResponseWriter, r *http.Request) *
 		return httperror.InternalServerError("Unable to retrieve info from request context", err)
 	}
 
-	user, err := handler.DataStore.User().User(securityContext.UserID)
+	user, err := handler.DataStore.User().Read(securityContext.UserID)
 	if err != nil {
 		return httperror.BadRequest("Cannot find context user", errors.Wrap(err, "failed to fetch the user"))
 	}
@@ -112,20 +110,16 @@ func (handler *Handler) stackUpdateGit(w http.ResponseWriter, r *http.Request) *
 			return httperror.InternalServerError("Unable to retrieve a resource control associated to the stack", err)
 		}
 
-		access, err := handler.userCanAccessStack(securityContext, endpoint.ID, resourceControl)
-		if err != nil {
+		if access, err := handler.userCanAccessStack(securityContext, endpoint.ID, resourceControl); err != nil {
 			return httperror.InternalServerError("Unable to verify user authorizations to validate stack access", err)
-		}
-		if !access {
+		} else if !access {
 			return httperror.Forbidden("Access denied to resource", httperrors.ErrResourceAccessDenied)
 		}
 	}
 
-	canManage, err := handler.userCanManageStacks(securityContext, endpoint)
-	if err != nil {
+	if canManage, err := handler.userCanManageStacks(securityContext, endpoint); err != nil {
 		return httperror.InternalServerError("Unable to verify user authorizations to validate stack deletion", err)
-	}
-	if !canManage {
+	} else if !canManage {
 		errMsg := "Stack editing is disabled for non-admin users"
 		return httperror.Forbidden(errMsg, errors.New(errMsg))
 	}
@@ -137,28 +131,31 @@ func (handler *Handler) stackUpdateGit(w http.ResponseWriter, r *http.Request) *
 
 	//update retrieved stack data based on the payload
 	stack.GitConfig.ReferenceName = payload.RepositoryReferenceName
+	stack.GitConfig.TLSSkipVerify = payload.TLSSkipVerify
 	stack.AutoUpdate = payload.AutoUpdate
 	stack.Env = payload.Env
 	stack.UpdatedBy = user.Username
 	stack.UpdateDate = time.Now().Unix()
 
 	if stack.Type == portainer.DockerSwarmStack {
-		stack.Option = &portainer.StackOption{
-			Prune: payload.Prune,
-		}
+		stack.Option = &portainer.StackOption{Prune: payload.Prune}
 	}
 
 	if payload.RepositoryAuthentication {
 		password := payload.RepositoryPassword
+
+		// When the existing stack is using the custom username/password and the password is not updated,
+		// the stack should keep using the saved username/password
 		if password == "" && stack.GitConfig != nil && stack.GitConfig.Authentication != nil {
 			password = stack.GitConfig.Authentication.Password
 		}
+
 		stack.GitConfig.Authentication = &gittypes.GitAuthentication{
 			Username: payload.RepositoryUsername,
 			Password: password,
 		}
-		_, err = handler.GitService.LatestCommitID(stack.GitConfig.URL, stack.GitConfig.ReferenceName, stack.GitConfig.Authentication.Username, stack.GitConfig.Authentication.Password)
-		if err != nil {
+
+		if _, err := handler.GitService.LatestCommitID(stack.GitConfig.URL, stack.GitConfig.ReferenceName, stack.GitConfig.Authentication.Username, stack.GitConfig.Authentication.Password, stack.GitConfig.TLSSkipVerify); err != nil {
 			return httperror.InternalServerError("Unable to fetch git repository", err)
 		}
 	} else {
@@ -166,17 +163,15 @@ func (handler *Handler) stackUpdateGit(w http.ResponseWriter, r *http.Request) *
 	}
 
 	if payload.AutoUpdate != nil && payload.AutoUpdate.Interval != "" {
-		jobID, e := deployments.StartAutoupdate(stack.ID, stack.AutoUpdate.Interval, handler.Scheduler, handler.StackDeployer, handler.DataStore, handler.GitService)
-		if e != nil {
-			return e
+		if jobID, err := deployments.StartAutoupdate(stack.ID, stack.AutoUpdate.Interval, handler.Scheduler, handler.StackDeployer, handler.DataStore, handler.GitService); err != nil {
+			return err
+		} else {
+			stack.AutoUpdate.JobID = jobID
 		}
-
-		stack.AutoUpdate.JobID = jobID
 	}
 
-	//save the updated stack to DB
-	err = handler.DataStore.Stack().UpdateStack(stack.ID, stack)
-	if err != nil {
+	// Save the updated stack to DB
+	if err := handler.DataStore.Stack().Update(stack.ID, stack); err != nil {
 		return httperror.InternalServerError("Unable to persist the stack changes inside the database", err)
 	}
 

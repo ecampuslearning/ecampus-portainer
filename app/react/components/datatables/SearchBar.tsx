@@ -32,19 +32,26 @@ export function SearchBar({
 
   return (
     <div
-      className={clsx('searchBar items-center flex min-w-[90px]', className)}
+      className={clsx('searchBar flex min-w-[90px] items-center', className)}
     >
       <Search className="searchIcon lucide shrink-0" />
       <input
         type="text"
+        data-cy={dataCy}
         className="searchInput"
         value={searchValue}
         onChange={(e) => setSearchValue(e.target.value)}
         placeholder={placeholder}
-        data-cy={dataCy}
+        aria-label="Search input"
       />
       {children}
-      <Button onClick={onClear} icon={X} color="none" disabled={!searchValue} />
+      <Button
+        onClick={onClear}
+        icon={X}
+        color="none"
+        disabled={!searchValue}
+        data-cy={`${dataCy}-clear-button`}
+      />
     </div>
   );
 }

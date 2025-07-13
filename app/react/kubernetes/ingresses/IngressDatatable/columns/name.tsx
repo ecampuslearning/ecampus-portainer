@@ -1,33 +1,41 @@
-import { CellProps, Column } from 'react-table';
+import { CellContext } from '@tanstack/react-table';
 
 import { Authorized } from '@/react/hooks/useUser';
 
+import { SystemBadge } from '@@/Badge/SystemBadge';
 import { Link } from '@@/Link';
 
 import { Ingress } from '../../types';
 
-export const name: Column<Ingress> = {
-  Header: 'Name',
-  accessor: 'Name',
-  Cell: ({ row }: CellProps<Ingress>) => (
-    <Authorized
-      authorizations="K8sIngressesW"
-      childrenUnauthorized={row.original.Name}
-    >
-      <Link
-        to="kubernetes.ingresses.edit"
-        params={{
-          uid: row.original.UID,
-          namespace: row.original.Namespace,
-          name: row.original.Name,
-        }}
-        title={row.original.Name}
-      >
-        {row.original.Name}
-      </Link>
-    </Authorized>
-  ),
+import { columnHelper } from './helper';
+
+export const name = columnHelper.accessor('Name', {
+  header: 'Name',
+  cell: Cell,
   id: 'name',
-  disableFilters: true,
-  canHide: true,
-};
+});
+
+function Cell({ row, getValue }: CellContext<Ingress, string>) {
+  const name = getValue();
+  const namespace = row.original.Namespace;
+
+  return (
+    <div className="flex flex-nowrap whitespace-nowrap gap-2">
+      <Authorized authorizations="K8sIngressesW" childrenUnauthorized={name}>
+        <Link
+          to="kubernetes.ingresses.edit"
+          params={{
+            uid: row.original.UID,
+            namespace,
+            name,
+          }}
+          title={name}
+          data-cy={`ingress-name-link-${name}`}
+        >
+          {name}
+        </Link>
+      </Authorized>
+      {row.original.IsSystem && <SystemBadge className="ml-auto" />}
+    </div>
+  );
+}

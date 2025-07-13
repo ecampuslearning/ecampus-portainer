@@ -1,7 +1,6 @@
 import _ from 'lodash';
 import toastr from 'toastr';
 import sanitize from 'sanitize-html';
-import jwtDecode from 'jwt-decode';
 import { v4 as uuid } from 'uuid';
 
 import { get as localStorageGet } from '@/react/hooks/useLocalStorage';
@@ -15,6 +14,7 @@ toastr.options = {
   closeButton: true,
   progressBar: true,
   tapToDismiss: false,
+  escapeHtml: true,
   // custom button, using the lucide icon x.svg inside
   closeHtml: `<button type="button"><svg
   xmlns="http://www.w3.org/2000/svg"
@@ -46,8 +46,10 @@ export function notifyError(title: string, e?: Error, fallbackText = '') {
   const msg = pickErrorMsg(e) || fallbackText;
   saveNotification(title, msg, 'error');
 
-  // eslint-disable-next-line no-console
-  console.error(e);
+  if (!_.get(e, 'resource.password')) {
+    // eslint-disable-next-line no-console
+    console.error(e);
+  }
 
   if (msg !== 'Invalid JWT token') {
     toastr.error(sanitize(_.escape(msg)), sanitize(title), { timeOut: 6000 });
@@ -106,11 +108,8 @@ function saveNotification(title: string, text: string, type: string) {
     type,
     timeStamp: new Date(),
   };
-  const jwt = localStorageGet('JWT', '');
-  if (jwt !== '') {
-    const { id } = jwtDecode(jwt) as { id: number };
-    if (id) {
-      addNotification(id, notif);
-    }
+  const userId = localStorageGet('USER_ID', '');
+  if (userId !== '') {
+    addNotification(userId, notif);
   }
 }

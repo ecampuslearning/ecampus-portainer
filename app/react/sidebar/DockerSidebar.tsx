@@ -4,23 +4,25 @@ import {
   Layers,
   List,
   Lock,
-  Share2,
   Shuffle,
   Trello,
   Clipboard,
   Edit,
+  Network,
 } from 'lucide-react';
 
 import {
   type Environment,
   type EnvironmentId,
 } from '@/react/portainer/environments/types';
-import { Authorized, useUser, isEnvironmentAdmin } from '@/react/hooks/useUser';
-import { useInfo, useVersion } from '@/docker/services/system.service';
+import { Authorized, useIsEnvironmentAdmin } from '@/react/hooks/useUser';
+import { useInfo } from '@/react/docker/proxy/queries/useInfo';
+import { useApiVersion } from '@/react/docker/proxy/queries/useVersion';
 
 import { SidebarItem } from './SidebarItem';
 import { DashboardLink } from './items/DashboardLink';
 import { VolumesLink } from './items/VolumesLink';
+import { SidebarParent } from './SidebarItem/SidebarParent';
 
 interface Props {
   environmentId: EnvironmentId;
@@ -28,23 +30,21 @@ interface Props {
 }
 
 export function DockerSidebar({ environmentId, environment }: Props) {
-  const { user } = useUser();
-  const isAdmin = isEnvironmentAdmin(user, environmentId);
+  const { authorized: isEnvironmentAdmin } = useIsEnvironmentAdmin({
+    adminOnlyCE: true,
+  });
 
   const areStacksVisible =
-    isAdmin || environment.SecuritySettings.allowStackManagementForRegularUsers;
+    isEnvironmentAdmin ||
+    environment.SecuritySettings.allowStackManagementForRegularUsers;
 
-  const envInfoQuery = useInfo(
-    environmentId,
-    (info) => !!info.Swarm?.NodeID && !!info.Swarm?.ControlAvailable
-  );
+  const envInfoQuery = useInfo(environmentId, {
+    select: (info) => !!info.Swarm?.NodeID && !!info.Swarm?.ControlAvailable,
+  });
 
-  const envVersionQuery = useVersion(environmentId, (version) =>
-    parseFloat(version.ApiVersion)
-  );
+  const apiVersion = useApiVersion(environmentId);
 
   const isSwarmManager = envInfoQuery.data;
-  const apiVersion = envVersionQuery.data || 0;
 
   const setupSubMenuProps = isSwarmManager
     ? {
@@ -74,21 +74,30 @@ export function DockerSidebar({ environmentId, environment }: Props) {
         platformPath="docker"
         data-cy="dockerSidebar-dashboard"
       />
-
-      <SidebarItem
-        label="App Templates"
+      <SidebarParent
         icon={Edit}
+        label="Templates"
         to="docker.templates"
         params={{ endpointId: environmentId }}
-        data-cy="portainerSidebar-appTemplates"
+        data-cy="portainerSidebar-templates"
+        listId="dockerSidebar-templates"
       >
         <SidebarItem
-          label="Custom Templates"
+          label="Application"
+          to="docker.templates"
+          ignorePaths={['docker.templates.custom']}
+          params={{ endpointId: environmentId }}
+          isSubMenu
+          data-cy="portainerSidebar-appTemplates"
+        />
+        <SidebarItem
+          label="Custom"
           to="docker.templates.custom"
           params={{ endpointId: environmentId }}
+          isSubMenu
           data-cy="dockerSidebar-customTemplates"
         />
-      </SidebarItem>
+      </SidebarParent>
 
       {areStacksVisible && (
         <SidebarItem
@@ -129,7 +138,7 @@ export function DockerSidebar({ environmentId, environment }: Props) {
       <SidebarItem
         to="docker.networks"
         params={{ endpointId: environmentId }}
-        icon={Share2}
+        icon={Network}
         label="Networks"
         data-cy="dockerSidebar-networks"
       />
@@ -160,7 +169,7 @@ export function DockerSidebar({ environmentId, environment }: Props) {
         />
       )}
 
-      {!isSwarmManager && isAdmin && (
+      {!isSwarmManager && isEnvironmentAdmin && (
         <SidebarItem
           to="docker.events"
           params={{ endpointId: environmentId }}
@@ -170,31 +179,45 @@ export function DockerSidebar({ environmentId, environment }: Props) {
         />
       )}
 
-      <SidebarItem
+      <SidebarParent
         label={setupSubMenuProps.label}
         icon={setupSubMenuProps.icon}
         to={setupSubMenuProps.to}
         params={{ endpointId: environmentId }}
-        data-cy={setupSubMenuProps.dataCy}
+        data-cy="portainerSidebar-host-area"
+        listId="portainerSidebar-host-area"
       >
+        <SidebarItem
+          label="Details"
+          isSubMenu
+          to={setupSubMenuProps.to}
+          params={{ endpointId: environmentId }}
+          ignorePaths={[featSubMenuTo, registrySubMenuTo]}
+          data-cy={setupSubMenuProps.dataCy}
+        />
+
         <Authorized
           authorizations="PortainerEndpointUpdateSettings"
           adminOnlyCE
           environmentId={environmentId}
         >
           <SidebarItem
+            label="Setup"
+            isSubMenu
             to={featSubMenuTo}
             params={{ endpointId: environmentId }}
-            label="Setup"
+            data-cy="portainerSidebar-docker-setup"
           />
         </Authorized>
 
         <SidebarItem
+          label="Registries"
+          isSubMenu
           to={registrySubMenuTo}
           params={{ endpointId: environmentId }}
-          label="Registries"
+          data-cy="portainerSidebar-docker-registries"
         />
-      </SidebarItem>
+      </SidebarParent>
     </>
   );
 }

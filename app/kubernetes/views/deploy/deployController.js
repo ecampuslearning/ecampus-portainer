@@ -1,32 +1,34 @@
 import angular from 'angular';
 import _ from 'lodash-es';
 import stripAnsi from 'strip-ansi';
-import uuidv4 from 'uuid/v4';
 
 import PortainerError from '@/portainer/error';
 import { KubernetesDeployManifestTypes, KubernetesDeployBuildMethods, KubernetesDeployRequestMethods, RepositoryMechanismTypes } from 'Kubernetes/models/deploy';
-import { renderTemplate } from '@/react/portainer/custom-templates/components/utils';
-import { isBE } from '@/react/portainer/feature-flags/feature-flags.service';
-import { compose, kubernetes } from '@@/BoxSelector/common-options/deployment-methods';
-import { editor, git, template, url } from '@@/BoxSelector/common-options/build-methods';
-import { getPublicSettings } from '@/react/portainer/settings/settings.service';
+import { isTemplateVariablesEnabled, renderTemplate } from '@/react/portainer/custom-templates/components/utils';
+import { getDeploymentOptions } from '@/react/portainer/environments/environment.service';
+import { parseAutoUpdateResponse, transformAutoUpdateViewModel } from '@/react/portainer/gitops/AutoUpdateFieldset/utils';
+import { baseStackWebhookUrl, createWebhookId } from '@/portainer/helpers/webhookHelper';
+import { getVariablesFieldDefaultValues } from '@/react/portainer/custom-templates/components/CustomTemplatesVariablesField';
+import { KUBE_STACK_NAME_VALIDATION_REGEX } from '@/react/kubernetes/DeployView/StackName/constants';
+import { confirmWebEditorDiscard } from '@@/modals/confirm';
+import { editor, git, customTemplate, url, helm } from '@@/BoxSelector/common-options/build-methods';
+import { kubernetes } from '@@/BoxSelector/common-options/deployment-methods';
 
 class KubernetesDeployController {
   /* @ngInject */
-  constructor($async, $state, $window, Authentication, ModalService, Notifications, KubernetesResourcePoolService, StackService, WebhookHelper, CustomTemplateService) {
+  constructor($scope, $async, $state, $window, Authentication, Notifications, KubernetesResourcePoolService, StackService, CustomTemplateService, KubernetesApplicationService) {
+    this.$scope = $scope;
     this.$async = $async;
     this.$state = $state;
     this.$window = $window;
     this.Authentication = Authentication;
-    this.ModalService = ModalService;
     this.Notifications = Notifications;
     this.KubernetesResourcePoolService = KubernetesResourcePoolService;
     this.StackService = StackService;
-    this.WebhookHelper = WebhookHelper;
     this.CustomTemplateService = CustomTemplateService;
-    this.DeployMethod = 'manifest';
+    this.KubernetesApplicationService = KubernetesApplicationService;
 
-    this.isTemplateVariablesEnabled = isBE;
+    this.isTemplateVariablesEnabled = isTemplateVariablesEnabled;
 
     this.deployOptions = [{ ...kubernetes, value: KubernetesDeployManifestTypes.KUBERNETES }];
 
@@ -34,11 +36,17 @@ class KubernetesDeployController {
       { ...git, value: KubernetesDeployBuildMethods.GIT },
       { ...editor, value: KubernetesDeployBuildMethods.WEB_EDITOR },
       { ...url, value: KubernetesDeployBuildMethods.URL },
-      { ...template, description: 'Use custom template', value: KubernetesDeployBuildMethods.CUSTOM_TEMPLATE },
+      { ...customTemplate, value: KubernetesDeployBuildMethods.CUSTOM_TEMPLATE },
+      { ...helm, value: KubernetesDeployBuildMethods.HELM },
     ];
 
+    let buildMethod = Number(this.$state.params.buildMethod) || KubernetesDeployBuildMethods.GIT;
+    if (buildMethod > Object.keys(KubernetesDeployBuildMethods).length) {
+      buildMethod = KubernetesDeployBuildMethods.GIT;
+    }
+
     this.state = {
-      DeployType: KubernetesDeployManifestTypes.KUBERNETES,
+      DeployType: buildMethod,
       BuildMethod: KubernetesDeployBuildMethods.GIT,
       tabLogsDisabled: true,
       activeTab: 0,
@@ -46,6 +54,17 @@ class KubernetesDeployController {
       isEditorDirty: false,
       templateId: null,
       template: null,
+      baseWebhookUrl: baseStackWebhookUrl(),
+      webhookId: createWebhookId(),
+      templateLoadFailed: false,
+      isEditorReadOnly: false,
+      selectedHelmChart: '',
+      stackNameError: '',
+    };
+
+    this.currentUser = {
+      isAdmin: false,
+      id: null,
     };
 
     this.formValues = {
@@ -57,16 +76,18 @@ class KubernetesDeployController {
       RepositoryPassword: '',
       AdditionalFiles: [],
       ComposeFilePathInRepository: '',
-      RepositoryAutomaticUpdates: false,
-      RepositoryMechanism: RepositoryMechanismTypes.INTERVAL,
-      RepositoryFetchInterval: '5m',
-      RepositoryWebhookURL: WebhookHelper.returnStackWebhookUrl(uuidv4()),
-      Variables: {},
+      Variables: [],
+      AutoUpdate: parseAutoUpdateResponse(),
+      TLSSkipVerify: false,
+      Name: '',
     };
+
+    this.stacks = [];
 
     this.ManifestDeployTypes = KubernetesDeployManifestTypes;
     this.BuildMethods = KubernetesDeployBuildMethods;
 
+    this.onSelectHelmChart = this.onSelectHelmChart.bind(this);
     this.onChangeTemplateId = this.onChangeTemplateId.bind(this);
     this.deployAsync = this.deployAsync.bind(this);
     this.onChangeFileContent = this.onChangeFileContent.bind(this);
@@ -76,12 +97,43 @@ class KubernetesDeployController {
     this.onChangeMethod = this.onChangeMethod.bind(this);
     this.onChangeDeployType = this.onChangeDeployType.bind(this);
     this.onChangeTemplateVariables = this.onChangeTemplateVariables.bind(this);
+    this.setStackName = this.setStackName.bind(this);
+    this.onChangeNamespace = this.onChangeNamespace.bind(this);
+  }
+
+  onChangeNamespace(namespaceName) {
+    return this.$async(async () => {
+      this.formValues.Namespace = namespaceName;
+      const applications = await this.KubernetesApplicationService.get(namespaceName);
+      const stacks = _.map(applications, (item) => item.StackName).filter((item) => item !== '');
+      this.stacks = _.uniq(stacks);
+    });
+  }
+
+  onSelectHelmChart(chart) {
+    this.state.selectedHelmChart = chart;
+
+    // Force a digest cycle to ensure the change is reflected in the UI
+    this.$scope.$apply();
   }
 
   onChangeTemplateVariables(value) {
     this.onChangeFormValues({ Variables: value });
 
     this.renderTemplate();
+  }
+
+  setStackName(name) {
+    return this.$async(async () => {
+      if (KUBE_STACK_NAME_VALIDATION_REGEX.test(name) || name === '') {
+        this.state.stackNameError = '';
+      } else {
+        this.state.stackNameError =
+          "Stack must consist of alphanumeric characters, '-', '_' or '.', must start and end with an alphanumeric character and must be 63 characters or less (e.g. 'my-name', or 'abc-123').";
+      }
+
+      this.formValues.StackName = name;
+    });
   }
 
   renderTemplate() {
@@ -97,7 +149,7 @@ class KubernetesDeployController {
     const metadata = {
       type: buildLabel(this.state.BuildMethod),
       format: formatLabel(this.state.DeployType),
-      role: roleLabel(this.Authentication.isAdmin()),
+      role: roleLabel(this.currentUser.isAdmin),
       'automatic-updates': automaticUpdatesLabel(this.formValues.RepositoryAutomaticUpdates, this.formValues.RepositoryMechanism),
     };
 
@@ -146,36 +198,33 @@ class KubernetesDeployController {
   }
 
   onChangeMethod(method) {
-    this.state.BuildMethod = method;
+    return this.$async(async () => {
+      this.state.BuildMethod = method;
+    });
   }
 
   onChangeDeployType(type) {
-    this.state.DeployType = type;
-    if (type == this.ManifestDeployTypes.COMPOSE) {
-      this.DeployMethod = 'compose';
-    } else {
-      this.DeployMethod = 'manifest';
-    }
+    return this.$async(async () => {
+      this.state.DeployType = type;
+    });
   }
 
   disableDeploy() {
-    const isGitFormInvalid =
-      this.state.BuildMethod === KubernetesDeployBuildMethods.GIT &&
-      (!this.formValues.RepositoryURL || !this.formValues.FilePathInRepository || (this.formValues.RepositoryAuthentication && !this.formValues.RepositoryPassword)) &&
-      _.isEmpty(this.formValues.Namespace);
-    const isWebEditorInvalid =
-      this.state.BuildMethod === KubernetesDeployBuildMethods.WEB_EDITOR && _.isEmpty(this.formValues.EditorContent) && _.isEmpty(this.formValues.Namespace);
-    const isURLFormInvalid = this.state.BuildMethod == KubernetesDeployBuildMethods.WEB_EDITOR.URL && _.isEmpty(this.formValues.ManifestURL);
-
+    const isWebEditorInvalid = this.state.BuildMethod === KubernetesDeployBuildMethods.WEB_EDITOR && _.isEmpty(this.formValues.EditorContent);
+    const isURLFormInvalid = this.state.BuildMethod === KubernetesDeployBuildMethods.URL && _.isEmpty(this.formValues.ManifestURL);
+    const isCustomTemplateInvalid = this.state.BuildMethod === KubernetesDeployBuildMethods.CUSTOM_TEMPLATE && _.isEmpty(this.formValues.EditorContent);
     const isNamespaceInvalid = _.isEmpty(this.formValues.Namespace);
-    return !this.formValues.StackName || isGitFormInvalid || isWebEditorInvalid || isURLFormInvalid || this.state.actionInProgress || isNamespaceInvalid;
+    const isStackNameInvalid = this.state.stackNameError !== '';
+    return isWebEditorInvalid || isURLFormInvalid || isCustomTemplateInvalid || this.state.actionInProgress || isNamespaceInvalid || isStackNameInvalid;
   }
 
-  onChangeFormValues(values) {
-    this.formValues = {
-      ...this.formValues,
-      ...values,
-    };
+  onChangeFormValues(newValues) {
+    return this.$async(async () => {
+      this.formValues = {
+        ...this.formValues,
+        ...newValues,
+      };
+    });
   }
 
   onChangeTemplateId(templateId, template) {
@@ -188,12 +237,18 @@ class KubernetesDeployController {
       this.state.template = template;
 
       try {
-        const fileContent = await this.CustomTemplateService.customTemplateFile(templateId);
-        this.state.templateContent = fileContent;
-        this.onChangeFileContent(fileContent);
+        try {
+          this.state.templateContent = await this.CustomTemplateService.customTemplateFile(templateId, template.GitConfig !== null);
+          this.onChangeFileContent(this.state.templateContent);
+
+          this.state.isEditorReadOnly = false;
+        } catch (err) {
+          this.state.templateLoadFailed = true;
+          throw err;
+        }
 
         if (template.Variables && template.Variables.length > 0) {
-          const variables = Object.fromEntries(template.Variables.map((variable) => [variable.name, '']));
+          const variables = getVariablesFieldDefaultValues(template.Variables);
           this.onChangeTemplateVariables(variables);
         }
       } catch (err) {
@@ -254,6 +309,7 @@ class KubernetesDeployController {
       };
 
       if (method === KubernetesDeployRequestMethods.REPOSITORY) {
+        payload.TLSSkipVerify = this.formValues.TLSSkipVerify;
         payload.RepositoryURL = this.formValues.RepositoryURL;
         payload.RepositoryReferenceName = this.formValues.RepositoryReferenceName;
         payload.RepositoryAuthentication = this.formValues.RepositoryAuthentication ? true : false;
@@ -263,14 +319,7 @@ class KubernetesDeployController {
         }
         payload.ManifestFile = this.formValues.ComposeFilePathInRepository;
         payload.AdditionalFiles = this.formValues.AdditionalFiles;
-        if (this.formValues.RepositoryAutomaticUpdates) {
-          payload.AutoUpdate = {};
-          if (this.formValues.RepositoryMechanism === RepositoryMechanismTypes.INTERVAL) {
-            payload.AutoUpdate.Interval = this.formValues.RepositoryFetchInterval;
-          } else if (this.formValues.RepositoryMechanism === RepositoryMechanismTypes.WEBHOOK) {
-            payload.AutoUpdate.Webhook = this.formValues.RepositoryWebhookURL.split('/').reverse()[0];
-          }
-        }
+        payload.AutoUpdate = transformAutoUpdateViewModel(this.formValues.AutoUpdate, this.state.webhookId);
       } else if (method === KubernetesDeployRequestMethods.STRING) {
         payload.StackFileContent = this.formValues.EditorContent;
       } else {
@@ -279,8 +328,19 @@ class KubernetesDeployController {
 
       await this.StackService.kubernetesDeploy(this.endpoint.Id, method, payload);
 
-      this.Notifications.success('Success', 'Manifest successfully deployed');
+      this.Notifications.success('Success', 'Request to deploy manifest successfully submitted');
       this.state.isEditorDirty = false;
+
+      if (this.$state.params.referrer && this.$state.params.tab) {
+        this.$state.go(this.$state.params.referrer, { tab: this.$state.params.tab });
+        return;
+      }
+
+      if (this.$state.params.referrer) {
+        this.$state.go(this.$state.params.referrer);
+        return;
+      }
+
       this.$state.go('kubernetes.applications');
     } catch (err) {
       this.Notifications.error('Unable to deploy manifest', err, 'Unable to deploy resources');
@@ -297,7 +357,8 @@ class KubernetesDeployController {
   async getNamespacesAsync() {
     try {
       const pools = await this.KubernetesResourcePoolService.get();
-      const namespaces = _.map(pools, 'Namespace').sort((a, b) => {
+      let namespaces = pools.filter((pool) => pool.Namespace.Status === 'Active');
+      namespaces = _.map(namespaces, 'Namespace').sort((a, b) => {
         if (a.Name === 'default') {
           return -1;
         }
@@ -311,6 +372,10 @@ class KubernetesDeployController {
       if (this.namespaces.length > 0) {
         this.formValues.Namespace = this.namespaces[0].Name;
       }
+      this.namespaceOptions = _.map(namespaces, (namespace) => ({
+        label: namespace.Name,
+        value: namespace.Name,
+      }));
     } catch (err) {
       this.Notifications.error('Failure', err, 'Unable to load namespaces data');
     }
@@ -322,14 +387,19 @@ class KubernetesDeployController {
 
   async uiCanExit() {
     if (this.formValues.EditorContent && this.state.isEditorDirty) {
-      return this.ModalService.confirmWebEditorDiscard();
+      return confirmWebEditorDiscard();
     }
   }
 
   $onInit() {
     return this.$async(async () => {
+      this.currentUser.isAdmin = this.Authentication.isAdmin();
+      this.currentUser.id = this.Authentication.getUserDetails().ID;
+
       this.formValues.namespace_toggle = false;
       await this.getNamespaces();
+
+      this.deploymentOptions = await getDeploymentOptions(this.endpoint.Id);
 
       if (this.$state.params.templateId) {
         const templateId = parseInt(this.$state.params.templateId, 10);
@@ -339,15 +409,7 @@ class KubernetesDeployController {
         }
       }
 
-      try {
-        const publicSettings = await getPublicSettings();
-        this.showKomposeBuildOption = publicSettings.ShowKomposeBuildOption;
-      } catch (err) {
-        this.Notifications.error('Failure', err, 'Unable to get public settings');
-      }
-      if (this.showKomposeBuildOption) {
-        this.deployOptions = [...this.deployOptions, { ...compose, value: KubernetesDeployManifestTypes.COMPOSE }];
-      }
+      this.onChangeNamespace(this.formValues.Namespace);
 
       this.state.viewReady = true;
 

@@ -3,17 +3,17 @@ package system
 import (
 	"net/http"
 
-	httperror "github.com/portainer/libhttp/error"
-	"github.com/portainer/libhttp/response"
+	"github.com/pkg/errors"
 	"github.com/portainer/portainer/api/internal/endpointutils"
 	plf "github.com/portainer/portainer/api/platform"
+	httperror "github.com/portainer/portainer/pkg/libhttp/error"
+	"github.com/portainer/portainer/pkg/libhttp/response"
 )
 
 type systemInfoResponse struct {
-	Platform    plf.ContainerPlatform `json:"platform"`
-	EdgeAgents  int                   `json:"edgeAgents"`
-	EdgeDevices int                   `json:"edgeDevices"`
-	Agents      int                   `json:"agents"`
+	Platform   plf.ContainerPlatform `json:"platform"`
+	EdgeAgents int                   `json:"edgeAgents"`
+	Agents     int                   `json:"agents"`
 }
 
 // @id systemInfo
@@ -34,7 +34,6 @@ func (handler *Handler) systemInfo(w http.ResponseWriter, r *http.Request) *http
 
 	agents := 0
 	edgeAgents := 0
-	edgeDevices := 0
 
 	for _, environment := range environments {
 		if endpointutils.IsAgentEndpoint(&environment) {
@@ -44,21 +43,21 @@ func (handler *Handler) systemInfo(w http.ResponseWriter, r *http.Request) *http
 		if endpointutils.IsEdgeEndpoint(&environment) {
 			edgeAgents++
 		}
-
-		if environment.IsEdgeDevice {
-			edgeDevices++
-		}
 	}
 
-	platform, err := plf.DetermineContainerPlatform()
+	platform, err := handler.platformService.GetPlatform()
 	if err != nil {
-		return httperror.InternalServerError("Unable to determine container platform", err)
+		if !errors.Is(err, plf.ErrNoLocalEnvironment) {
+			return httperror.InternalServerError("Failed to get platform", err)
+		}
+		// If no local environment is detected, we assume the platform is Docker
+		// UI will stop showing the upgrade banner
+		platform = plf.PlatformDocker
 	}
 
 	return response.JSON(w, &systemInfoResponse{
-		EdgeAgents:  edgeAgents,
-		EdgeDevices: edgeDevices,
-		Agents:      agents,
-		Platform:    platform,
+		EdgeAgents: edgeAgents,
+		Agents:     agents,
+		Platform:   platform,
 	})
 }
